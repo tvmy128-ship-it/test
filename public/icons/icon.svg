@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="DealNear icon">
+  <rect width="512" height="512" rx="116" fill="#D72638"/>
+  <circle cx="367" cy="145" r="72" fill="#FF8A3D"/>
+  <path fill="#FFF8F3" d="M136 144h149c60 0 102 41 102 111 0 69-42 113-103 113H136V144Zm70 62v100h67c27 0 43-18 43-51 0-32-16-49-43-49h-67Z"/>
+  <path fill="#FFF8F3" d="M132 391h248v40H132z"/>
+</svg>
+

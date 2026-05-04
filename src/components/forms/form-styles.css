@@ -1,0 +1,10 @@
+.form-input {
+  min-height: 3rem;
+  border-radius: 1rem;
+  border: 1px solid #f0ded3;
+  background: #fff8f3;
+  padding: 0.75rem 0.875rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+

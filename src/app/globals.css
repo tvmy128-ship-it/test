@@ -1,0 +1,66 @@
+@import "tailwindcss";
+@import "mapbox-gl/dist/mapbox-gl.css";
+
+:root {
+  --background: #fff8f3;
+  --foreground: #171717;
+  --maple: #d72638;
+  --orange: #ff8a3d;
+  --cream: #fff8f3;
+  --card: #ffffff;
+  --muted: #6b635f;
+  --border: #f0ded3;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-maple: var(--maple);
+  --color-orange: var(--orange);
+  --color-cream: var(--cream);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  outline-color: #d72638;
+}
+
+.mapboxgl-popup-content {
+  border-radius: 20px;
+  box-shadow: 0 20px 45px rgb(23 23 23 / 0.18);
+  padding: 0;
+}
+
+.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib {
+  display: none !important;
+}
+
+.form-input {
+  min-height: 3rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--cream);
+  padding: 0.75rem 0.875rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  width: 100%;
+}
