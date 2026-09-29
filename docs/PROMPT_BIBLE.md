@@ -1,6 +1,12 @@
 # DuoSkin Studio: Prompt Bible
 
-`docs/PROMPT_BIBLE.md` · version 1.0 · 2026-09-29 · Status: the single source of truth for every prompt and every generation call in the app.
+`docs/PROMPT_BIBLE.md` · version 1.1 · 2026-09-29 · Status: the single source of truth for every prompt and every generation call in the app.
+
+**Changes in v1.1** (re-checked against the seven fact-checked research reports and the local sources):
+- Failure references now use the stable **FAILURE_MODES IDs** (`CON-01`, `FACE-06`, …). The red-team report's own `R##` numbers changed between report versions (for example R79 is "custom body UVs" in the fact-checked report but "finalize drift" in FAILURE_MODES' source column), so this bible no longer cites `R##` numbers.
+- New decisions D21–D28 (§1): Tripo `orientation`, routing without a Recraft or Gemini key, fal, hair while the hair kit is empty, hair never painted on the head, eye-highlight shapes, presentation wording, framing margins.
+- Added: §0.7 step registry; startup capability probes (§8.1.6); Tripo `/models/import` + `/models/convert` (T5, §15.4); Claude image-token formula (§20.1); Appendix A (SVG sanitize + two-pass matte, tested code), Appendix B (Tripo P2 request builder), Appendix C (Gemini guarded calls), Appendix D (illustrative spec fixture, never sent to a model).
+- Fixed: `imaging/io.py` → `imaging/files.py` (stdlib-name shadowing, Windows report); T4 image-to-model `orientation` → `default`; I1 SUBJECT gains the presentation-style phrase; garment recipes gain the waistband-visibility rule (CLO-09).
 
 This document defines, for every model call DuoSkin Studio makes:
 - what the call is for;
@@ -16,11 +22,11 @@ Code must not send a prompt to any model unless the prompt comes from a template
 
 **Companion documents**
 - `docs/PROPOSAL_DECISION.md` is **binding**. It defines the DNA card (world and character fields), the pair structures, the rule of at most 2 DNA fields per image prompt, the hard/soft check split, the wildcard plan, and the sliding-window registries. This bible implements it.
-- `docs/FAILURE_MODES.md`: the failure catalogue and the **single threshold registry** (`duoskin/checks/thresholds.py`, its §4). IDs `R01`…`R96` in this bible are the red-team report's IDs, and FAILURE_MODES lists them next to its own IDs (e.g. CON-01 ↔ R16). **Where a number in this bible differs from `thresholds.py`, `thresholds.py` wins.** The numbers here state the design intent.
+- `docs/FAILURE_MODES.md`: the failure catalogue and the **single threshold registry** (`duoskin/checks/thresholds.py`, its §4). Failure IDs in this bible (`CON-01`, `GEN-02`, `FACE-06`, …) are FAILURE_MODES IDs. **Where a number in this bible differs from `thresholds.py`, `thresholds.py` wins.** The numbers here state the design intent.
 - `docs/APP_SPEC.md` covers modules, the job engine, the UI and storage. This bible only covers what is sent to models and how the replies are judged.
 
 **Contents**
-- §0 Conventions
+- §0 Conventions (incl. §0.7 step registry)
 - §1 Decisions that resolve report conflicts
 - §2 Universal rules
 - §3 Duo Spec schema and DNA card
@@ -35,14 +41,15 @@ Code must not send a prompt to any model unless the prompt comes from a template
 - §12 Hair: I4, L9
 - §13 Accessory front view: I5
 - §14 Multiview: T1, T2, I10
-- §15 3D: T3/T4, H1 manual mode, import checks
+- §15 3D: T3/T4, H1 manual mode, import checks, T5 Tripo import/convert
 - §16 Checker and repair: L11, L10, I11
-- §17 Duo loop: C5, L12, L13, L14, G1, G2
+- §17 Duo loop: C5, L12, L13, L14, G1, G2, fal
 - §18 Gate actions → calls
 - §19 Ladders and stop rules
 - §20 Costs
 - §21 Open questions
 - §22 Test-day checklist
+- Appendices A–D: SVG render helper, Tripo request builder, Gemini calls, spec fixture
 
 ---
 
@@ -144,6 +151,46 @@ Each generation step in §§9–17 uses the same headings:
 | Build | L9 hair kit match → code fit → human polish · T3 Tripo P2 or H1 manual → §15.3 repair and checks · final templates | — |
 | Duo loop | C5 renders and code checks → L12 duo judge (+ G1) → L13 IP screen → L14 reference similarity (only if on) | **Gate 3** → export kit |
 
+### 0.7 Step registry (every model call in the app)
+
+Costs are per call and [ESTIMATE] unless marked; §20 has the basis. "→" = draft then final (§2.7). All GPT calls use pinned snapshots `gpt-image-2.5-flare-2026-09-08` / `gpt-image-2.5-sunburst-2026-09-08`.
+
+| ID | Step | Provider · model | Call shape (size · quality · n · background) | Images in, in order | Output | Cost |
+|---|---|---|---|---|---|---|
+| L1 | Reference analyst | Claude · `claude-opus-5`, effort high | streamed, structured `ReferenceAnalysis` | user references | JSON | $0.2–0.35 once per set |
+| L2 | Taste-profile builder | Claude · `claude-sonnet-5`, medium | streamed, `TasteProfile` | none | JSON | $0.02–0.05 |
+| L3 | Planner | Claude · `claude-opus-5`, high | streamed, `PlanSet` (3 specs) | none | JSON | $0.45–0.90 |
+| L4 / L5 | Critic / pairwise ranker | Claude · `claude-opus-5`, medium | `Critique` ×3 / `PairJudgment` ×6 | none | JSON | $1.0–1.7 per round |
+| L6 | Reviser | Claude · `claude-opus-5`, medium | `Revision` (JSON Patch) | none | JSON | $0.10–0.25 per round |
+| I1 | Concept, one character front + back | OpenAI edit · Flare → Sunburst | 1536x1024 · low (n=4) → high (n=1) · opaque | guide, house style sheet, [mood] | PNG | $0.03–0.06 draft; ~$0.05 final |
+| L7 | Change-request interpreter | Claude · `claude-opus-5`, medium | `ChangePlan` | clicked tile | JSON | $0.08–0.2 |
+| R1 | Face part (vector) | Recraft · `recraftv4_styles_vector` + `style_id` (bootstrap `recraftv4_1_utility_vector`) | preset 1:1 or 2:1 · n=3 (bootstrap 4) · sentinel bg | none | SVG | $0.15 (bootstrap $0.32) |
+| I3 | Face part (guided raster) | OpenAI edit · Flare → Sunburst | 1024² · low (n=6) → high · transparent | part guide, concept face crop, style sheet | PNG | $0.12–0.14 |
+| I2 | Print / motif | OpenAI edit · Flare → Sunburst | 1024² or 816x1632 · low (n=4) → high · transparent | concept print crop, style sheet | PNG | $0.10–0.13 |
+| R2 | Print (vector A/B, ladder) | Recraft · `recraftv4_1_vector` (or styles) | preset 1:1 / 1:2 · n=4 | none | SVG | $0.32 ($0.20 styles) |
+| I6 | Badge art for slab items | OpenAI edit · Flare → Sunburst | 1024² · low → high · transparent | concept crop, style sheet | PNG | $0.12–0.15 |
+| I7 | Fabric swatch (library) | OpenAI generate → edit · Flare → Sunburst | 1024² · low → medium · opaque | none | PNG | ~$0.10 per tile, once |
+| I8 | Garment shading panel (library) | OpenAI edit · Flare → Sunburst | 1024² or 816x1632 · low → high · opaque | panel guide | PNG | ~$0.10 per panel, once |
+| I4 | Hair front view | OpenAI edit · Flare → Sunburst | 1024x1536 · low → high (A/B xhigh) · opaque | bald-head guide, hair crops, kit render | PNG | ~$0.10 |
+| I5 | Accessory front view | OpenAI edit · Flare → Sunburst | 1024² · low → high · transparent | concept crop, style sheet | PNG | $0.12–0.15 |
+| T1 | Multiview (4 views) | Tripo v3 `/generation/image-to-multiview` | `{"input": file_token}` | approved front (2048²) | 4 PNG views | 10 credits |
+| T2 | Fix one view by text | Tripo v3 `/generation/edit-multiview` | ≤4 prompts, ≤1024 chars | (task) | views | 5 credits per view |
+| I10 | Side/back view (last resort) | OpenAI edit · Flare → Sunburst | 1024² · low → high · transparent | front, back ref, style sheet | PNG | ~$0.12 per view |
+| L9 | Hair kit matcher | Claude · `claude-sonnet-5`, medium | `HairMatch` | 4 views, 5 candidate sheets | JSON | $0.03–0.06 |
+| T3 | 3D model | Tripo v3 `/generation/multiview-to-model` · `P2-20260801` | Appendix B body | 4 view tokens | GLB | 110 credits per run |
+| T4 | 3D fallbacks | Tripo · P2 image-to-model / P1 / H3.1 | §15.1 | front or views | GLB | 110 / 50 / 40 credits |
+| T5 | Server-side import / convert (optional) | Tripo v3 `/models/import`, `/models/convert` | §15.4 | model file | GLTF | 0 / 5–10 credits |
+| H1 | Manual Tripo pack | text + files for the human | — | — | folder | $0 |
+| L11 | Asset checker (Gate B) | Claude · `claude-sonnet-5`, medium | `AssetCheck`, ≤5 rules | style refs, candidate ×2 composites | JSON | $0.02–0.045 |
+| L10 | Repair-instruction writer | Claude · `claude-sonnet-5`, medium | `RepairPlan` | candidate | JSON | $0.02–0.04 |
+| I11 | Masked repair edit | OpenAI edit · Sunburst | same size/quality/background as the asset · n=2 | asset, [style ref] | PNG | $0.10–0.18 |
+| L12 | Duo judge | Claude · `claude-opus-5`, high | `DuoJudgment` / `DuoReview` | duo sheets | JSON | $0.20–0.30 per ordered call |
+| L13 | IP / brand / character / appropriateness | Claude · `claude-opus-5`, high | `IpCheck` | renders, prints at 2× | JSON | $0.10–0.25 |
+| L14 | Reference similarity (toggle) | Claude · `claude-opus-5`, high | `SimCheck` | references, candidate sheet | JSON | $0.15–0.3 |
+| G1 | Second-opinion judge (optional) | Gemini · `gemini-3.8-flash` | JSON schema, thinking LOW/MEDIUM | one image | JSON | $0.001–0.003 |
+| G2 | Backup image model (optional) | Gemini · `gemini-3.1-flash-image` | 1K, aspect preset, sentinel bg | as the GPT template | PNG/JPEG (sniff) | ~$0.067 [snippet] |
+| I0 | FINALIZE (shared by every I-step) | OpenAI edit · Sunburst | draft's size · high · n=1 · draft's background | chosen draft, [style ref] | PNG | $0.05–0.09 |
+
 ---
 
 ## 1. Decisions that resolve contradictions between the research reports
@@ -151,16 +198,16 @@ Each generation step in §§9–17 uses the same headings:
 | # | Topic | Conflict | [DECISION] | Why |
 |---|---|---|---|---|
 | D1 | Colours in image prompts | The GPT report wrote `#hex (name)` into prompts. PROPOSAL_DECISION says palette hexes never go into an image prompt. | **No hex codes in any image prompt.** Colour reaches the model in five ways: code-painted guide figures, a code-drawn swatch strip (outside the mask), reference crops, Recraft `controls.colors` (API field, not prompt text), and dictionary colour **names** in SUBJECT only (at most 3 names per prompt). Code enforces exact colour with palette snap. | PROPOSAL_DECISION is binding. Models follow hex loosely anyway, and V4 Recraft may draw hex text. |
-| D2 | Side convention for face parts | The GPT face template said "outer corner points to the image's left". The Recraft report generates `eye_imgR` with the outer corner pointing image-right. | **One convention everywhere:** generate the part for the **image-right** position. Its outer end points to the image's right edge and its inner end toward image centre. Code mirrors it for image-left. Parts are named `*_imgR` / `*_imgL` in image space, never "left eye". | Mixing conventions produces swapped or inverted eyes and brows (R17). |
-| D3 | Concept: one call or two | The GPT report used one 4-figure call (about 30 attributes). The red-team (R16) wants one call per character. | **One call per character** (front and back views, 1536x1024). The A and B calls run in parallel without referencing each other, and code assembles the 4-up sheet. A joint 4-figure call is an A/B arm on pilot day. If the duo coherence check fails, B is re-run with A as Image 3 (§10, ladder). | Halves attribute load and removes the main cause of A↔B attribute leakage. |
-| D4 | What Gate 1 shows | "Cheap preview" in the summary versus "finalize with Sunburst" in the protocol. | Gate 1 shows **Flare drafts**: the best-checked draft per character, with the other drafts one click away. On approval, code runs **one Sunburst redraw per character** and a drift check (A_DRIFT). If drift fails twice, the user sees the draft and the redraw side by side and picks the concept of record (default: the draft). | Keeps Gate 1 cheap. The user approves a picture, and the drift check guarantees the final is the same design (R79). |
-| D5 | When Gate 2 assets are finalized | A final after the gate means the user approved a draft, not the final. | **Finalize before Gate 2.** Tiles show the Sunburst final, which passed A_DRIFT against its draft. Drafts can be viewed. | The user approves exactly what ships (R79). |
-| D6 | `moderation` parameter | The GPT report sent `moderation="low"` on generate. The red-team (R80) says keep `auto`. `moderation` is not in the SDK `edit` signature. | **Omit `moderation` on every call** (server default `auto`). Refusals are handled by the rewrite rule in §2.4. | Child-audience platform. Also avoids an unverified form field on edits. |
+| D2 | Side convention for face parts | The GPT face template said "outer corner points to the image's left". The Recraft report generates `eye_imgR` with the outer corner pointing image-right. | **One convention everywhere:** generate the part for the **image-right** position. Its outer end points to the image's right edge and its inner end toward image centre. Code mirrors it for image-left. Parts are named `*_imgR` / `*_imgL` in image space, never "left eye". | Mixing conventions produces swapped or inverted eyes and brows (PRM-11, FACE-09). |
+| D3 | Concept: one call or two | The GPT report used one 4-figure call (about 30 attributes). The red-team report wants one call per character (FAILURE_MODES X3). | **One call per character** (front and back views, 1536x1024). The A and B calls run in parallel without referencing each other, and code assembles the 4-up sheet. A joint 4-figure call is an A/B arm on pilot day. If the duo coherence check fails, B is re-run with A as Image 3 (§10, ladder). | Halves attribute load and removes the main cause of A↔B attribute leakage (CON-01). |
+| D4 | What Gate 1 shows | "Cheap preview" in the summary versus "finalize with Sunburst" in the protocol. | Gate 1 shows **Flare drafts**: the best-checked draft per character, with the other drafts one click away. On approval, code runs **one Sunburst redraw per character** and a drift check (A_DRIFT). If drift fails twice, the user sees the draft and the redraw side by side and picks the concept of record (default: the draft). | Keeps Gate 1 cheap. The user approves a picture, and the drift check guarantees the final is the same design (IMG-06; FAILURE_MODES X4). |
+| D5 | When Gate 2 assets are finalized | A final after the gate means the user approved a draft, not the final. | **Finalize before Gate 2.** Tiles show the Sunburst final, which passed A_DRIFT against its draft. Drafts can be viewed. | The user approves exactly what ships (IMG-06). |
+| D6 | `moderation` parameter | The GPT report sent `moderation="low"` on generate. FAILURE_MODES X2 keeps `auto` (the SDK default). `moderation` is not in the SDK `edit` signature (`edit.py` has no such field). | **Omit `moderation` on every call** (server default `auto`). Refusals are handled by the rewrite rule in §2.4. | Child-audience platform. Also avoids an unverified form field on edits. |
 | D7 | Recraft price | $0.08 direct versus about $0.114 (ComfyUI badge). | **$0.08 per V4.1 vector image direct.** $0.114 is the ComfyUI price at a 1.43× markup. | Primary price sources. |
 | D8 | Recraft `no_text`, `artistic_level`, `negative_prompt` | The red-team listed them as V4 controls. | **Never send them.** They are V3-only or ignored by V4/V4.1 (ComfyUI tooltip). Code checks enforce "no text". | Local ComfyUI source. |
 | D9 | Fold and shading overlays | The GPT report had a per-duo GPT shading-panel call. The summary says the overlay library is made once. | **The library is built once** with I8 plus human curation, per recipe × panel. Per duo, I8 runs only as a technique-ladder fallback. | Consistency across duos, and lower cost per duo. |
 | D10 | Shoes and bracelets | "AI shoe art" versus a real band only 16–37 px tall. | **Shoes and bracelets are code-built from a shoe/bracelet kit** and recoloured. AI makes only an optional small **motif decal** (I2 at small scale) placed by code. | AI detail cannot survive a 16–37 px band. Code is exact. |
-| D11 | Eye parts and lids | One eye call split by palette index, or separate calls. | **Sclera shape = the rig variant's eye opening, drawn by code.** Separate calls for (a) the iris and (b) the upper lash line. Highlights, blush, nose and lower-lash ticks are drawn by code. | One asset per call. Exact fit to the sliding lid. Mirrored highlights would be wrong (R45). |
+| D11 | Eye parts and lids | One eye call split by palette index, or separate calls. | **Sclera shape = the rig variant's eye opening, drawn by code.** Separate calls for (a) the iris and (b) the upper lash line. Highlights, blush, nose and lower-lash ticks are drawn by code. | One asset per call. Exact fit to the sliding lid (FACE-10). Mirrored highlights would be wrong (FACE-04). |
 | D12 | Claude call pattern | `messages.parse()` or a streamed call. | **Always stream** (`client.beta.messages.stream` on Opus routes, with `fallbacks="default"`). Use `anthropic.transform_schema` plus a "make every field required" pass, and our own Pydantic validation. Branch on `stop_reason` first. | `parse()` raises `ValidationError` before `stop_reason` can be read. Non-streamed calls with `max_tokens` above about 21,333 raise `ValueError`. |
 | D13 | User reference image passed to image models | The GPT concept template had an optional Image 3 "mood" input. | **Default off.** The reference goes only to L1 (text analysis). The user can switch on "use as mood image"; the UI then shows a banner recommending the reference-similarity check (L14). | The similarity check runs only when the user turns it on (requirement 7), so copying risk must not be added silently. |
 | D14 | Tripo request | SDK 0.4.2 (v2 `/task`) versus the v3 REST API. | **v3 REST via our own client** at `https://openapi.tripo3d.ai/v3`, model `P2-20260801`. Views are sent as named objects. `face_limit` is always sent. Never send `pbr:true`, `quad:true` or `compress`. | v2 turns off on 2026-11-01. `compress` means meshopt, which trimesh cannot decode. |
@@ -169,7 +216,15 @@ Each generation step in §§9–17 uses the same headings:
 | D17 | Mask plus several images | The SDK docstring says the mask applies to the first image. ComfyUI refuses a mask when more than one image is attached. | **Test on day 1.** If refused, drop the mask and rely on paste-back (§2.6). The capability flag is stored in settings. | Unverified on 2.5. |
 | D18 | DuoSpec schema | The Claude report and the Windows report each had a schema. | The **Claude-report schema** (tested: 0 optional and 0 union parameters), extended with the DNA card, pair structure, face grammar, garment cut and build route (§3). | Tested against the structured-output limits. |
 | D19 | Plan-loop Claude cost | $0.5–1 per pass (PROPOSAL_DECISION) versus a $1.0–1.7 critic round (Claude report). | Both are shown as ranges. Pilot day reads the real `usage`. | Neither is measured. |
-| D20 | Light direction in images meant for 3D | "Light from top-left" in early templates. | **Symmetric frontal light, slightly above**, for every image that feeds Tripo (hair and accessory views). Garment folds use the house light (front and slightly above). | Asymmetric light gets baked into the albedo and looks wrong once the model rotates. |
+| D20 | Light direction in images meant for 3D | "Light from top-left" in early templates. | **Symmetric frontal light, slightly above**, for every image that feeds Tripo (hair and accessory views). Garment folds use the house light (front and slightly above). | Asymmetric light gets baked into the albedo and looks wrong once the model rotates (HAIR-09). |
+| D21 | Tripo `orientation` | Tripo report: `align_image` for single-image input, `default` for multiview [UNVERIFIED effect]. Red-team: `align_image` rotates the model; leave `default`. | **`default` on every route.** `align_image` only behind the A/B flag on test day (§22 #5). The importer re-orients every mesh anyway (§15.3 step 8). | Unverified effect; our own orientation detection is the authority (ACC-14, MESH-12). |
+| D22 | Missing optional keys | Recraft is "recommended"; Gemini and fal are optional (requirement 9). | **No Recraft key:** face parts default to I3, prints to I2, badges to I6; the Recraft utility rungs (vectorize, removeBackground) are skipped on the ladders (local matting instead). **No Gemini key:** G1 second opinions use a second Sonnet 5 juror (L11 route, pairwise rules) and G2 is removed from the ladders. | The pipeline must run with the three required keys (Anthropic, OpenAI, Tripo) only. |
+| D23 | fal | Listed as optional in requirement 9; no report defines a use. | **No default step uses fal.** `providers/fal.py` is an adapter slot for a future "other model" ladder rung (§17.7). Until a model is chosen and its template is written into this bible, fal calls are disabled. | Nothing may be sent to a model without a template in this bible. |
+| D24 | Hair while the hair kit is empty | Workflow: kit styles + code fit + human polish; "kit may not exist yet; Tripo P2 as backup". | **While `kits/hair/` has no compatible style, every hair is `hair_custom`:** I4 (without Image 3) → T1 → Gate 2 → T3 (`face_limit` 3500) → §15.3 repair → Hair-box check. L9 is skipped. | The app must work before the kit exists. |
+| D25 | Hair on the head texture | Policy: "Heads can include hair, eyelashes, and eyebrows, but these must also be separate items." | **Never paint hair, a hairline or sideburns onto the head texture.** Hair is always a Hair accessory. Brows and lashes stay single-colour paint. | Conservative reading (Roblox report §3e). |
+| D26 | Eye highlight and pupil shapes | Roblox report: treat anime extras such as heart pupils as face paint unless plainly shading. | **Pupils are never hearts, stars or symbols.** Highlights are code-drawn and **white only**. `sparkle_star` stays available as a white catchlight but is flagged [UNVERIFIED policy] and can be switched off in Settings; if moderation objects, it falls back to `dual_dot`. | Conservative policy reading. |
+| D27 | Presentation in image prompts | "boy/girl" are spec enums; the GPT report describes presentation through hair and clothing ("feminine-styled"). | Only I1 carries **`{presentation_style}` = "masculine-styled" or "feminine-styled"** (derived from `presentation`) in its SUBJECT. Never "boy", "girl", age words or body words. Part templates (I2–I11) carry no presentation words. | The concept reads as the intended presentation without moderation-risk words (PRM-06). |
+| D28 | Framing margin | 6% (red-team), 10–12% (GPT prompts), 80–85% fill (Tripo). | Prompts ask for about 10–12%. Gate A requires **≥6% on every side, nothing cropped** (A_MARGIN). Code then re-pads to the canonical framing (Tripo input: the object fills 80–85% of the long side of a 2048² canvas). | FAILURE_MODES X5. |
 
 ---
 
