@@ -402,10 +402,13 @@ def chk_s06(c: DoctorCtx) -> Outcome:
         no_token = client.post("/api/shutdown")
         token = handle[1].state.rt.token
         bad_origin = client.post("/api/shutdown", headers={"X-DuoSkin-Token": token, "Origin": "http://evil.example"})
+        cross_site = client.get("/api/state", headers={"Sec-Fetch-Site": "cross-site"})
         ok_health = client.get("/api/health")
     finally:
         _close_selftest(handle)
     problems = []
+    if cross_site.status_code != 403:
+        problems.append(f"a request marked cross-site got {cross_site.status_code}, not 403")
     if bad_host.status_code != 400:
         problems.append(f"a foreign Host header got {bad_host.status_code}, not 400")
     if no_token.status_code != 403:
@@ -416,7 +419,7 @@ def chk_s06(c: DoctorCtx) -> Outcome:
         problems.append("the local health check failed")
     if problems:
         return Outcome("fail", "Security self-test failed: " + "; ".join(problems) + ".", "This is a bug. Do not use the app until it is fixed.")
-    return Outcome("pass", "Bound to 127.0.0.1 only; wrong Host, missing token and wrong Origin are all refused.",
+    return Outcome("pass", "Bound to 127.0.0.1 only; wrong Host, missing token, wrong Origin and cross-site requests are all refused.",
                    detail={"exclusive_addr_use": winplat.IS_WINDOWS})
 
 

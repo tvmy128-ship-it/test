@@ -65,13 +65,6 @@ def child_env(extra: dict[str, str] | None = None, *, base: dict[str, str] | Non
     return env
 
 
-def is_network_path(text: str) -> bool:
-    """A UNC share (``\\\\server\\share``, ``//server/share``) or a device path (``\\\\?\\``, ``\\\\.\\``). Touching one makes Windows send the user's
-    credentials to that server, so a path the user (or a web page that got hold of the token) typed must not be one."""
-    t = str(text).strip()
-    return t.startswith(("\\\\", "//"))
-
-
 def image_pixels(data: bytes) -> int | None:
     """Width x height read from the header only (no pixel decoding), or None when Pillow cannot identify the data."""
     import io

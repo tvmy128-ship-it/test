@@ -132,14 +132,14 @@ class Paths(Strict):
 
     @field_validator("exports_root", "tripo_inbox")
     @classmethod
-    def _a_local_folder(cls, v: str) -> str:
-        """The app reads and writes these folders, so they must be an ordinary local folder: no network share (``\\\\server\\share`` makes
-        Windows send the user's credentials to that server), no device namespace (``\\\\?\\``, ``\\\\.\\``), no ``..`` segment, no NUL."""
+    def _a_plain_folder(cls, v: str) -> str:
+        """The app reads and writes these folders: no NUL, no ``..`` segment and no Windows device namespace (``\\\\?\\``, ``\\\\.\\``: raw disks,
+        pipes). An ordinary drive, a mapped drive or a UNC share is the user's own choice."""
         text = v.strip()
         if not text or len(text) > 240 or "\x00" in text:
             raise ValueError("the folder path is empty, too long or contains a NUL character")
-        if text.startswith(("\\\\", "//")):
-            raise ValueError("a network share or device path cannot be used here: choose a folder on this PC")
+        if text.startswith(("\\\\?\\", "\\\\.\\", "//?/", "//./")):
+            raise ValueError("a device path cannot be used here: choose an ordinary folder")
         if ".." in text.replace("\\", "/").split("/"):
             raise ValueError("a folder path may not contain '..'")
         return text

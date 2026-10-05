@@ -554,7 +554,7 @@ class MockLLM(MockBase):
         cost = self.record_cost(claude_cost(served, usage, operation=f"messages.stream:{route}", request_id=f"mock-claude-{digest[:12]}"))
         self.monitor.observe(route, usage)
         rid = f"mock-claude-{digest[:12]}"
-        thinking = f"Mock reasoning for {route}: read the request and drafted a valid {out.__name__}."
+        thinking = "Practice mode: a stand-in model read the request and wrote an answer that passes the checks."   # shown on the plan page: no route or schema names
         return finish_call(route=route, cfg=cfg, out=out, text=text, stop=stop, rid=rid, usage=usage, served=served, cost=cost or {},
                            schema_hash=schema_hash, prompt_version=prompt_version, thinking_summary=thinking,
                            stop_details={"category": "mock_refusal", "explanation": "injected fault"} if stop == "refusal" else None)

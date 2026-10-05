@@ -476,3 +476,32 @@ def test_start_up_limits_opencv_to_one_thread_and_the_ocr_engine_is_never_used_c
     for t in threads:
         t.join()
     assert not overlap
+
+
+def test_health_wait_ignores_system_proxy_settings(monkeypatch):
+    """On Windows urllib reads the proxy from the registry; a company proxy without '<local>' must not swallow 127.0.0.1."""
+    import http.server
+    import threading
+
+    from duoskin import __main__ as entry
+
+    class Health(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Health)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    for name in ("http_proxy", "HTTP_PROXY", "no_proxy", "NO_PROXY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("http_proxy", "http://127.0.0.1:9")            # a proxy that refuses everything
+    monkeypatch.setenv("no_proxy", "")
+    try:
+        assert entry._wait_for_health(server.server_address[1], timeout_s=10) is True
+    finally:
+        server.shutdown()
+        server.server_close()

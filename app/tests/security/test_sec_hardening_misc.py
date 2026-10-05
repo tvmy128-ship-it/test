@@ -231,19 +231,6 @@ def test_the_largest_legitimate_upload_still_passes_the_size_guard(client):
     assert r.status_code in (200, 422)
 
 
-def test_a_network_share_is_never_touched_for_a_kit_or_a_head_base(rt_bare, client):
-    from duoskin.pipeline import library
-    from duoskin.security import is_network_path
-
-    for path in ("\\\\attacker\\share\\kit", "//attacker/share/kit", "\\\\?\\UNC\\attacker\\share", "\\\\.\\pipe\\x", "  \\\\attacker\\share"):
-        assert is_network_path(path)
-        with pytest.raises(library.KitError, match="on this PC"):
-            library.add_kit(rt_bare, path, "fabric", origin(), "user_made")
-        r = client.post("/api/library/head-base/build", json={"source_path": path, "variant": "v1"})
-        assert r.status_code == 422 and r.json()["error"] == "network_path"
-    assert not is_network_path("C:\\Users\\me\\kit") and not is_network_path("/home/me/kit") and not is_network_path("relative/kit")
-
-
 def test_nothing_deserialises_untrusted_bytes_into_objects():
     """Static audit: no ``allow_pickle=True``, no ``pickle``/``marshal``/``shelve``/``dill`` import, no ``yaml.load`` (only ``safe_load``)."""
     import ast

@@ -151,8 +151,19 @@ class UI:
         self.page.goto(f"{self.live.url}/#{hash_path}")
         self.page.wait_for_selector("main h1, main .panel, main .empty", timeout=20000)
 
+    def settle_images(self) -> None:
+        """Scroll through the page and wait for every picture: a full-page screenshot of pictures that were never on screen shows empty boxes."""
+        self.page.evaluate("""async () => {
+          const h = document.documentElement.scrollHeight;
+          for (let y = 0; y < h; y += 600) { window.scrollTo(0, y); await new Promise(r => setTimeout(r, 40)); }
+          window.scrollTo(0, 0);
+          await Promise.all([...document.images].map(i => (i.complete ? null : new Promise(r => { i.addEventListener('load', r); i.addEventListener('error', r); setTimeout(r, 3000); }))));
+        }""")
+
     def shot(self, name: str, *, full: bool = True) -> Path:
         SCREENSHOTS.mkdir(exist_ok=True)
+        if full:
+            self.settle_images()
         path = SCREENSHOTS / f"{self.prefix}{name}.png"
         _save_small(self.page.screenshot(full_page=full), path)
         return path

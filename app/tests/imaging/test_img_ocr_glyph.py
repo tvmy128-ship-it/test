@@ -235,3 +235,17 @@ def test_forced_glyph_engine_and_many_crops():
     assert not res.passed                                                              # the first failing crop wins
     assert O.check_no_text_any([_negatives()["flower"], _negatives()["eye"]], engine="glyph").passed
     assert not O.check_no_text_any([]).ran
+
+
+def test_templates_use_a_stricter_score_floor_than_art():
+    """Code-composed clothing templates have no text source; fold shading reads as one letter at ~0.65 (real rapidocr: tee, tee_long,
+    hoodie). Art keeps the 0.5 floor, so a stray letter on a print still fails."""
+    noise = ([[[[0, 0], [60, 0], [60, 40], [0, 40]], "M", 0.65]], 0.0)
+    O.set_engine(lambda arr: noise)
+    im = Image.new("RGB", (400, 400), "white")
+    assert not O.check_no_text(im, engine="rapidocr").passed                                     # art: 0.65 >= 0.5
+    template = O.check_no_text(im, engine="rapidocr", score_key="ocr.template_rec_score_min")
+    assert template.passed and "ocr.template_rec_score_min" in template.threshold
+    confident = ([[[[0, 0], [60, 0], [60, 40], [0, 40]], "TEMPLATE", 0.97]], 0.0)
+    O.set_engine(lambda arr: confident)
+    assert not O.check_no_text(im, engine="rapidocr", score_key="ocr.template_rec_score_min").passed   # a real word still fails

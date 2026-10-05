@@ -17,6 +17,8 @@ const FREE_BANNER = "This file came from Tripo's FREE plan, so the model is publ
 
 /** @param {any} s */
 function stepNote(s) {
+  // a finished step says nothing more: its message is the handler's own log line ("4 draft(s) by I5", "4/4 pass Gate A")
+  if (["succeeded", "superseded", "cancelled"].includes(s.state)) return "";
   if (s.remote_state === "slow") return "Taking a bit longer than usual. That is normal for 3D models; it keeps checking by itself.";
   if (s.remote_state === "submission_uncertain") return "Checking whether Tripo received the job…";
   if (s.remote_state === "polling" || s.remote_state === "submitted") return "Tripo is working on it.";

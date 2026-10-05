@@ -280,12 +280,39 @@ def na_results(results: list[CheckResult]) -> list[CheckResult]:
     return [r for r in results if r.status == "not_applicable"]
 
 
+#: what a SOFT check says to a person (the evidence of a check is a measurement: "blush L* 78 > 45.0; lightens tone_2")
+SOFT_WORDS: dict[str, str] = {
+    "F_BLUSH": "The blush may look pale on some of the skin tones.", "A_SWATCH": "Some colours in the picture drifted from the plan.",
+    "CHK-G1-10": "Some colours in the picture drifted from the plan.", "A_PHASH": "This version is close to one you already turned down.",
+    "CHK-A14": "This version is close to one you already turned down.", "A_STYLE": "The drawing style differs a little from your house style.",
+    "CHK-A16": "The drawing style differs a little from your house style.", "CHK-A13": "This part may not match the approved design closely.",
+    "CHK-D05": "This part may not match the approved design closely.", "CHK-D03": "Some colours are hard to tell apart at phone size.",
+    "CHK-D07": "The duo judge has a small note about this pair.", "CHK-D08": "Some details are hard to see at phone size.",
+    "DUO-03": "The two outfits may look alike at phone size.", "DUO-04": "The two hairstyles and accessories look similar from a distance.",
+    "DUO-10": "This duo is close to one you made before.", "TASTE_DETAIL": "The amount of detail may not match what the plan asked for.",
+    "TASTE_LAYOUT": "The two garments are laid out in a similar way.", "TASTE_RATIO": "The colour shares differ from the plan.",
+    "FACE-13": "Hair may cover the eyes or the brows.", "PLN-15": "The two hairstyles have similar shapes.",
+    "CHK-M18": "The 3D shading may look flat.", "CHK-G1-11": "The two characters may look too alike.", "CHK-G0-06": "The colours may not fit the pair style.",
+}
+_TECHNICAL = re.compile(r"[<>_*{}#;]|\bdE\b|\d\.\d")
+
+
+def plain_warning(check_id: str, evidence: str) -> str:
+    """One calm sentence for a SOFT check: its own words when it has them, the evidence when that already reads as a sentence, else a general note."""
+    if check_id in SOFT_WORDS:
+        return SOFT_WORDS[check_id]
+    ev = " ".join((evidence or "").split())
+    if ev and ev[0].isupper() and " " in ev and not _TECHNICAL.search(ev):
+        return ev[:200]
+    return "One of the quality checks has a small note about this part."
+
+
 def summarize_checks(results: list[CheckResult]) -> dict[str, Any]:
     """The compact check summary a tile shows (SOFT warnings go to ``warnings``, which the gate withholds until the first choice)."""
     hard = hard_failures(results)
     warnings = []
     for r in soft_warnings(results):
-        warnings.append({"id": r.check_id, "text": (r.evidence or r.metric or r.check_id)[:200], "severity": "low", "catch_rate": 0.0,
+        warnings.append({"id": r.check_id, "text": plain_warning(r.check_id, r.evidence or r.metric), "severity": "low", "catch_rate": 0.0,
                          "visible": True, "fresh": True})
     return {"hard_failures": [{"id": r.check_id, "evidence": r.evidence[:200], "ran": r.ran} for r in hard],
             "warnings": warnings,
