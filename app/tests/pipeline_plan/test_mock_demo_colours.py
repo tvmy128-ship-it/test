@@ -10,19 +10,24 @@ In demo mode every duo comes from the mock planner, so each colour it picks must
 """
 from __future__ import annotations
 
+import io
 import json
 import random
 
 import pytest
+from PIL import Image
+from test_mock_roles import inv, plan  # noqa: F401  (the fixture and the helper of the planner tests)
 
+from duoskin.imaging import checks as image_checks
 from duoskin.imaging import colournames
 from duoskin.imaging import face_canvas as FC
 from duoskin.imaging.palette import de2000_hex
 from duoskin.pipeline import face as face_lane
+from duoskin.providers.base import CallCtx
 from duoskin.providers.mock import _draw as D
 from duoskin.providers.mock import roles as R
-
-from test_mock_roles import inv, plan  # noqa: F401  (the fixture and the helper of the planner tests)
+from duoskin.providers.mock.images import MockImages
+from duoskin.providers.openai_images import ImageRequest
 
 
 def hexes(palette):
@@ -52,7 +57,7 @@ def test_a_palette_colour_survives_the_round_trip_name_and_back():
         for p in R._palette(family, [], random.Random(2)):
             name = colournames.colour_name(p["hex"])
             (back,) = D.colors_from_text(name)[:1]
-            assert de2000_hex("#%02X%02X%02X" % back, p["hex"]) < 1.0, (family, p, name)
+            assert de2000_hex("#{:02X}{:02X}{:02X}".format(*back), p["hex"]) < 1.0, (family, p, name)
 
 
 @pytest.mark.timeout(300)
@@ -71,3 +76,15 @@ def test_the_faces_of_the_mock_planner_pass_the_face_checks_on_every_skin_tone(i
             for check in (FC.check_line_skin, FC.check_lid_covers, FC.check_mouth_interior, FC.check_lash_lid_split):
                 r = check(comp)
                 assert r.passed, f"{spec['world']['palette_family']} character {c}: {r.check_id}: {r.evidence}"
+
+
+@pytest.mark.parametrize("colour_name", ["grey", "charcoal", "pale sky blue", "chartreuse", "maroon", "pearl", "black", "teal", "dawn pink"])
+def test_a_mock_part_picture_is_one_flat_colour_of_the_prompt_so_the_palette_check_passes(colour_name):
+    """The first colour named in the prompt, drawn flat with no outline or highlight: an outline or highlight is a colour that is not in the duo's
+    palette (A_PALETTE rejected every mock accessory whose planned colours were not dark enough to contain the darker outline)."""
+    hexed = colournames.load_names()[colour_name]
+    req = ImageRequest(model="gpt-image-2.5-flare-2026-09-08", prompt=f"A small bag in {colour_name}, matte, on a plain background.", size="1024x1024",
+                       quality="low", background="transparent", n=1)
+    png = MockImages().generate(req, CallCtx.null()).images[0]
+    result = image_checks.check_palette(Image.open(io.BytesIO(png)), [hexed])
+    assert result.passed, f"{colour_name} {hexed}: {result.evidence}"

@@ -191,9 +191,10 @@ def _sdf(kind: str, x: np.ndarray, y: np.ndarray, r: float, rng: random.Random) 
 
 
 def shape_rgba(w: int, h: int, color: RGB, rng: random.Random, *, margin: float = 0.14, outline: bool = True,
-               kind: str | None = None) -> Image.Image:
+               kind: str | None = None, highlight: float = 0.28) -> Image.Image:
     """One centred flat shape with an outline and a soft highlight on a fully transparent canvas. The alpha edge is
-    anti-aliased (real alpha values between 0 and 255); nothing touches the canvas edge."""
+    anti-aliased (real alpha values between 0 and 255); nothing touches the canvas edge. ``outline=False, highlight=0`` is one flat colour: the
+    mock pictures of parts use it, because a darker outline or a lighter highlight is a colour that is not in the duo's palette (``A_PALETTE``)."""
     kind = kind or rng.choice(["circle", "rounded_box", "diamond", "hexagon", "blob"])
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
     x, y = xx - (w - 1) / 2.0, yy - (h - 1) / 2.0
@@ -205,7 +206,7 @@ def shape_rgba(w: int, h: int, color: RGB, rng: random.Random, *, margin: float 
     if outline:
         band = np.clip((sd + max(3.0, r * 0.05)) / 2.0, 0.0, 1.0)         # 0 inside the fill ... 1 at the very edge
         rgb = rgb * (1 - band[..., None]) + np.array(darker(color, 0.5), np.float32) * band[..., None]
-    hi = np.clip(1.0 - np.hypot(x + r * 0.3, y + r * 0.35) / (r * 0.6), 0.0, 1.0) * 0.28 * (sd < -r * 0.08)
+    hi = np.clip(1.0 - np.hypot(x + r * 0.3, y + r * 0.35) / (r * 0.6), 0.0, 1.0) * highlight * (sd < -r * 0.08)
     rgb = rgb * (1 - hi[..., None]) + 255.0 * hi[..., None]
     out = np.dstack([np.clip(rgb, 0, 255), alpha * 255.0]).astype(np.uint8)
     return Image.fromarray(out, "RGBA")

@@ -381,3 +381,22 @@ def test_a_dict_with_every_problem_is_linted_without_raising():
     d["a"]["top"]["base_ref"] = "p1"
     rep = P.lint_spec(d)
     assert not rep.passed
+
+
+@pytest.mark.parametrize("description", ["tiny charm on a short chain", "bag with a long strap", "round ring with a hole", "spiky plush star", "charm with a dangling bead"])
+def test_a_tripo_accessory_that_names_a_thin_part_is_blocked_before_any_image_is_paid_for(description):
+    """Gate B ac_no_thin_parts rejects thin strings, chains, rings, holes and spikes, so the plan must not ask for them (code adds straps and rings)."""
+    def m(d):
+        d["a"]["accessories"][0]["description"] = description
+    _assert_blocks(F.mutate("spec_complement_gb", m), "accessory_thin_parts", "CHK-G0-02", path="/a/accessories/0/description")
+
+
+def test_thin_part_words_are_fine_for_code_built_accessories_and_for_solid_descriptions():
+    def code_built(d):
+        d["a"]["accessories"][0].update(build="code_primitive", description="thin strap across the chest")
+    assert F.result(F.mutate("spec_complement_gb", code_built), "accessory_thin_parts").passed
+    for name in F.SPEC_NAMES:
+        assert F.result(F.lint(F.load(name)), "accessory_thin_parts").passed, name
+    def keychain(d):
+        d["a"]["accessories"][0]["description"] = "keychain charm shaped like a round bell, springlike curls"
+    assert F.result(F.mutate("spec_complement_gb", keychain), "accessory_thin_parts").passed, "'keychain' and 'springlike' are not thin-part words"

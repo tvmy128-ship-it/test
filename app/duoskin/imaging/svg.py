@@ -86,14 +86,51 @@ def _parse_declarations(text: str) -> dict[str, str]:
     return out
 
 
+def _strip_css_comments(css: str) -> str:
+    """Remove ``/* ... */`` in one pass. (The regex ``/\\*.*?\\*/`` is quadratic on many unterminated ``/*``: a hostile 2 MB style sheet froze the whole
+    process, because ``re`` never lets go of the GIL.) An unterminated comment is left as it is, like the regex did."""
+    out: list[str] = []
+    pos = 0
+    while True:
+        start = css.find("/*", pos)
+        if start < 0:
+            break
+        end = css.find("*/", start + 2)
+        if end < 0:
+            break
+        out.append(css[pos:start])
+        pos = end + 2
+    out.append(css[pos:])
+    return "".join(out)
+
+
+def _css_rules(css: str) -> list[tuple[str, str]]:
+    """``(selector, body)`` pairs of ``selector { body }`` in linear time. (``([^{}]+)\\{([^}]*)\\}`` through ``re.findall`` is quadratic on a style
+    sheet without braces: 40 KB took 17 s.) A selector never contains ``{`` or ``}``; a body runs to the next ``}``."""
+    rules: list[tuple[str, str]] = []
+    pos = 0
+    while True:
+        open_ = css.find("{", pos)
+        if open_ < 0:
+            break
+        close = css.find("}", open_ + 1)
+        if close < 0:
+            break
+        selector = css[pos:open_].rsplit("}", 1)[-1]
+        if selector:
+            rules.append((selector, css[open_ + 1:close]))
+        pos = close + 1
+    return rules
+
+
 def _parse_css(root: ET.Element) -> dict[str, dict[str, str]]:
     """Rules for ``.class``, ``#id``, ``tag`` and ``*`` selectors (comma lists allowed). At-rules and ``url(`` are rejected."""
     rules: dict[str, dict[str, str]] = {}
     for st in (e for e in root.iter() if local(e.tag) == "style"):
-        css = re.sub(r"/\*.*?\*/", "", st.text or "", flags=re.DOTALL)
+        css = _strip_css_comments(st.text or "")
         if "@" in css or "\\" in css or "url(" in css.lower() or any(t in css.lower() for t in _STYLE_BAD_FUNCS):
             raise SvgRejected("css", "at-rules, escapes, url() and script or image functions in <style> are not allowed")
-        for sel, body in re.findall(r"([^{}]+)\{([^}]*)\}", css):
+        for sel, body in _css_rules(css):
             decl = _parse_declarations(body)
             for one in sel.split(","):
                 one = one.strip()

@@ -328,3 +328,37 @@ def test_the_unregistered_key_shapes_are_still_masked_by_pattern():
     for key in fresh:
         out = redact(f"failed with {key} and ?key={key} and Bearer {key}")
         assert key not in out and key[:12] not in out
+
+
+# ------------------------------------------------------------------------------------------------- ReDoS
+def _slow_inputs() -> dict[str, str]:
+    return {
+        "spaces after a header name": "Authorization" + " " * 300_000 + "x",
+        "tabs after api_key": "api_key" + "\t" * 300_000 + ":",
+        "quotes and spaces": "token" + ' "' * 150_000 + "x",
+        "cookie then spaces": "cookie" + " " * 300_000,
+        "bearer then spaces": "bearer" + " " * 300_000 + "x",
+        "many bearers": "bearer  " * 100_000,
+        "underscore chain": "A_" * 200_000,
+        "env-name chain": "A_B_C_D_E_F_G_H_I_J_K_L_M_N_O_P_Q_R_" * 20_000,
+        "url without a host end": "https://" + "a" * 200_000,
+        "url with many colons": "https://a:" + "b:" * 100_000,
+        "long query value": "?key=" + "a" * 500_000,
+        "long jwt": "eyJ" + "a" * 500_000 + "." + "b" * 500_000,
+        "long key shape": "sk-" + "a" * 500_000,
+        "ampersands": "&" * 500_000,
+    }
+
+
+def test_a_hostile_text_cannot_stall_the_redactor_or_the_error_scrubber():
+    """A provider body or a log line is attacker-influenced text: the secret patterns must be linear (an unbounded ``\\s*`` around an optional quote
+    backtracked quadratically: 300 000 spaces after "Authorization" took minutes)."""
+    import time
+
+    from duoskin.providers.base import scrub
+
+    for name, text in _slow_inputs().items():
+        t0 = time.monotonic()
+        redact(text)
+        scrub(text, limit=100)
+        assert time.monotonic() - t0 < 5.0, name

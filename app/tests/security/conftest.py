@@ -16,6 +16,17 @@ def clean_registry():
         registry.register(h, replace=True)
 
 
+@pytest.fixture(autouse=True)
+def clean_process_state():
+    """``add_kit`` installs a kit inventory process-wide (the spec's kit enums follow it): put the built-in one back so no other test sees my kits."""
+    from duoskin.models import kitenums
+    from duoskin.pipeline import kits
+
+    yield
+    kitenums.set_default_inventory(None)
+    kits.DEMO_OVERRIDE = None
+
+
 @pytest.fixture
 def app(tmp_path):
     return make_app(tmp_path / "home", providers_mode="mock")

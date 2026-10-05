@@ -23,6 +23,10 @@ set "PYARG="
 call :try "py" "-V:3.14"
 call :try "py" "-V:3.13"
 call :try "py" "-V:3.12"
+rem    An older py launcher does not know -V: but understands -3.14 and so on.
+call :try "py" "-3.14"
+call :try "py" "-3.13"
+call :try "py" "-3.12"
 rem    No py launcher (unticked in the python.org installer)? Look for python.exe directly.
 call :try "python" ""
 call :try "%LOCALAPPDATA%\Programs\Python\Python314\python.exe" ""

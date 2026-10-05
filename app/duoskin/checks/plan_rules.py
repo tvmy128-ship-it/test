@@ -37,6 +37,9 @@ from duoskin.prompts.limits import EVIDENCE_ITEMS, describe, thr
 
 CHARS = ("a", "b")
 HAIR_CUSTOM = "hair_custom"
+#: words that put a thin or hollow part into an accessory picture; Gate B ``ac_no_thin_parts`` fails such a picture, so a plan that asks for one is
+#: caught here, before any image is paid for (code builds straps and rings; ``code_primitive`` accessories never go through an image)
+THIN_PART_WORDS = re.compile(r"\b(?:chains?|strings?|straps?|rings?|holes?|spikes?|spiky|dangl\w+)\b", re.IGNORECASE)
 SLOT_SOURCE_KEYS = frozenset({"hair.description", "print.motif", "shoes.motif", "accessory.description", "dna.motif_object"})
 COLOUR_AXES = ("colour_temperature", "value")
 FACE_FIELDS = ("eye_shape", "iris_style", "highlight_style", "lash_style", "brow_style", "mouth_style", "cheek_mark")
@@ -378,6 +381,7 @@ def rule_roblox(spec: DuoSpec, R: _Rep, ctx: PlanLintCtx) -> None:
     make_bad: list[tuple[str, str]] = []
     head_bad: list[tuple[str, str]] = []
     uniq_bad: list[tuple[str, str]] = []
+    thin_bad: list[tuple[str, str]] = []
     makeup_ok = ctx.inv().flags.makeup_available
     for ck, c in _chars(spec):
         used: dict[str, int] = {}
@@ -399,6 +403,11 @@ def rule_roblox(spec: DuoSpec, R: _Rep, ctx: PlanLintCtx) -> None:
             if a.attachment in used:
                 uniq_bad.append((f"{p}/attachment", f"/{ck}/accessories/{used[a.attachment]} already uses the {a.attachment} attachment"))
             used[a.attachment] = i
+            thin = THIN_PART_WORDS.search(a.description) if a.build in ("tripo", "sticker_slab") else None
+            if thin:
+                why = (f"the description names '{thin.group(0)}': chains, strings, straps, rings, holes and spikes cannot be part of the picture "
+                       "the 3D model is made from (Gate B rejects thin parts); describe one solid object with thick parts, code adds straps and rings")
+                thin_bad.append((f"{p}/description", why))
             try:
                 box = limits.box_for(ROBLOX_TYPE[a.category], _attachment_name(a.attachment))
                 studs = float(sizes[a.size_class])
@@ -415,7 +424,8 @@ def rule_roblox(spec: DuoSpec, R: _Rep, ctx: PlanLintCtx) -> None:
         if c.face.highlight_style == "sparkle_star" and not ctx.sparkle_star_allowed:
             head_bad.append((f"/{ck}/face/highlight_style", "sparkle_star is switched off in Settings: use dual_dot"))
     for metric, bad in (("slot_attachment", slot_bad), ("category_policy", cat_bad), ("size_class_box", size_bad),
-                        ("makeup_routing", make_bad), ("head_texture_allow_list", head_bad), ("attachment_unique", uniq_bad)):
+                        ("makeup_routing", make_bad), ("head_texture_allow_list", head_bad), ("attachment_unique", uniq_bad),
+                        ("accessory_thin_parts", thin_bad)):
         R.add("CHK-G0-02", not bad, metric, value=len(bad), threshold="0 problems", evidence=_short(m for _, m in bad),
               paths=[p for p, _ in bad], messages=[m for _, m in bad])
 

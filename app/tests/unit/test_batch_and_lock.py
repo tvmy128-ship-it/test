@@ -372,6 +372,18 @@ def test_setup_falls_back_to_3_13_then_3_12():
         assert any(f"py -V:{tag} -m venv" in c for c in w.log)
 
 
+def test_setup_understands_an_old_py_launcher_that_only_knows_the_dash_syntax():
+    w = good_world()
+    for k in [k for k in w.commands if k.startswith("py ")]:
+        del w.commands[k]
+    w.commands['py -3.13 "tools\\probe_python.py"'] = 0
+    w.commands["py -3.13 --version"] = 0
+    w.commands["py -3.13 -m venv"] = 0
+    w.effects["py -3.13 -m venv"] = lambda world: world.files.add(".venv\\Scripts\\python.exe")
+    assert run_bat("setup.bat", w) == 0
+    assert any("py -3.13 -m venv" in c for c in w.log)
+
+
 def test_setup_finds_python_exe_without_the_py_launcher():
     w = good_world()
     for k in [k for k in w.commands if k.startswith("py ")]:

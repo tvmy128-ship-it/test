@@ -30,18 +30,20 @@ _HEADER_SECRETS = (r"x-api-key|x-goog-api-key|api[_-]?key|api[_-]?token|apikey|a
                    r"x-access-token|access[_-]?token|refresh[_-]?token|client[_-]?secret|fal[_-]?key")
 _BARE_SECRETS = r"token|secret|password|passwd"
 
+_WS = r"[ \t]{0,8}"           # bounded: an unbounded \s* around an optional quote backtracks quadratically on a long run of spaces
+
 _PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_\-]{6,}"),                                             # not the end of "risk-averse"
     re.compile(r"(?<![A-Za-z0-9])tsk_[A-Za-z0-9_\-]{6,}"),
     re.compile(r"(?<![A-Za-z0-9])AIza[0-9A-Za-z_\-]{10,}"),
     re.compile(r"\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}"),               # a JWT
-    re.compile(r"(?i)\b(?:bearer|basic|digest)\s+[A-Za-z0-9._\-~+/=]{6,}"),
-    re.compile(r"(?i)\b((?:set-)?cookie)(\s*[\"']?\s*[:=]\s*[\"']?)[^\r\n\"'}]+"),                    # a cookie header: everything on its line
-    re.compile(rf"(?i)({_HEADER_SECRETS})(\s*[\"']?\s*[:=]\s*[\"']?)[^\s,\"'}}&]{{4,}}"),
-    re.compile(rf"(?i)(?<![\w-])({_BARE_SECRETS})(\s*[\"']?\s*[:=]\s*[\"']?)[^\s,\"'}}&]{{4,}}"),
-    re.compile(r"\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*_(?:KEY|TOKEN|SECRET))(\s*=\s*)[^\s,\"'}&]{4,}"),     # OPENAI_API_KEY=..., RECRAFT_API_TOKEN=...
+    re.compile(r"(?i)\b(?:bearer|basic|digest)[ \t]{1,20}[A-Za-z0-9._\-~+/=]{6,}"),
+    re.compile(rf"(?i)\b((?:set-)?cookie)({_WS}[\"']?{_WS}[:=]{_WS}[\"']?)[^\r\n\"'}}]+"),            # a cookie header: everything on its line
+    re.compile(rf"(?i)({_HEADER_SECRETS})({_WS}[\"']?{_WS}[:=]{_WS}[\"']?)[^\s,\"'}}&]{{4,}}"),
+    re.compile(rf"(?i)(?<![\w-])({_BARE_SECRETS})({_WS}[\"']?{_WS}[:=]{_WS}[\"']?)[^\s,\"'}}&]{{4,}}"),
+    re.compile(rf"\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+){{0,8}}_(?:KEY|TOKEN|SECRET))({_WS}={_WS})[^\s,\"'}}&]{{4,}}"),   # OPENAI_API_KEY=..., RECRAFT_API_TOKEN=...
     re.compile(rf"(?i)([?&;](?:{_QUERY_SECRETS})=)[^&\s\"'<>]+"),                                  # signed-URL and ?key= query strings
-    re.compile(r"(?i)(\bhttps?://)[^/\s:@\"']+:[^/\s@\"']+(?=@)"),                                  # user:password@host
+    re.compile(r"(?i)(\bhttps?://)[^/\s:@\"']{1,200}:[^/\s@\"']{1,200}(?=@)"),                      # user:password@host
 )
 _SECRET_LOCK = threading.Lock()
 _SECRETS: set[str] = set()

@@ -329,12 +329,45 @@ HOSTILE_SVGS = {
                            + "".join(f'<g id="a{i}"><use href="#a{i - 1}"/><use href="#a{i - 1}"/></g>' for i in range(1, 30)) + '</defs><use href="#a29"/></svg>'),
     "use_cycle": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><defs><g id="a"><use href="#b"/></g><g id="b"><use href="#a"/></g></defs><use href="#a"/></svg>',
     "path_flood": wrap('<path d="' + "M0 0 L100 100 L0 100 Z " * 15000 + '" fill="#ff0000"/>'),
+    "css_has_url_after_comment_join": wrap('<style>rect{fill:u/**/rl(file:///etc/passwd)}</style><rect width="5" height="5"/>'),
     "percent_size_no_viewbox": '<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><rect width="5" height="5"/></svg>',
     "opacity": wrap('<rect width="5" height="5" fill="#ff0000" opacity="0.5"/>'),
     "not_svg_root": '<html xmlns="http://www.w3.org/1999/xhtml"><body/></html>',
     "not_xml": "this is not xml <<<",
     "oversize": wrap('<rect width="1" height="1" data-x="' + "A" * 2_100_000 + '"/>'),
 }
+
+
+REDOS_SVGS = {
+    # each of these used to take minutes or hours inside ``re`` (which holds the GIL: the whole server stalls) and is a valid, harmless style sheet
+    "css_without_braces": wrap("<style>" + "a" * 1_900_000 + '</style><rect width="5" height="5" fill="#ff0000"/>'),
+    "css_unterminated_comments": wrap("<style>" + "/*" * 900_000 + '</style><rect width="5" height="5" fill="#ff0000"/>'),
+    "css_close_braces": wrap("<style>" + "}" * 1_900_000 + '</style><rect width="5" height="5" fill="#ff0000"/>'),
+    "css_open_braces": wrap("<style>" + "{" * 1_900_000 + '</style><rect width="5" height="5" fill="#ff0000"/>'),
+    "css_selector_flood": wrap("<style>" + "a{" * 900_000 + '</style><rect width="5" height="5" fill="#ff0000"/>'),
+}
+
+
+@pytest.mark.parametrize("name", sorted(REDOS_SVGS))
+def test_no_style_sheet_can_stall_the_sanitizer(name):
+    from duoskin.imaging import svg as S
+
+    t0 = time.monotonic()
+    try:
+        S.sanitize_and_normalize(REDOS_SVGS[name])
+    except S.SvgRejected:
+        pass
+    assert time.monotonic() - t0 < 3.0, name
+
+
+def test_the_css_helpers_agree_with_the_regexes_they_replaced_on_ordinary_input():
+    from duoskin.imaging import svg as S
+
+    css = "/* c */ rect{fill:#ff0000} .a, .b {stroke:#000; stroke-width:2} /* x */ #i{fill:none}"
+    stripped = S._strip_css_comments(css)
+    assert "/*" not in stripped
+    assert S._css_rules(stripped) == [(m[0], m[1]) for m in re.findall(r"([^{}]+)\{([^}]*)\}", stripped)]
+    assert S._strip_css_comments("a /* open") == "a /* open" and S._css_rules("a{b") == [] and S._css_rules("}x{y}") == [("x", "y")]
 
 
 @pytest.mark.parametrize("name", sorted(HOSTILE_SVGS))

@@ -118,7 +118,7 @@ class MockImages(MockBase, ImageProviderBase):
             return D.to_png(D.paint_masked(base, bytes(mask.data), color))
         if _is_concept(req):
             return D.to_png(D.blocky_sheet(w, h, pal, rng))
-        shape = D.shape_rgba(w, h, pal[0], rng, margin=0.13 + 0.012 * (i % 5))
+        shape = D.shape_rgba(w, h, pal[0], rng, margin=0.13 + 0.012 * (i % 5), outline=False, highlight=0.0)   # one flat palette colour (see shape_rgba)
         return D.to_png(shape if req.background == "transparent" else D.over_background(shape))
 
     @staticmethod
