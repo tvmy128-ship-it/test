@@ -445,3 +445,29 @@ def test_the_planner_builder_is_registered_lazily_for_the_schema_not_the_route()
     L.reload_roles()
     assert "PlanSet" in L.registered_roles() and "L3_planner" not in L.registered_roles()
     assert call(L.MockLLM()).parsed                              # the L3 route with another schema still gets the generic answer
+
+
+def change(text: str, spec: dict | None = None):
+    llm_io = _llm_io()
+    body = f"<user_change_request>{text}</user_change_request>" + (f"<spec>{json.dumps(spec)}</spec>" if spec else "")
+    return L.MockLLM().call("L7_change", system=SYS, content=content(body), out=llm_io.ROLE_SCHEMAS["L7"], ctx=CTX, prompt_version=1).parsed
+
+
+def test_l7_maps_make_colour_to_a_palette_patch_and_bigger_to_a_size_patch():
+    spec = {"palette": [{"id": "p1"}, {"id": "p2"}, {"id": "p3"}], "b": {"top": {"base_ref": "p3"}, "accessories": [{"size_class": "small"}]},
+            "a": {"accessories": [{"size_class": "large"}]}}
+    p = change("make B's jacket teal", spec)
+    assert p.needs_clarification == "" and len(p.patch) == 1
+    assert p.patch[0].op == "replace" and p.patch[0].path == "/palette/2/hex" and json.loads(p.patch[0].value_json) == "#1E9696"
+    assert [r.part_id for r in p.redo_parts] == ["b.shirt"] and p.image_fixes[0].part_id == "b.shirt"
+    assert change("make the pants navy").patch[0].path == "/palette/0/hex" and change("make her hair pink").redo_parts[0].part_id == "a.hair"
+    big = change("make B's accessory bigger", spec)
+    assert big.patch[0].path == "/b/accessories/0/size_class" and json.loads(big.patch[0].value_json) == "medium" and big.redo_parts[0].part_id == "b.acc.0"
+    assert json.loads(change("bigger please", spec).patch[0].value_json) == "large"
+    assert change("bigger").patch[0].path == "/a/accessories/0/size_class"
+
+
+def test_l7_anything_else_needs_clarification():
+    for text in ("make it feel more premium", "something is off", "teal"):
+        p = change(text)
+        assert p.patch == [] and p.needs_clarification and p.redo_parts == []

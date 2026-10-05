@@ -17,10 +17,6 @@ if not defined PY (
     call :try "py -V:3.14"
   )
 )
-if not defined PY if exist "tools\uv.exe" (
-  "tools\uv.exe" python install 3.14 --install-dir ".python"
-  for /d %%D in (".python\cpython-3.14*-windows-x86_64-none") do call :try "%%~D\python.exe"
-)
 if not defined PY goto :nopython
 echo Using Python: %PY%
 

@@ -238,7 +238,7 @@ def render_lines(lines: list[Line], values: Mapping[str, object], flags: Mapping
     for delim, text in kept:
         if delim:
             n += 1
-            out.append(f"{n}{delim} {text}")
+            out.append(f"{n}{delim} {text[:1].upper()}{text[1:]}")
         else:
             n = 0
             out.append(text)

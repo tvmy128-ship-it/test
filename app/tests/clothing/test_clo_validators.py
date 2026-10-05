@@ -269,6 +269,10 @@ def test_b06_alpha_policy_haze_and_cut_edges(tee):
     few = img.copy()
     T.crop(few, "torso_f")[30, 30:33, 3] = 200
     assert V.check_b06(few).passed                                                  # 3 px of 98,000 is below 0.5%
+    wash = img.copy()
+    wash[430:432, 240:243, 3] = 6                                                   # a faint speck over bare skin (arm below the sleeve)
+    r = V.check_b06(wash)
+    assert not r.passed and "specks" in r.evidence
 
 
 def test_b06_soft_skin_in_clothing_and_waistband(tee, jeans):

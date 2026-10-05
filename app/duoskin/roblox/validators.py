@@ -450,22 +450,27 @@ def check_print_inset(img: np.ndarray, label_map: np.ndarray | None, placements:
 
 
 def check_b06(img: np.ndarray) -> CheckResult:
-    """Alpha policy (CLO-10): garment alpha is clean. Semi-transparent pixels away from a cut edge are haze that lets the body
-    colour ghost through; they must be at most 0.5% of the garment."""
+    """Alpha policy (CLO-10): garment alpha is clean. (1) Semi-transparent pixels away from a cut edge are haze that lets the body
+    colour ghost through: at most 0.5% of the garment. (2) Transparent areas are FULLY transparent: a semi-transparent pixel with no
+    opaque neighbour (a speck or a faint wash over bare skin) is never allowed."""
     from scipy import ndimage as ndi
 
     a = img[..., 3]
     inside = T.region_label_map() > 0
     semi = (a > 0) & (a < 255) & inside
     transparent = (a == 0)
-    near_cut = ndi.binary_dilation(transparent, structure=np.ones((3, 3), bool))
+    box = np.ones((3, 3), bool)
+    near_cut = ndi.binary_dilation(transparent, structure=box)
     interior_semi = semi & ~near_cut
+    attached = ndi.binary_dilation(a == 255, structure=box)
+    specks = semi & ~attached
     garment = int(((a > 0) & inside).sum())
     share = float(interior_semi.sum() / garment) if garment else 0.0
     lim = LC.semi_alpha_share_max()
-    return _res("CHK-B06", share <= lim, "semi_alpha_share", share, f"<= {lim} of garment pixels (tpl.semi_alpha_share_max)",
-                f"{int(interior_semi.sum())} semi-transparent interior pixels of {garment}; {int((semi & near_cut).sum())} on cut edges (not counted)",
-                "code_alpha_cleanup")
+    ok = share <= lim and not specks.any()
+    return _res("CHK-B06", ok, "semi_alpha_share", share, f"<= {lim} of garment pixels (tpl.semi_alpha_share_max); no semi-transparent specks over bare skin",
+                f"{int(interior_semi.sum())} semi-transparent interior pixels of {garment}; {int((semi & near_cut).sum())} on cut edges (not counted); "
+                f"{int(specks.sum())} specks with no opaque neighbour", "code_alpha_cleanup")
 
 
 def check_skin_in_clothing(img: np.ndarray, skin: tuple[int, int, int] | None) -> CheckResult:

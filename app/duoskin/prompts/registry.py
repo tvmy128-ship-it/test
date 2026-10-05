@@ -278,7 +278,7 @@ def static_problems(t: Template) -> list[str]:
             bad.append(f"{m.id}: bad image condition {r.when!r}")
     if m.bootstrap and not any(r.s0 for r in m.images):
         bad.append(f"{m.id}: bootstrap variant without an s0 image")
-    if m.kind == "llm" and not m.schema_name:
+    if m.kind == "llm" and m.provider == "anthropic" and not m.schema_name:
         bad.append(f"{m.id}: llm templates name their schema")
     return bad
 

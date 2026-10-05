@@ -578,7 +578,7 @@ def build_i11(a: BuildArgs) -> Built:
     if form not in ("masked", "global"):
         raise PromptBuildError("I11: form must be masked or global")
     lead = "Change only the masked area:" if form == "masked" else "Apply this change to the whole image:"
-    slots = {"asset_noun": a.phr.get("asset_noun", str(a.input("asset"))), "subject_sentence": subject,
+    slots = {"asset_noun": a.phr.get("asset_noun", str(a.input("asset"))), "subject_sentence": lower_first(subject.rstrip(".")),
              "edit_1": f"{lead} {edit[0]}", "keep_list": "; ".join(k for k in keep if k)}
     for i in range(2, 5):
         slots[f"edit_{i}"] = edit[i - 1] if len(edit) >= i else ""

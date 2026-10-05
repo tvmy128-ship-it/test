@@ -45,7 +45,8 @@ def _r6(x: float) -> float:
 
 
 class BudgetCheck:
-    """Result of ``BudgetService.check``: ``ok`` or the reason the BUDGET gate must open (``cap``, ``ask``, ``credits``)."""
+    """Result of ``BudgetService.check``: ``ok`` or the reason the BUDGET gate must open (``cap``, ``ask``, ``credits``,
+    ``regression``: a REGRESSION job whose estimate is above ``budgets.regression_ask_usd``, §3.9)."""
 
     def __init__(self, ok: bool, reason: str | None, est_usd: float, remaining: float, cap: float, ask_above: float,
                  spent: float, credits_available: float | None = None) -> None:
@@ -141,6 +142,16 @@ class BudgetService:
         if est_usd > b.ask_above_usd + 1e-9:
             return BudgetCheck(False, "ask", **base)
         return BudgetCheck(True, None, **base)
+
+    def regression_check(self, job_est_usd: float, *, confirmed: bool = False) -> BudgetCheck:
+        """A REGRESSION job never runs unconfirmed when its estimate is above ``budgets.regression_ask_usd`` (APP_SPEC §3.9,
+        §14.1). Judged once per job on the job's total estimate; the BUDGET gate's CONTINUE records the confirmation on the
+        job (``params["budget_confirmed"]``), so its steps do not ask again. Regression jobs have no project cap."""
+        ask = float(self._settings().budgets.regression_ask_usd)
+        base = {"est_usd": float(job_est_usd), "remaining": NO_CAP_USD, "cap": NO_CAP_USD, "ask_above": ask, "spent": self.spent(None)}
+        if confirmed or job_est_usd <= ask + 1e-9:
+            return BudgetCheck(True, None, **base)
+        return BudgetCheck(False, "regression", **base)
 
     # ------------------------------------------------------------------------------------------------ reservations
     def check_and_reserve(self, project_id: str | None, est: Estimate, *, step_id: str | None = None, attempt: int = 0,

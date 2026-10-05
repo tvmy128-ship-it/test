@@ -33,7 +33,7 @@ from duoskin.engine import deps
 from duoskin.models.common import new_id, utcnow
 from duoskin.models.cost import Estimate
 from duoskin.models.gate import Gate, GateAction, GateDecision, GateDecisionIn, GateKind, GateTile, TileState
-from duoskin.models.job import Step, StepError, StepState
+from duoskin.models.job import JobKind, Step, StepError, StepState
 from duoskin.models.part import ApprovalRecord, Part, PartKind, PartState
 
 if TYPE_CHECKING:
@@ -475,6 +475,10 @@ class GateService:
                 self.repo.mutate_project(ac.project_id, lambda p: setattr(p.settings, "budget_usd", max(p.settings.budget_usd, new_cap)))
                 self.bus.emit("toast", {"message": f"Cap raised to ${new_cap:.2f}", "level": "info"}, ac.project_id)
         # CONTINUE and RAISE_CAP: the user accepted this spend; the step runs without asking again
+        job = self.repo.find_job(ac.gate.job_id)
+        if job is not None and job.kind == JobKind.REGRESSION and not job.params.get("budget_confirmed"):
+            # a REGRESSION job is confirmed as a whole (APP_SPEC §3.9): its other steps do not ask again
+            self.repo.save_job(job.model_copy(update={"params": {**job.params, "budget_confirmed": True}}))
         ops.transition(step_id, StepState.READY, expect=StepState.WAITING_USER,
                        update=lambda s: (setattr(s, "budget_ok", True), setattr(s, "gate_id", None),
                                          setattr(s, "message", "approved by you")))

@@ -653,7 +653,12 @@ def chk_s11(c: DoctorCtx) -> Outcome:
     if importlib.util.find_spec("duoskin.models.kitenums") is not None:
         ran_any = True
         try:
-            importlib.import_module("duoskin.models.kitenums")
+            kitenums = importlib.import_module("duoskin.models.kitenums")
+            # EyeShapeKit and MouthKit come from the head base, or from builtin_kits/face_canvas_default.json when there is none
+            values = kitenums.enum_values(kitenums.load_inventory(manifest if manifest.exists() else None))
+            empty = sorted(k for k in ("EyeShapeKit", "MouthKit") if not values.get(k))
+            if empty:
+                raise ValueError("no values for " + ", ".join(empty))
             notes.append("kit enums build")
         except Exception as exc:  # noqa: BLE001
             return Outcome("fail", f"The kit enums could not be built: {redact(str(exc))[:200]}", "Run: python -m duoskin build-kit-manifest")
@@ -746,24 +751,220 @@ def chk_s13(c: DoctorCtx) -> Outcome:
 
 
 # ------------------------------------------------------------------------------------------------------- S14
-@check("CHK-S14", "DreamSim model for the clone check (optional)", kind="soft", fm=["X19"])
-def chk_s14(c: DoctorCtx) -> Outcome:
-    model = c.paths.models_dir / "dreamsim.onnx"
-    if not model.exists():
-        return Outcome("warn", "dreamsim.onnx is not installed, so the clone check runs in DEGRADED mode (pHash + palette overlap + plan "
-                               "distance). Gate 3 will say \"clone check degraded\" before you pick.",
-                       "Install it from Settings > Optional components when it is available.", {"clone_check_mode": "degraded"})
-    if c.quick:
-        return Outcome("pass", "dreamsim.onnx is present (load test skipped in quick mode).", detail={"clone_check_mode": "full"})
-    code = ("import sys, onnxruntime as ort\n"
-            "s = ort.InferenceSession(sys.argv[1], providers=['CPUExecutionProvider'])\n"
-            "print(len(s.get_inputs()), len(s.get_outputs()))")
-    rc, _out, err = run_py(code, timeout=120, args=[str(model)])
+OPTIONAL_COMPONENTS_FILE = "optional_components.json"
+DREAMSIM_FILE = "dreamsim.onnx"
+SHA_HEX = re.compile(r"^[0-9a-f]{64}$")
+FIXTURE_TOL_FALLBACK = 0.01      # dreamsim.fixture_tol in checks/thresholds.py [DES]
+
+
+def sha256_file(path: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for block in iter(lambda: fh.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def load_optional_components() -> list[dict[str, Any]]:
+    """The rows of ``duoskin/data/optional_components.json`` (APP_SPEC §4.4): ``id``, ``path`` (under DATA) and ``sha256``.
+    Accepts a list, ``{"components": [...]}`` or ``{id: {...}}``; a missing or unreadable file gives ``[]``."""
+    try:
+        data = json.loads((config.APP_ROOT / "duoskin" / "data" / OPTIONAL_COMPONENTS_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    rows: Any = data.get("components", data) if isinstance(data, dict) else data
+    if isinstance(rows, dict):
+        rows = [{"id": k, **v} for k, v in rows.items() if isinstance(v, dict)]
+    return [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+
+
+def pinned_sha(component_id: str) -> str | None:
+    """The sha256 pinned in the manifest for a component, or None when none is pinned yet ([UNVERIFIED] until the first export)."""
+    for row in load_optional_components():
+        if component_id in str(row.get("id", row.get("name", ""))).lower():
+            sha = str(row.get("sha256") or "").lower()
+            return sha if SHA_HEX.match(sha) else None
+    return None
+
+
+_DREAMSIM_PROBE = """
+import json, sys
+from pathlib import Path
+from PIL import Image
+from duoskin.imaging import similarity as S
+model = S.load_dreamsim(sys.argv[1])
+if model is None:
+    print(json.dumps({"loaded": False})); raise SystemExit(0)
+out = []
+for a, b, expected in json.loads(sys.argv[2]):
+    with Image.open(a) as ia, Image.open(b) as ib:
+        d = float(model.distance(ia.convert("RGBA"), ib.convert("RGBA")))
+    out.append({"expected": expected, "distance": d})
+print(json.dumps({"loaded": True, "pairs": out}))
+"""
+
+
+def _fixture_pairs(sidecar: Path) -> tuple[list[tuple[str, str, float]], str]:
+    """The fixture pairs of ``dreamsim.onnx.json`` (``fixture_expectations: [{pair: [a, b], distance}]``) whose images exist
+    under ``tests/fixtures/dreamsim/``; ``(pairs, problem)``."""
+    try:
+        meta = json.loads(sidecar.read_text(encoding="utf-8"))
+        rows = meta["fixture_expectations"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return [], f"{sidecar.name} is missing or has no fixture_expectations"
+    base = config.APP_ROOT / "tests" / "fixtures" / "dreamsim"
+    pairs: list[tuple[str, str, float]] = []
+    for row in rows if isinstance(rows, list) else []:
+        try:
+            a, b = row["pair"]
+            pa, pb = base / str(a), base / str(b)
+            if pa.is_file() and pb.is_file():
+                pairs.append((str(pa), str(pb), float(row["distance"])))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return pairs, "" if pairs else f"no fixture pair of {sidecar.name} was found in tests/fixtures/dreamsim"
+
+
+def _dreamsim_degraded(message: str, fix: str = "", **detail: Any) -> Outcome:
+    return Outcome("warn", message + " The clone check will run degraded (pHash + palette overlap + plan distance); "
+                   "Gate 3 shows \"clone check degraded\" before you pick.",
+                   fix or "Install or repair it from Settings > Optional components.",
+                   {"clone_check_mode": "degraded", "dreamsim_present": False, **detail})
+
+
+def probe_dreamsim(model: Path, pairs: list[tuple[str, str, float]]) -> tuple[bool, list[dict[str, float]], str]:
+    """Load the model and measure the fixture pairs in a child process (a native crash never reaches the server).
+    Returns ``(loaded, [{expected, distance}], problem)``. Tests replace this function."""
+    rc, out, err = run_py(_DREAMSIM_PROBE, timeout=180, args=[str(model), json.dumps(pairs)], cwd=config.APP_ROOT)
     if rc != 0:
-        return Outcome("warn", "dreamsim.onnx is present but did not load; the clone check stays in degraded mode.",
-                       "Re-download the model. " + _last_line(err)[:160], {"clone_check_mode": "degraded"})
-    return Outcome("pass", "dreamsim.onnx loads. (The fixture-pair distance check ships with the model export tool.)",
-                   detail={"clone_check_mode": "full"})
+        return False, [], _last_line(err)[:200] or f"the probe exited {rc}"
+    try:
+        data = json.loads(_last_line(out))
+    except ValueError:
+        return False, [], "the probe printed nothing usable"
+    return bool(data.get("loaded")), list(data.get("pairs", [])), "" if data.get("loaded") else "onnxruntime could not load the file"
+
+
+@check("CHK-S14", "DreamSim model for the clone check (optional)", kind="soft", fm=["DUO-01", "IMG-15", "FACE-11", "DUO-10"])
+def chk_s14(c: DoctorCtx) -> Outcome:
+    """SOFT (§4.4): ``dreamsim.onnx`` exists with the pinned sha256, loads on onnxruntime, and a fixture pair returns the
+    expected distance within ``dreamsim.fixture_tol``. Any failure switches it off (``dreamsim_present`` False); never blocks."""
+    model = c.paths.models_dir / DREAMSIM_FILE
+    if not model.is_file():
+        return _dreamsim_degraded("dreamsim.onnx is not installed.", "Install it from Settings > Optional components when it is available.")
+    expected_sha = pinned_sha("dreamsim")
+    note = "" if expected_sha else " (no sha256 is pinned in optional_components.json yet)"
+    if c.quick:
+        return Outcome("pass", "dreamsim.onnx is present (hash, load and fixture checks skipped in quick mode).",
+                       detail={"clone_check_mode": "full", "dreamsim_present": True})
+    try:
+        actual = sha256_file(model)
+    except OSError as exc:
+        return _dreamsim_degraded(f"dreamsim.onnx could not be read ({exc}).")
+    if expected_sha and actual != expected_sha:
+        return _dreamsim_degraded("dreamsim.onnx does not match the sha256 in optional_components.json, so it is switched off.",
+                                  "Delete the file and install it again from Settings > Optional components.", sha256=actual)
+    pairs, problem = _fixture_pairs(model.with_name(DREAMSIM_FILE + ".json"))
+    if not pairs:
+        return _dreamsim_degraded(f"The fixture check could not run: {problem}.", sha256=actual)
+    try:
+        from duoskin.checks import thresholds
+
+        tol = float(thresholds.get("dreamsim.fixture_tol"))
+    except Exception:  # noqa: BLE001
+        tol = FIXTURE_TOL_FALLBACK
+    loaded, measured, problem = probe_dreamsim(model, pairs)
+    if not loaded:
+        return _dreamsim_degraded(f"dreamsim.onnx did not load ({problem}).", sha256=actual)
+    off = [m for m in measured if abs(float(m["distance"]) - float(m["expected"])) > tol]
+    if off or not measured:
+        return _dreamsim_degraded(f"dreamsim.onnx loads but the fixture pair is off by more than {tol} "
+                                  f"(got {off[0]['distance']:.4f}, expected {off[0]['expected']:.4f})." if off else
+                                  "dreamsim.onnx loads but returned no fixture distances.", sha256=actual)
+    return Outcome("pass", f"dreamsim.onnx loads and {len(measured)} fixture pair(s) match within {tol}{note}.",
+                   detail={"clone_check_mode": "full", "dreamsim_present": True, "sha256": actual, "pairs": len(measured)})
+
+
+# ------------------------------------------------------------------------------------------------------- S15
+def _outcome_flag(c: DoctorCtx, check_id: str, flag: str, fallback: bool) -> bool:
+    out = c.outcomes.get(check_id)
+    value = out.detail.get(flag) if out is not None else None
+    return bool(value) if isinstance(value, bool) else fallback
+
+
+def write_manifest_flags(paths: config.DataPaths, flags: dict[str, Any]) -> bool:
+    """Merge ``flags`` into an existing, readable ``kits/manifest.json`` (never creates one). True when the file changed."""
+    manifest = paths.kits_dir / "manifest.json"
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    current = data.get("flags") if isinstance(data.get("flags"), dict) else {}
+    merged = {**current, **flags}
+    if merged == current:
+        return False
+    data["flags"] = merged
+    winplat.atomic_write(manifest, (json.dumps(data, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
+    return True
+
+
+def switched_off_components(paths: config.DataPaths) -> list[str]:
+    """Installed optional files (matting, OCR) whose sha256 differs from ``optional_components.json``. A missing file just
+    means the feature is absent; a component with no pinned sha is not judged."""
+    bad: list[str] = []
+    for row in load_optional_components():
+        cid = str(row.get("id", row.get("name", "")))
+        if "dreamsim" in cid.lower() or not row.get("path"):
+            continue
+        sha = str(row.get("sha256") or "").lower()
+        target = paths.home / str(row["path"]).replace("\\", "/")
+        if SHA_HEX.match(sha) and target.is_file():
+            try:
+                if sha256_file(target) != sha:
+                    bad.append(cid)
+            except OSError:
+                bad.append(cid)
+    return sorted(bad)
+
+
+@check("CHK-S15", "Kits and optional components: what is available", kind="soft", fm=["PLN-01", "FACE-02", "BODY-01", "PRM-07", "ENG-08"])
+def chk_s15(c: DoctorCtx) -> Outcome:
+    """Availability of the kits and components, shown as warnings with the route taken (§0.5, §2 S25). Writes the flags
+    into the kit manifest (when there is one) and into the report. Nothing here ever blocks a paid feature."""
+    flags = kit_flags(c.paths)
+    flags["makeup"] = "unavailable"
+    flags["dreamsim_present"] = _outcome_flag(c, "CHK-S14", "dreamsim_present", (c.paths.models_dir / DREAMSIM_FILE).is_file())
+    flags["blender_present"] = _outcome_flag(c, "CHK-S09", "blender_present", detect_blender(c.settings) is not None)
+    routes: list[str] = []
+    if not flags["head_base_present"]:
+        routes.append("no head base: 2D face previews, no Head item")
+    if not flags["body_base_present"]:
+        routes.append("no body base: the standard Block body, body_colors.json only")
+    if not flags["house_style_present"]:
+        routes.append("no house style sheet: run S0 (setup wizard step 6); other image calls use the STYLE text block only")
+    if flags["hair_kit_empty"]:
+        routes.append("no hair kit: every hair is hair_custom (Tripo or a model of your own)")
+    if not flags["dreamsim_present"]:
+        routes.append("no DreamSim: the clone check runs degraded")
+    if not flags["blender_present"]:
+        routes.append("no Blender: the no-Blender mode (glTF only, no FBX)")
+    off = switched_off_components(c.paths)
+    if off:
+        routes.append("switched off (the file does not match its sha256): " + ", ".join(off))
+    try:
+        wrote = write_manifest_flags(c.paths, flags)
+    except OSError as exc:
+        log.warning("could not write the kit flags into the manifest: %s", exc)
+        wrote = False
+    detail = {"flags": flags, "routes": routes, "switched_off": off, "manifest_updated": wrote}
+    if routes:
+        return Outcome("warn", "Some optional parts are missing, which is normal on a fresh install. Routes taken: " + "; ".join(routes) + ".",
+                       "Nothing here blocks you. Add the parts later from the Library and Settings pages.", detail)
+    return Outcome("pass", "Every kit and optional component is available.", detail=detail)
 
 
 # ------------------------------------------------------------------------------------------------------- runner
@@ -788,6 +989,7 @@ def run_doctor(rt: Runtime | None = None, *, home: Path | None = None, setup: bo
         started = time.monotonic()
         try:
             outcome = d.fn(ctx)
+            ctx.outcomes[d.id] = outcome
             result = _to_check_result(d, outcome)
         except Exception as exc:
             log.exception("doctor check %s crashed", d.id)
@@ -797,7 +999,10 @@ def run_doctor(rt: Runtime | None = None, *, home: Path | None = None, setup: bo
         # a SOFT check can only warn; HARD/ASSERT failures block
         if status == "fail" and d.kind == "soft":
             status = "warn"
-        blocking = status == "fail" and d.kind in ("hard", "assert")
+        # blocking = a HARD or ASSERT result with passed=False (a crash is ``not_run``, which counts); SOFT and N/A never block
+        blocking = d.kind in ("hard", "assert") and not result.passed
+        if blocking:
+            status = "fail"
         items.append({"id": d.id, "title": d.title, "kind": d.kind, "status": status, "message": outcome.message, "fix": outcome.fix,
                       "fm_ids": d.fm_ids, "blocking": blocking, "fatal": bool(d.fatal and status == "fail"),
                       "detail": outcome.detail, "duration_ms": int((time.monotonic() - started) * 1000),
@@ -806,11 +1011,14 @@ def run_doctor(rt: Runtime | None = None, *, home: Path | None = None, setup: bo
                "failed": sum(1 for i in items if i["status"] == "fail"), "not_applicable": sum(1 for i in items if i["status"] == "na")}
     blocks = any(i["blocking"] for i in items)
     broken = any(i["fatal"] for i in items)
-    exit_code = 3 if broken else (2 if (blocks or summary["warnings"] or summary["failed"]) else 0)
-    flags = kit_flags(paths)
-    flags["clone_check_mode"] = next((i["detail"].get("clone_check_mode") for i in items if i["id"] == "CHK-S14" and i["detail"].get("clone_check_mode")), "degraded")
+    exit_code = 3 if broken else (2 if blocks else 0)       # warnings alone give 0 (APP_SPEC §15.3)
+    s15 = next((i["detail"].get("flags") for i in items if i["id"] == "CHK-S15" and i["detail"].get("flags")), None)
+    flags = dict(s15) if s15 else {**kit_flags(paths), "makeup": "unavailable",
+                                     "dreamsim_present": (paths.models_dir / DREAMSIM_FILE).is_file(),
+                                     "blender_present": detect_blender(settings) is not None}
+    flags["clone_check_mode"] = "full" if flags.get("dreamsim_present") else "degraded"
     flags["degraded_clone_check"] = flags["clone_check_mode"] == "degraded"
-    flags["blender"] = str(detect_blender(settings)) if not quick else None
+    flags["blender"] = (str(detect_blender(settings)) if flags.get("blender_present") else None) if not quick else None
     report = {"ts": iso_utc(utcnow()), "version": __version__, "python": platform.python_version(), "platform": platform.platform(),
               "setup": setup, "quick": quick, "checks": items, "summary": summary, "blocks_paid_features": blocks,
               "broken_install": broken, "exit_code": exit_code, "flags": flags}

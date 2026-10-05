@@ -1,8 +1,9 @@
 """``python -m duoskin <command>`` (APP_SPEC §15.4). Always launch with ``-m duoskin`` from the app root.
 
 Commands: ``run [--open-browser] [--port N]``, ``selfcheck``, ``doctor [--setup] [--json]``, ``reset-leases``,
-``export-diagnostics``, ``gc [--dry-run]``; ``regression``, ``build-kit-manifest`` and ``calibrate-report`` belong to later
-milestones and say so.
+``export-diagnostics``, ``gc [--dry-run]``; ``regression [--stage plan|parts] [--template ID] [--sample N]
+[--candidate role=version]``, ``build-kit-manifest``, ``build-head-base <source> --variant <name>`` and ``calibrate-report``
+belong to later milestones and say so (their arguments are parsed so the later tracks only fill in the body).
 """
 import os
 
@@ -251,7 +252,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("selfcheck", help="import the package and its pure-Python dependencies").set_defaults(fn=cmd_selfcheck)
 
-    doc = sub.add_parser("doctor", help="check this PC (CHK-S01..S14)")
+    doc = sub.add_parser("doctor", help="check this PC (CHK-S01..S15)")
     doc.add_argument("--setup", action="store_true", help="the run that follows setup.bat (no network probes)")
     doc.add_argument("--quick", action="store_true", help="skip the slow native-library probes")
     doc.add_argument("--json", action="store_true")
@@ -266,7 +267,17 @@ def build_parser() -> argparse.ArgumentParser:
     gc.add_argument("--yes", action="store_true", help="do not ask before deleting")
     gc.set_defaults(fn=cmd_gc)
 
-    for name in ("regression", "build-kit-manifest", "calibrate-report"):
+    reg = sub.add_parser("regression", help="the staged regression + variety guard (later milestone)")
+    reg.add_argument("--stage", choices=("plan", "parts"), default="plan")
+    reg.add_argument("--template", action="append", default=[], metavar="ID")
+    reg.add_argument("--sample", type=int, default=None)
+    reg.add_argument("--candidate", action="append", default=[], metavar="ROLE=VERSION")
+    reg.set_defaults(fn=lambda _a: _later("regression"))
+    head = sub.add_parser("build-head-base", help="build a head-base folder from a source mesh through Blender (later milestone)")
+    head.add_argument("source", type=Path)
+    head.add_argument("--variant", required=True)
+    head.set_defaults(fn=lambda _a: _later("build-head-base"))
+    for name in ("build-kit-manifest", "calibrate-report"):
         sub.add_parser(name, help="later milestone").set_defaults(fn=lambda _a, n=name: _later(n))
     return p
 

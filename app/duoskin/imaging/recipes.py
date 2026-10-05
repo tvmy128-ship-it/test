@@ -355,6 +355,20 @@ def list_recipe_ids(extra_dirs: list[Path] | None = None) -> list[str]:
     return sorted(ids)
 
 
+def catalogue(extra_dirs: list[Path] | None = None) -> list[dict[str, Any]]:
+    """One row per recipe for the kit manifest and the garment cut lint: ``recipe_id``, ``template``, ``family``, ``title``,
+    ``fold_set``, the allowed values of every cut attribute (``cut``), the defaults, the print slot regions and the recipe sha256.
+    Sorted by id; ``TopRecipeKit`` / ``BottomRecipeKit`` are built from the ``shirt`` / ``pants`` rows."""
+    rows = []
+    for rid in list_recipe_ids(extra_dirs):
+        r = load_recipe(rid, extra_dirs)
+        rows.append({"recipe_id": rid, "template": r.template, "family": r.family, "title": r.title or rid, "fold_set": r.fold_set,
+                     "cut": {k: list(v) for k, v in r.cut.items()}, "defaults": dict(r.defaults),
+                     "print_slots": [{"region": s.region, "role": s.role} for s in r.print_slots],
+                     "requires_bottom": dict(r.requires_bottom), "sha256": r.sha256})
+    return rows
+
+
 # --------------------------------------------------------------------------------------------------------------------
 # resolution: variables, conditions, resolved layers
 # --------------------------------------------------------------------------------------------------------------------

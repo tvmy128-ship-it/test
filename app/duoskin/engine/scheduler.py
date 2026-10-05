@@ -346,12 +346,22 @@ class Scheduler:
                     step = self._store_key(step, key)
                 if handler.paid:
                     est = float(handler.estimate(params))
-                    check, _reservation = rt.budget.check_and_reserve(
-                        step.project_id, Estimate(usd=est, provider=handler.provider or "mock", operation="reserve"),   # type: ignore[arg-type]
-                        step_id=step.id, attempt=step.attempt, budget_ok=step.budget_ok)
-                    if not check.ok:
-                        self._open_budget_gate(step, est, check)
-                        return
+                    estimate = Estimate(usd=est, provider=handler.provider or "mock", operation="reserve")   # type: ignore[arg-type]
+                    job = rt.repo.find_job(step.job_id)
+                    if job is not None and job.kind == JobKind.REGRESSION:
+                        # decided once for the whole job (APP_SPEC §3.9): above ``regression_ask_usd`` it waits for the user
+                        job_est = float(job.params.get("estimate_usd") or est)
+                        check = rt.budget.regression_check(job_est, confirmed=step.budget_ok or bool(job.params.get("budget_confirmed")))
+                        if not check.ok:
+                            self._open_budget_gate(step, job_est, check)
+                            return
+                        rt.budget.check_and_reserve(step.project_id, estimate, step_id=step.id, attempt=step.attempt, budget_ok=True)
+                    else:
+                        check, _reservation = rt.budget.check_and_reserve(
+                            step.project_id, estimate, step_id=step.id, attempt=step.attempt, budget_ok=step.budget_ok)
+                        if not check.ok:
+                            self._open_budget_gate(step, est, check)
+                            return
                 out = handler.run(ctx, params, inputs)
             self._finish(step, handler, ctx, out, key, polling)
         except BaseException as exc:

@@ -36,6 +36,7 @@ from duoskin.imaging.palette import deltaE2000, hex_to_rgb, lab_to_srgb, srgb_to
 from duoskin.imaging.print_place import Placement, PrintSpec
 from duoskin.models.common import canonical_json, sha256_of
 from duoskin.roblox import template as T
+from duoskin.roblox.template import render_flat_preview  # noqa: F401  (re-export: the Gate 2 flat front/back helper)
 
 Kind = Literal["shirt", "pants"]
 SCALE = 4

@@ -190,11 +190,18 @@ class ProviderRegistry:
         if self._flag_sink is not None:
             self._flag_sink(name, value)
             return
+        if not isinstance(value, (bool, str)):
+            return
         try:                                       # best effort: write the flag into settings.capabilities
             from duoskin import config
+            rt = config.active_runtime() if hasattr(config, "active_runtime") else None
+            if rt is not None and hasattr(rt, "update_settings"):
+                if rt.settings.capabilities.get(name) != value:
+                    rt.update_settings({"capabilities": {name: value}})      # persists, drops the effective-settings cache
+                return
             s = config.load_settings()
             caps = dict(s.capabilities)
-            if caps.get(name) == value or not isinstance(value, (bool, str)):
+            if caps.get(name) == value:
                 return
             caps[name] = value
             config.save_settings(s.model_copy(update={"capabilities": caps}))

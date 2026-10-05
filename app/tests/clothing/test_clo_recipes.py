@@ -188,3 +188,13 @@ def test_select_regions_globs():
     assert R.select_regions(["torso_[rflb]"]) == ["torso_r", "torso_f", "torso_l", "torso_b"]
     assert R.select_regions(["?limb_[fblr]"]) == [k for k in T.REGION_ORDER if k[1:5] == "limb" and k[-1] in "fblr"]
     assert R.select_regions(["rlimb_d", "llimb_d"]) == ["rlimb_d", "llimb_d"]
+
+
+def test_catalogue_rows_feed_the_kit_manifest_and_the_cut_lint():
+    rows = R.catalogue()
+    assert [r["recipe_id"] for r in rows] == sorted(r["recipe_id"] for r in rows) and len(rows) == len(R.list_recipe_ids())
+    by = {r["recipe_id"]: r for r in rows}
+    assert by["tee"]["template"] == "shirt" and by["skirt_pleated"]["family"] == "skirt" and by["crop_top"]["requires_bottom"] == {"waist": ["high"]}
+    assert by["hoodie"]["cut"]["neckline"] == ["hood"] and {s["region"] for s in by["tee"]["print_slots"]} >= {"torso_f", "torso_b"}
+    assert len({r["sha256"] for r in rows}) == len(rows)
+    json.dumps(rows)

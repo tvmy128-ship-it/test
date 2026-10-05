@@ -45,8 +45,14 @@ def register_mock_roles(register) -> None:
     try:
         from duoskin.models import kitenums, spec  # noqa: F401
     except ImportError:
+        pass
+    else:
+        register("PlanSet", planner_builder)         # by schema class: any route that asks for a PlanSet gets plans
+    try:
+        from duoskin.models import llm_io  # noqa: F401
+    except ImportError:
         return
-    register("PlanSet", planner_builder)         # by schema class: any route that asks for a PlanSet gets plans
+    register("ChangePlan", change_builder)
 
 
 # --------------------------------------------------------------------------------------------------------------
@@ -258,4 +264,77 @@ def planner_builder(call: Any) -> dict[str, Any]:
                                      "garments and accessories.", 40)}
     PlanSet.model_validate(out)                   # fail loudly here (not in the pipeline) if a rule changed under this builder
     assert not plan_set_problems(out)
+    return out
+
+
+# --------------------------------------------------------------------------------------------------------------
+# L7: the change interpreter
+# --------------------------------------------------------------------------------------------------------------
+
+_PART_WORDS = {"top": ("jacket", "shirt", "top", "hoodie", "tee", "sweater", "vest"), "bottom": ("pants", "trousers", "jeans", "skirt", "shorts", "bottoms"),
+               "hair": ("hair",), "shoes": ("shoes", "sneakers", "boots")}
+_REF_PATH = {"top": "top/base_ref", "bottom": "bottom/base_ref", "hair": "hair/colour_ref", "shoes": "bottom/shoes/base_ref"}
+_PART_ID = {"top": "shirt", "bottom": "pants", "hair": "hair", "shoes": "pants"}
+_SIZES = ("small", "medium", "large")
+
+
+def _spec_dict(text: str) -> dict[str, Any] | None:
+    import json
+    m = re.search(r"<spec>(.*?)</spec>", text, re.DOTALL)
+    if not m:
+        return None
+    try:
+        d = json.loads(m.group(1))
+    except ValueError:
+        return None
+    return d if isinstance(d, dict) else None
+
+
+def change_builder(call: Any) -> dict[str, Any]:
+    """``ChangePlan`` for L7: "make B's jacket teal" becomes a palette patch (``replace /palette/<i>/hex``), "bigger" a ``size_class``
+    patch on the first accessory; anything else asks for clarification (empty patch). The spec is read from a ``<spec>`` tag when the
+    content has one; without it the first palette colour / ``/a/accessories/0`` is patched."""
+    import json
+
+    from duoskin.models.llm_io import ChangePlan
+
+    m = re.search(r"<user_change_request>(.*?)</user_change_request>", call.content_text, re.DOTALL)
+    text = (m.group(1) if m else call.content_text).strip()
+    low = text.lower()
+    spec = _spec_dict(call.content_text)
+    who = "b" if re.search(r"\bb\b", low) and not re.search(r"\ba\b", low) else "a"
+    colour = next((w for w in re.findall(r"[a-z]+", low) if w in D.COLOR_WORDS), None)
+    part = next((k for k, words in _PART_WORDS.items() if any(re.search(rf"\b{w}\b", low) for w in words)), None)
+    empty = {"understood_as": "", "needs_clarification": "", "patch": [], "redo_parts": [], "image_fixes": [], "duo_contract_risks": []}
+    if re.search(r"\bmake\b", low) and colour and part:
+        idx = 0
+        if spec:
+            ref = spec
+            for key in f"{who}/{_REF_PATH[part]}".split("/"):
+                ref = ref.get(key, {}) if isinstance(ref, dict) else {}
+            ids = [c.get("id") for c in spec.get("palette", []) if isinstance(c, dict)]
+            idx = ids.index(ref) if ref in ids else 0
+        hexv = "#{:02X}{:02X}{:02X}".format(*D.COLOR_WORDS[colour])
+        part_id = f"{who}.{_PART_ID[part]}"
+        out = {**empty, "understood_as": _words(f"Change the {part} colour of character {who} to {colour}.", 30),
+               "patch": [{"op": "replace", "path": f"/palette/{idx}/hex", "value_json": json.dumps(hexv), "reason": _words(f"the user wants the {part} {colour}", 20)}],
+               "redo_parts": [{"part_id": part_id, "reason": "its colour changes"}],
+               "image_fixes": [{"part_id": part_id, "fix_sentence": _words(f"Make the {part} {colour}, keeping its shape and details.", 25), "scope": "global_edit",
+                                "region_hint": "whole", "keep": ["the silhouette", "the print position"]}]}
+    elif "bigger" in low or "larger" in low:
+        size = "large"
+        if spec:
+            accs = ((spec.get(who) or {}).get("accessories") or [])
+            cur = accs[0].get("size_class") if accs and isinstance(accs[0], dict) else "small"
+            size = _SIZES[min(_SIZES.index(cur) + 1, 2)] if cur in _SIZES else "large"
+        part_id = f"{who}.acc.0"
+        out = {**empty, "understood_as": _words(f"Make the accessory of character {who} bigger.", 30),
+               "patch": [{"op": "replace", "path": f"/{who}/accessories/0/size_class", "value_json": json.dumps(size), "reason": "the user wants it bigger"}],
+               "redo_parts": [{"part_id": part_id, "reason": "its size changes"}],
+               "image_fixes": [{"part_id": part_id, "fix_sentence": "Draw the accessory larger within the same frame.", "scope": "regenerate",
+                                "region_hint": "whole", "keep": ["its colours"]}],
+               "duo_contract_risks": ["a bigger accessory may leave the Classic size box"] if size == "large" else []}
+    else:
+        out = {**empty, "understood_as": _words(text, 30) or "unclear request", "needs_clarification": "Which character and which part should change, and how?"}
+    ChangePlan.model_validate(out)
     return out

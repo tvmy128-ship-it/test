@@ -72,6 +72,7 @@ class Budgets(Strict):
     ask_above_usd: float = Field(default=2.0, ge=0)
     daily_cap_usd: float | None = Field(default=None, gt=0)
     tripo_credit_floor: int = Field(default=200, ge=0)  # banner when balance - frozen falls below
+    regression_ask_usd: float = Field(default=20.0, gt=0)  # a REGRESSION job above this estimate opens a BUDGET gate (§3.9)
 
 
 def _default_modes() -> dict[str, ProviderMode]:
@@ -142,6 +143,7 @@ class Settings(Strict):
     checks: ChecksSettings = Field(default_factory=ChecksSettings)
     paths: Paths = Field(default_factory=Paths)
     planner_structure_lru_hint: bool = False
+    regression_reuse_plan_cache: bool = True            # §3.9: a part-template regression never pays for replanning
     capabilities: dict[str, bool | str] = Field(default_factory=dict)   # §7.1 flags from probes and errors
     telemetry: Literal["off"] = "off"                   # nothing leaves the PC except provider calls
 
