@@ -386,11 +386,13 @@ def llmcall_estimate() -> float:
 
 
 def register(rt: Runtime | None = None) -> None:
-    registry.register_handler("mesh.import", run_import, version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
-    registry.register_handler("mesh.repair", run_repair, version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
-    registry.register_handler("hair.register", run_hair_register, version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
-    registry.register_handler("mesh.validate", run_validate, version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
-    registry.register_handler("mesh.flip", run_flip, version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
+    from duoskin.pipeline.build import guarded
+
+    registry.register_handler("mesh.import", guarded(run_import), version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
+    registry.register_handler("mesh.repair", guarded(run_repair), version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
+    registry.register_handler("hair.register", guarded(run_hair_register), version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
+    registry.register_handler("mesh.validate", guarded(run_validate), version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
+    registry.register_handler("mesh.flip", guarded(run_flip), version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
     registry.register_handler("mesh.judge", run_judge, version=1, pool="api", paid=True, provider="anthropic", Params=MeshStepParams,
                               estimate=estimate_judge, cacheable=False)
 

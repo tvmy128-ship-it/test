@@ -349,9 +349,10 @@ def taste_builder(call: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------------------------------- L15
 def inventory_builder(call: Any) -> dict[str, Any]:
     spec = _spec_from(call.content_text) or {}
-    blob = json.dumps(spec).lower()
+    facts = _json_tag(call.content_text, "measured_facts") or {}
+    only = facts.get("character") if isinstance(facts, dict) else None          # one picture shows one character
     items: list[dict[str, Any]] = []
-    for c in ("a", "b"):
+    for c in ((only,) if only in ("a", "b") else ("a", "b")):
         ch = spec.get(c) or {}
         top = (ch.get("top") or {}).get("recipe_id")
         if top:
@@ -365,7 +366,6 @@ def inventory_builder(call: Any) -> dict[str, Any]:
                           "buildable": not bad, "suggested_spec_path": ""})
     if not items:
         items.append({"element": "plain outfit", "where": "front", "in_spec": True, "buildable": True, "suggested_spec_path": ""})
-    _ = blob
     return {"items": items[:20]}
 
 

@@ -99,7 +99,7 @@ def test_the_picture_checks_are_recorded_and_pass_for_the_shown_drafts(client, r
 
 
 def test_the_concept_state_keeps_alternatives_and_the_chosen_draft_per_character(client, rt, world):
-    pid, gate = world["tiles"]
+    _pid, gate = world["tiles"]
     for slot in range(3):
         for c in "ab":
             st = cstate(rt, gate, slot, c)
@@ -159,12 +159,31 @@ def test_approve_locks_the_palette_and_dna_v1_and_advances_to_the_part_board(cli
         client.post(f"/api/jobs/{jv['job']['id']}/cancel")
 
 
-def test_approving_a_tile_that_is_not_ready_is_refused(client, rt, world):
+def test_choosing_the_planned_palette_keeps_every_planned_colour(client, rt, world):
     pid, gate = world["tiles"]
-    t = tile_by_slot(gate, 1)
-    r = decide(client, gate, t, "approve", choice="palette:planned")
-    assert r.status_code == 200, "a READY tile can be approved (and this is the 'tiles' project: nothing else uses it)"
-    wait_for(lambda: client.get(f"/api/projects/{pid}").json()["project"]["stage"] in ("parts", "gate1"), timeout=60)
+    tile = tile_by_slot(gate, 1)
+    r = decide(client, gate, tile, "approve", choice="palette:planned")
+    assert r.status_code == 200, r.text
+    if r.json()["provisional"]:
+        client.post(f"/api/gates/{gate['id']}/decisions/{r.json()['decision']['id']}/confirm",
+                    json={"override_warnings": [w["id"] for w in r.json()["released_warnings"]]})
+    wait_for(lambda: job_steps(client, pid, "concept.lock") and job_steps(client, pid, "concept.lock")[0]["state"] == "succeeded", timeout=240)
+    palette = step_result(rt, job_steps(client, pid, "concept.lock")[0]["id"])["palette"]
+    assert palette and all(e["used"] == e["planned"] for e in palette), "'keep the planned colours' never takes a colour from the picture"
+    for jv in client.get("/api/jobs", params={"project_id": pid}).json():
+        client.post(f"/api/jobs/{jv['job']['id']}/cancel")
+
+
+def test_a_tile_that_is_still_being_drawn_cannot_be_approved(client, rt, world):
+    pid, gate = world["alts"]
+    tile = tile_by_slot(gate, 1)
+    assert decide(client, gate, tile, "reimagine").status_code == 200
+    g2 = concept_gate(client, pid)
+    t2 = tile_by_slot(g2, 1)
+    if t2["state"] == "generating":
+        refused = decide(client, g2, t2, "approve")
+        assert refused.status_code == 409 and refused.json()["error"] == "tile_busy"
+    wait_tile(client, pid, "plan1", version_above=tile["version"])
 
 
 # ---------------------------------------------------------------------------------------------------- reimagine
@@ -236,7 +255,7 @@ def test_change_at_gate1_routes_to_i1e_on_the_chosen_draft_and_edits_only_the_as
     assert r.status_code == 200, r.text
     assert r.json()["decision"]["resulting_spec_id"] and r.json()["decision"]["change_request_id"] == cid
     wait_for(lambda: change_status(client, cid) == "applied", timeout=30)
-    gate2, tile2 = wait_tile(client, pid, "plan0", version_above=tile["version"])
+    _gate2, tile2 = wait_tile(client, pid, "plan0", version_above=tile["version"])
     new_id = tile2["facts"]["spec_id"]
     assert new_id != old_spec_id and tile2["facts"]["version"] == 2 and tile2["state"] == "ready"
     rows = {r["spec"]["id"]: r["spec"] for r in specs_of(client, pid)}
@@ -320,7 +339,7 @@ def test_new_plan_sets_the_three_plans_aside_and_the_next_round_avoids_them(clie
     for jv in client.get("/api/jobs", params={"project_id": pid}).json():
         client.post(f"/api/jobs/{jv['job']['id']}/cancel")
     rows = {r["spec"]["id"]: r["spec"] for r in specs_of(client, pid)}
-    for sid, rec in old.items():
+    for sid in old:
         assert rows[sid]["status"] in ("superseded", "dropped"), "the plans that were set aside are never shown again"
     new_shown = [s for s in rows.values() if s["status"] == "shown"]
     assert len(new_shown) == 3 and not ({s["id"] for s in new_shown} & set(old))
@@ -331,7 +350,8 @@ def test_new_plan_sets_the_three_plans_aside_and_the_next_round_avoids_them(clie
     assert len(entries) == 3 and all(e["reason"].startswith("too busy") for e in entries) and BR.plan_round(rt, pid) == 1
     project = rt.repo.get_project(pid)
     assert project.stage.value == "planning" and project.approved_spec_id is None
-    planners = [rt.repo.get_step(s["id"]) for s in job_steps(client, pid, "plan.planner") if not rt.repo.get_step(s["id"]).params.get("replacement")]
+    planners = sorted((rt.repo.get_step(s["id"]) for s in job_steps(client, pid, "plan.planner")), key=lambda st: st.created_at)
+    planners = [p_ for p_ in planners if not p_.params.get("replacement")]
     assert len(planners) == 2 and planners[0].params["round"] == 0 and planners[1].params["round"] == 1 and planners[1].nonce == "plan1"
 
 
@@ -340,7 +360,7 @@ def test_what_the_kits_cannot_build_is_listed_and_approval_needs_the_acknowledge
     pid, gate = world["cape"]
     capes = [t for t in gate["tiles"] if t["facts"]["not_buildable"]]
     assert len(capes) == 1 and any("cape" in x for x in capes[0]["facts"]["not_buildable"])
-    assert all("character B" in x for x in capes[0]["facts"]["not_buildable"])
+    assert len(capes[0]["facts"]["not_buildable"]) == 1 and capes[0]["facts"]["not_buildable"][0].endswith("character B"), capes[0]["facts"]
     assert [t for t in gate["tiles"] if not t["facts"]["not_buildable"]]
     tile = capes[0]
     refused = decide(client, gate, tile, "approve")

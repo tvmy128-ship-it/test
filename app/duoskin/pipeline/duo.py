@@ -434,6 +434,9 @@ def build_tile(rt: Runtime, project_id: str, *, version: int = 0) -> GateTile:
         banners.append("Reference-similarity check is off")
     if rebuilt:
         banners.append("rebuilt since you last looked: " + ", ".join(rebuilt))
+    for x in parts_:
+        if x.license == "tripo_free_public_ccby_noncommercial":
+            banners.append(f"{x.id}: made on Tripo's FREE plan (public, no commercial-use rights): do not sell it")
     warnings = list(st.get("warnings", []))
     facts = {"checks": st.get("checks"), "judge": st.get("judge"), "ip": st.get("ip"), "similarity": sim, "banners": banners, "clone_evidence": st.get("clone_evidence"),
              "blocking": st.get("blocking", []), "ip_unsure": bool((st.get("ip") or {}).get("unsure")), "rebuilt": rebuilt,

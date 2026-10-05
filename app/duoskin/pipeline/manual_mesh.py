@@ -349,7 +349,9 @@ def assign_import(rt: Runtime, inbox_id: str, project_id: str, part_id: str, *, 
     state = pack_state(rt, project_id, part_id) or {}
     expected = state.get("pack_id") or ""
     gate_id, step_id = state.get("gate_id"), state.get("step_id")
-    pv = common.prov(mesh_import.provenance_source(licence), step_kind="mesh.upload", license=licence,   # type: ignore[arg-type]
+    src = mesh_import.provenance_source(licence)
+    src = "user" if src == "user_made" else src                    # Provenance.source has no "user_made": the file is the user's own work
+    pv = common.prov(src, step_kind="mesh.upload", license=licence,   # type: ignore[arg-type]
                      params={"original_name": path.name, "tripo_plan": tripo_plan, "task_link": task_link, "pack_id": expected, "bytes": len(data)})
     asset = rt.cas.put(data, path.suffix.lstrip(".").lower() or "glb", prov=pv,
                        link=_link(project_id, part_id, "mesh_upload", pv))

@@ -631,7 +631,7 @@ def run_assemble(ctx: StepContext, p: AssembleParams, inputs: list[Any]) -> Step
             sts[c]["inventory"] = inv
             put_state(rt, p.plan_set_id, p.slot, c, sts[c])
         inventory[c] = inv["items"]
-    nb = [f"{x} - character {c.upper()}" for c in CHARS for x in not_buildable_list(inventory[c])]
+    nb = [f"{x}: character {c.upper()}" for c in CHARS for x in not_buildable_list(inventory[c])]
     results.append(runner.build_result("CHK-G1-09", passed=not nb, subject_sha=sheet_sha, metric="not_buildable", value=float(len(nb)),
                                        evidence="; ".join(nb) or "everything in the picture can be built"))
     for c in CHARS:
@@ -999,6 +999,7 @@ def finalize_character(ctx: StepContext, spec: dict[str, Any], c: str, draft_sha
         final = common.open_image(raws[0]).convert("RGB")
         chk = runner.run_check("A_DRIFT", raw_sha, lambda final=final, raw_sha=raw_sha: C.check_drift(final, draft, bg_hex=BG, subject_sha=raw_sha))
         out["checks"].append(r_summary(chk))
+        out.setdefault("results", []).append(chk)
         out["attempts"] = attempt + 1
         if chk.passed:
             out.update({"used": "final", "png": common.png_bytes(final), "request_id": rid})
@@ -1088,8 +1089,13 @@ def run_lock(ctx: StepContext, p: LockParams, inputs: list[Any]) -> StepResult:
         ctx.progress(0.1 + 0.3 * n, f"final drawing of character {c.upper()}")
         finals[c] = finalize_character(ctx, rec.spec, c, sts[c]["chosen"]["sha"], project, counter)
     ims = {c: common.open_image(finals[c]["png"]).convert("RGB") for c in CHARS}
+    ctx.record_checks([r for c in CHARS for r in finals[c].get("results", [])])
     ctx.progress(0.7, "reading the colours of the picture")
     locked_spec, palette_log = palette_lock(rt, rec, ims, p.palette_choice)
+    snapped = sum(1 for e in palette_log if e["used"].upper() == e["planned"].upper())
+    ctx.record_checks([runner.build_result("CHK-G1-08", passed=True, subject_sha=sha256_of(locked_spec), metric="palette_snap", value=float(snapped),
+                                           evidence=f"{snapped} of {len(palette_log)} zone colours snapped to the plan; the picture used is "
+                                                    + ", ".join(f"{c.upper()}: {finals[c]['used']}" for c in CHARS))])
     pv = common.prov("mock" if common.is_mock(rt, "openai") else "openai", provider="openai", prompt_id="I0.finalize", nonce=ctx.step.nonce,
                      params={"spec_id": p.spec_id, "palette": palette_log})
     sheet = guides.assemble_concept_sheet(ims["a"], ims["b"])
@@ -1121,7 +1127,7 @@ def run_lock(ctx: StepContext, p: LockParams, inputs: list[Any]) -> StepResult:
     job = PL.start_parts(p.project_id, rt)
     return StepResult(outputs=[record.sha256],
                       result={"spec_id": new.id, "parent_spec_id": parent.id, "palette": palette_log, "crops": sorted(crops),
-                              "finalize": {c: {k: v for k, v in finals[c].items() if k != "png"} for c in CHARS},
+                              "finalize": {c: {k: v for k, v in finals[c].items() if k not in ("png", "results")} for c in CHARS},
                               "parts_job": getattr(job, "id", None)},
                       message="the concept is locked; the part board is starting")
 

@@ -409,9 +409,11 @@ def register(rt: Runtime | None = None) -> None:
     registry.register_handler("hair.board", run_board, version=1, pool="cpu", paid=False, Params=HairParams, cacheable=False)
     from duoskin.pipeline.meshsteps import MeshStepParams
 
-    registry.register_handler("hair.kit_match", run_kit_match, version=1, pool="api", paid=True, provider="anthropic", Params=MeshStepParams,
+    from duoskin.pipeline.build import guarded
+
+    registry.register_handler("hair.kit_match", guarded(run_kit_match, "anthropic"), version=1, pool="api", paid=True, provider="anthropic", Params=MeshStepParams,
                               estimate=lambda p: 0.1, cacheable=False)
-    registry.register_handler("hair.fit", run_fit, version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
+    registry.register_handler("hair.fit", guarded(run_fit), version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
 
 
 _ = itemspec

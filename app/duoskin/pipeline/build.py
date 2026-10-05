@@ -23,6 +23,7 @@ said so; then the P1 route runs once; then the user gets the Tripo pack (``manua
 """
 from __future__ import annotations
 
+import functools
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -31,6 +32,7 @@ from duoskin.db.errors import NotFound
 from duoskin.engine import deps
 from duoskin.engine import registry
 from duoskin.engine import scheduler as sched
+from duoskin.engine import errors as eng_errors
 from duoskin.engine.errors import StepFailure
 from duoskin.engine.gates import ApplyContext, ApplyResult
 from duoskin.engine.registry import Pending, StepResult
@@ -432,6 +434,8 @@ def mesh_failed(ctx: StepContext, part: Part, p: MeshStepParams, prev: dict[str,
     rt = ctx.rt
     project_id = ctx.step.project_id or ""
     kind = p.source.get("kind", "tripo")
+    if prev.get("handled"):                                      # the guard of an earlier step already chose the next route
+        return "handled"
     if mirrored_only and prev.get("files"):
         rt.repo.kv_set(f"candidate:{project_id}:{part.id}", {"files": prev["files"], "source": p.source, "licence": prev.get("licence"), "facts": prev.get("facts"),
                                                              "mock": prev.get("mock")})
@@ -455,6 +459,48 @@ def mesh_failed(ctx: StepContext, part: Part, p: MeshStepParams, prev: dict[str,
     manual_mesh.start_manual(rt, project_id, part.id, job_id=ctx.step.job_id, reason=reason or "the model could not be made automatically",
                              step_ctx=ctx)
     return "manual"
+
+
+# ---------------------------------------------------------------------------------------------------- a step that fails for good
+def guarded(fn: Any, provider: str | None = None) -> Any:
+    """Wrap a BUILD handler so that a failure the engine would not retry (or the last attempt) never leaves the tile hanging: the next Tripo seed or
+    route, else the Tripo pack for the user. The engine still retries what it would retry; a cancelled step stays cancelled."""
+    @functools.wraps(fn)
+    def run(ctx: StepContext, p: Any, *rest: Any) -> Any:
+        try:
+            return fn(ctx, p, *rest)
+        except Exception as exc:  # noqa: BLE001
+            if eng_errors.is_cancelled(exc):
+                raise
+            decision = eng_errors.decide(ctx.step, exc, provider)
+            if decision.action != "fail" or not getattr(p, "part_id", ""):
+                raise
+            return fall_back(ctx, p, decision.error.user_hint or decision.error.message)
+    return run
+
+
+def fall_back(ctx: StepContext, p: Any, reason: str) -> StepResult:
+    """The step cannot give a result: the next seed / route for a Tripo model, else the tile goes to the user (the Tripo pack, with the reason)."""
+    from duoskin.pipeline import manual_mesh
+
+    rt = ctx.rt
+    project_id = ctx.step.project_id or ""
+    part = rt.repo.get_part(project_id, p.part_id)
+    reason = (reason or "the step failed")[:300]
+    log.warning("build step %s of %s failed for good: %s", ctx.step.kind, part.id, reason)
+    if ctx.step.kind == "tripo.model":
+        idx, route = int(getattr(p, "seed_index", 0)), str(getattr(p, "route", "p2"))
+        nxt = None
+        if route == "p2" and idx + 1 < len(SEEDS):
+            nxt = dict(seed_index=idx + 1, route="p2")
+        elif route == "p2":
+            nxt = dict(seed_index=0, route="p1")
+        if nxt is not None and "budget" not in reason.lower():
+            ctx.spawn([model_step(rt, ctx.step.job_id, project_id, part, priority=ctx.step.priority, nonce=common.new_nonce(), mv_step=getattr(p, "mv_step", ""), **nxt)])
+            return StepResult(result={"ok": False, "handled": True, "reason": reason, "next": f"seed {nxt['seed_index']} {nxt['route']}"},
+                              message=f"Tripo could not make the model ({reason}); trying again")
+    manual_mesh.start_manual(rt, project_id, part.id, job_id=ctx.step.job_id, reason=f"{ctx.step.kind} could not finish: {reason}", step_ctx=ctx)
+    return StepResult(result={"ok": False, "handled": True, "skipped": True, "reason": reason, "next": "manual"}, message="could not be made automatically: the Tripo pack is ready")
 
 
 # ---------------------------------------------------------------------------------------------------- flip
@@ -539,6 +585,17 @@ def maybe_start_duo(rt: Runtime, project_id: str) -> bool:
 
 
 # ---------------------------------------------------------------------------------------------------- the "ask" gate
+BUILD_PAID_KINDS = ("tripo.model", "hair.kit_match")
+
+
+def _stopped_at_budget(rt: Runtime, ac: ApplyContext) -> None:
+    """"Stop" on the budget gate of a model step: the step fails with "budget" (the engine's rule) and the tile is not left hanging: the Tripo pack
+    opens, so the user can make the model on Tripo's website instead (rows and steps only: the pack folder is written by the step)."""
+    from duoskin.pipeline import manual_mesh
+
+    manual_mesh.start_manual(rt, ac.project_id, str(ac.tile.part_id), job_id=ac.gate.job_id, reason="you stopped at the budget gate")
+
+
 def wrap_budget_applier(rt: Runtime) -> None:
     """The 3D-route question reuses the BUDGET gate (Continue = the Tripo API, Stop = I make the models myself); other budget gates are unchanged."""
     prev = rt.gates._appliers.get(GateKind.BUDGET.value)
@@ -547,7 +604,10 @@ def wrap_budget_applier(rt: Runtime) -> None:
 
     def apply(ac: ApplyContext) -> ApplyResult | None:
         if not ac.tile.facts.get("mesh_mode_ask"):
-            return prev(ac)
+            res = prev(ac)
+            if ac.decision.action == GateAction.STOP and ac.tile.facts.get("step_kind") in BUILD_PAID_KINDS and ac.tile.part_id:
+                _stopped_at_budget(rt, ac)
+            return res
         mode = "api" if ac.decision.action in (GateAction.CONTINUE, GateAction.RAISE_CAP) else "manual"
         rt.repo.mutate_project(ac.project_id, lambda x: setattr(x.settings, "mesh_mode", mode))
         rt.ops.transition(ac.tile.tile_id, StepState.READY, expect=StepState.WAITING_USER,
@@ -562,10 +622,10 @@ def wrap_budget_applier(rt: Runtime) -> None:
 def register(rt: Runtime | None = None) -> None:
     registry.register_handler("build.plan", run_plan, version=1, pool="cpu", paid=False, Params=PlanParams, cacheable=False)
     registry.register_handler("build.finish", run_finish, version=1, pool="cpu", paid=False, Params=FinishParams, cacheable=False)
-    registry.register_handler("tripo.model", run_tripo_model, version=1, pool="api", paid=True, provider="tripo", Params=ModelParams, estimate=estimate_model,
-                              poll=poll_tripo_model, cacheable=False)
-    registry.register_handler("slab.build", run_slab_build, version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
-    registry.register_handler("primitive.build", run_primitive_build, version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
+    registry.register_handler("tripo.model", guarded(run_tripo_model, "tripo"), version=1, pool="api", paid=True, provider="tripo", Params=ModelParams,
+                              estimate=estimate_model, poll=guarded(poll_tripo_model, "tripo"), cacheable=False)
+    registry.register_handler("slab.build", guarded(run_slab_build), version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
+    registry.register_handler("primitive.build", guarded(run_primitive_build), version=1, pool="proc", paid=False, Params=MeshStepParams, cacheable=False)
     registry.register_handler("mesh.carry", run_carry, version=1, pool="cpu", paid=False, Params=MeshStepParams, cacheable=False)
     meshsteps.register(rt)
     sched.register_job_factory(JobKind.BUILD, _build_steps)

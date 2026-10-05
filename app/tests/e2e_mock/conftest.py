@@ -100,6 +100,42 @@ def board_snapshot(tmp_path_factory):
 
 
 @pytest.fixture
+def app_opener(tmp_path):
+    """``open_app(home)`` -> ``(rt, client, close)``: an app on an existing home folder (the same folder can be opened again after ``close()``: a restart)."""
+    open_clients = []
+
+    def open_app(home: Path):
+        app = make_app(home, providers_mode="mock")
+        rt = app.state.rt
+        rt.update_settings(_paths(tmp_path))
+        c = make_client(app)
+        c.__enter__()
+        state = {"closed": False}
+        open_clients.append((c, state))
+
+        def close():
+            if not state["closed"]:
+                state["closed"] = True
+                c.__exit__(None, None, None)
+
+        return rt, c, close
+
+    yield open_app
+    for c, state in reversed(open_clients):
+        if not state["closed"]:
+            state["closed"] = True
+            c.__exit__(None, None, None)
+
+
+@pytest.fixture
+def board_home(board_snapshot, tmp_path):
+    """A private copy of the shared Gate 2 board's home folder: ``(home, project_id)``."""
+    home, project_id = board_snapshot
+    shutil.copytree(home, tmp_path / "home")
+    return tmp_path / "home", project_id
+
+
+@pytest.fixture
 def board(board_snapshot, tmp_path):
     """``(rt, client, project)`` on a copy of the shared Gate 2 board (a project in mock mode, API 3D mode)."""
     home, project_id = board_snapshot
