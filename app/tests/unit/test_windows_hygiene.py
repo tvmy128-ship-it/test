@@ -26,7 +26,9 @@ Rules (ids appear in the failure messages):
   W12  asyncio APIs the Windows event loop does not support (``add_signal_handler``, ``add_reader``, ``add_writer``).
   W13  ``sqlite3.connect(..., uri=True)`` (a Windows path is not a valid SQLite URI without conversion).
   W14  a bare ``os.replace`` outside ``winplat.py`` (antivirus and OneDrive hold new files; use ``winplat.replace_with_retry``).
+  W15  ``cv2.imread`` / ``imwrite`` / ``VideoCapture`` ... outside ``imaging/files.py`` (OpenCV fails on non-ASCII Windows paths, SYS-05).
 
+CI also runs ``ruff check --preview --select PLW1514 duoskin tools`` (APP_SPEC 4.3): ``test_ruff_encoding_rule_is_clean`` does it here.
 A line can opt out with a trailing ``# win-ok: <reason>`` comment (for example a zip member name, which must use "/").
 
 and, for the files in the repository: no reserved Windows names (CON, NUL, AUX ...), no names that differ only by case,
@@ -37,6 +39,7 @@ from __future__ import annotations
 import ast
 import io
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -344,6 +347,9 @@ class _FileScan:
         if func in ("os.symlink", "os.link", "os.readlink") or (isinstance(node.func, ast.Attribute) and node.func.attr in (
                 "symlink_to", "hardlink_to") and len(node.args) >= 1):
             self.add("W07", node, "symlinks need Developer Mode or admin rights on Windows: copy instead")
+        if func in ("cv2.imread", "cv2.imwrite", "cv2.imreadmulti", "cv2.imwritemulti", "cv2.VideoCapture", "cv2.VideoWriter",
+                    "cv2.FileStorage") and not self.rel.endswith("duoskin/imaging/files.py"):
+            self.add("W15", node, f"{func} fails on non-ASCII Windows paths: use imaging/files.py (Pillow, or np.fromfile + cv2.imdecode)")
         if func == "os.replace" and not self.rel.endswith("duoskin/winplat.py"):
             self.add("W14", node, "bare os.replace: use winplat.replace_with_retry (retries WinError 5/32 for 2 s)")
         # W08
@@ -407,13 +413,22 @@ def all_violations() -> list[Violation]:
     return _ALL
 
 
-RULES = ["W01", "W02", "W03", "W04", "W05", "W06", "W07", "W08", "W09", "W10", "W11", "W12", "W13", "W14"]
+RULES = ["W01", "W02", "W03", "W04", "W05", "W06", "W07", "W08", "W09", "W10", "W11", "W12", "W13", "W14", "W15"]
 
 
 @pytest.mark.parametrize("rule", RULES)
 def test_repository_has_no_windows_hostile_code(rule):
     bad = [str(v) for v in all_violations() if v.rule == rule]
     assert not bad, f"{rule}: Windows-hostile code (see the module docstring):\n  " + "\n  ".join(bad)
+
+
+def test_ruff_encoding_rule_is_clean():
+    proc = subprocess.run([sys.executable, "-m", "ruff", "check", "--preview", "--select", "PLW1514", "--no-cache", "--output-format",
+                           "concise", "duoskin", "tools"], cwd=str(ROOT), capture_output=True, encoding="utf-8", errors="replace",
+                          check=False, stdin=subprocess.DEVNULL, timeout=120)
+    if "No module named ruff" in proc.stderr:
+        pytest.skip("ruff is not installed")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
 def test_every_python_file_parses_on_the_oldest_supported_python():
@@ -465,6 +480,7 @@ def test_every_python_file_parses_on_the_oldest_supported_python():
     ("W12", "def f(loop, cb):\n    loop.add_reader(1, cb)"),
     ("W13", "import sqlite3\nsqlite3.connect('file:x', uri=True)"),
     ("W14", "import os\nos.replace('a', 'b')"),
+    ("W15", "import cv2\ncv2.imread('a.png')"),
 ])
 def test_scanner_catches(rule, snippet):
     assert any(v.rule == rule for v in scan_source("snippet.py", snippet)), f"{rule} did not fire for:\n{snippet}"

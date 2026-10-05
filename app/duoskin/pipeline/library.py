@@ -136,6 +136,10 @@ def _copy_kit_tree(src: Path, dest: Path) -> None:
 
 def add_kit(rt: Runtime, folder_path: str, kind: str, origin: str, license_: str) -> dict[str, Any]:
     """``POST /api/library/kits``: validate, copy into the user kits with its origin and licence, rebuild the manifest. Returns the manifest summary."""
+    from duoskin.security import is_network_path
+
+    if is_network_path(folder_path):
+        raise KitError("a kit folder must be on this PC: copy it from the network share first")
     src = Path(folder_path)
     if kind not in KINDS:
         raise KitError(f"kind must be one of {', '.join(KINDS)}")

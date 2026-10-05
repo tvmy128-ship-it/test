@@ -12,6 +12,8 @@ set "PYTHON_MANAGER_AUTOMATIC_INSTALL=0"
 title DuoSkin Studio - setup
 if not exist "tools\probe_python.py" goto :wrongdir
 if not exist "requirements\win-x64.lock" goto :wrongdir
+echo "%~dp0" | findstr /i /c:"onedrive" >nul 2>&1
+if not errorlevel 1 call :onedrive
 
 rem 1) Find 64-bit CPython 3.14 (target), 3.13 or 3.12 (all three install from the same lock).
 rem    Every candidate is judged by tools\probe_python.py, which rejects the Store stub, 32-bit, ARM64 and free-threaded builds.
@@ -90,6 +92,13 @@ if errorlevel 1 exit /b 0
 echo Python 3.14 is not installed. Installing it with the Python install manager...
 pymanager install 3.14
 call :try "py" "-V:3.14"
+exit /b 0
+
+:onedrive
+echo.
+echo WARNING: this folder is inside OneDrive. OneDrive syncs and locks the many files that setup creates, which can make the
+echo install fail or slow. Moving the folder to C:\DuoSkin\app first is much safer. Continuing anyway...
+echo.
 exit /b 0
 
 :nopython

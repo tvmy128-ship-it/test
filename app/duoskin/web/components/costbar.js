@@ -4,7 +4,7 @@ import { h, money, setChildren } from "../dom.js";
 
 /**
  * @param {HTMLElement} host
- * @param {{todayUsd: number, project?: {name: string, spent_usd: number, settings: {budget_usd: number}} | null, queue?: any, doctor?: any, waiting?: number, running?: number}} d
+ * @param {{demo?: boolean, todayUsd: number, project?: {name: string, spent_usd: number, settings: {budget_usd: number}} | null, queue?: any, doctor?: any, waiting?: number, running?: number}} d
  */
 export function renderCostBar(host, d) {
   const kids = [];
@@ -17,12 +17,12 @@ export function renderCostBar(host, d) {
       "aria-label": `Spent ${money(spent)} of the ${money(cap)} cap` }, h("div", { class: "meter-fill" }));
     /** @type {HTMLElement} */ (meter.firstElementChild).style.setProperty("--p", `${Math.min(100, Math.round(frac * 100))}%`);
     kids.push(h("div", { class: "cost-item" },
-      h("span", { class: "cost-label" }, "Spent on this duo"),
+      h("span", { class: "cost-label", title: d.demo ? "Demo mode: these are pretend prices for the practice stand-ins. Nothing is charged." : "" }, d.demo ? "Pretend spend on this duo" : "Spent on this duo"),
       h("span", { class: "cost-value" }, money(spent), h("span", { class: "cost-cap" }, ` of ${money(cap)} cap`)),
       meter,
       frac >= 1 ? h("span", { class: "badge bad" }, "Cap reached") : frac >= 0.8 ? h("span", { class: "badge warn" }, "Close to the cap") : null));
   }
-  kids.push(h("div", { class: "cost-item" }, h("span", { class: "cost-label" }, "Today, all duos"), h("span", { class: "cost-value" }, money(d.todayUsd))));
+  kids.push(h("div", { class: "cost-item" }, h("span", { class: "cost-label", title: d.demo ? "Demo mode: these are pretend prices for the practice stand-ins. Nothing is charged." : "" }, d.demo ? "Pretend spend today" : "Today, all duos"), h("span", { class: "cost-value" }, money(d.todayUsd))));
   const q = d.queue;
   const pills = [];
   if (d.running) pills.push(h("a", { class: "pill busy", href: "#/jobs", title: "Steps that are working right now" }, `Working: ${d.running} ${d.running === 1 ? "step" : "steps"}`));

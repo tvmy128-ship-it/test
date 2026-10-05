@@ -495,6 +495,9 @@ def main(argv: list[str] | None = None) -> int:
         print("usage: python -m duoskin.mesh.worker job.json", file=sys.stderr)
         return 2
     faulthandler.enable()
+    from duoskin.imaging.limits import apply_image_limits
+
+    apply_image_limits()           # the textures inside an untrusted GLB are decoded here: a bomb is an error, not 40 GB
     job_path = Path(argv[0])
     with open(job_path, encoding="utf-8") as fh:
         raw = json.load(fh)

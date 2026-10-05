@@ -9,7 +9,7 @@ import { mediaSections, renderSections, partKindOf, figure, warningsOf, hardFail
 import { runTileAction, FACE_TARGETS } from "./tile-actions.js";
 import { viewerPanel } from "./viewer3d.js";
 import { warningList } from "./warnings.js";
-import { partKindLabel, stateLabel, stateTone } from "../text.js";
+import { partKindLabel, stateLabel, stateTone, checkLabel } from "../text.js";
 
 /**
  * @param {import("./tile-actions.js").ActionEnv} env
@@ -82,7 +82,7 @@ async function loadDetail(env, tile, host) {
     const failed = hard.filter((c) => c.status === "failed" || c.status === "not_run").length;
     parts.push(h("p", {}, failed ? badge(`${failed} need fixing`, "bad") : badge(`All ${hard.length} required checks passed`, "ok")));
     parts.push(h("ul", { class: "checks" }, hard.map((c) => h("li", { class: c.status }, badge(c.status === "passed" ? "Passed" : c.status === "not_applicable" ? "Does not apply" : c.status === "not_run" ? "Did not run" : "Needs fixing", c.status === "passed" ? "ok" : c.status === "failed" || c.status === "not_run" ? "bad" : "muted"),
-      " ", h("strong", {}, humanize(c.check_id || c.id)), c.evidence ? h("span", { class: "muted" }, ` — ${String(c.evidence).slice(0, 220)}`) : null))));
+      " ", h("strong", {}, checkLabel(String(c.check_id || c.id)))))));
   }
   if (provenance.length) {
     parts.push(h("h3", {}, "Where each picture came from"));

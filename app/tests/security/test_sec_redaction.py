@@ -291,3 +291,40 @@ def test_keystore_status_shows_only_a_masked_tail():
     assert mask_key("short") == "..."
     ks = KeyStore.__new__(KeyStore)
     assert not hasattr(ks, "__dict__") or CNRY not in repr(ks.__dict__)
+
+
+# ------------------------------------------------------------------------------------------------- stores
+def test_provenance_cost_rows_gate_facts_and_kv_never_keep_a_key(tmp_path):
+    from datetime import UTC, datetime
+
+    from duoskin.engine.testkit import make_runtime
+    from duoskin.models.asset import Provenance
+    from duoskin.models.cost import CostEntry
+    from duoskin.models.gate import GateTile
+
+    leaky = f"upstream said Authorization: Bearer {CNRY} at https://x.example.com/a?Signature={SK}&key={AIZA}"
+    prov = Provenance(source="code", created_at=datetime.now(UTC), request_id=f"req-{CNRY}", remote_task_id=TSK,
+                      params={"note": leaky, "n": 3, "nested": [leaky]}, usage={"x": leaky}, notes=[leaky])
+    assert not any(k in prov.model_dump_json() for k in KEYS) and prov.params["n"] == 3
+    cost = CostEntry(ts=datetime.now(UTC), provider="openai", operation=f"images.edit:{CNRY}", usd=0.01, request_id=leaky, remote_task_id=leaky, model=SK)
+    assert not any(k in cost.model_dump_json() for k in KEYS)
+    tile = GateTile(tile_id="t", label="x", facts={"reason": leaky, "list": [leaky], "n": 1}, allowed_actions=[])
+    assert not any(k in tile.model_dump_json() for k in KEYS) and tile.facts["n"] == 1
+    rt = make_runtime(tmp_path / "home")
+    try:
+        rt.repo.kv_set("export:prj_x", {"status": "failed", "reason": leaky, "n": [1, 2]})
+        stored = rt.repo.kv_get("export:prj_x")
+        assert not any(k in json.dumps(stored) for k in KEYS) and stored["n"] == [1, 2] and stored["status"] == "failed"
+        raw = "".join(r["value"] for r in rt.db.conn().execute("SELECT value FROM kv").fetchall())
+        assert not any(k in raw for k in KEYS)
+    finally:
+        rt.shutdown()
+
+
+def test_the_unregistered_key_shapes_are_still_masked_by_pattern():
+    """A key the process has never read (so it is not registered) is caught by its shape: Anthropic, OpenAI, Tripo, Gemini."""
+    fresh = ["sk-ant-api03-" + "Zz9Yy8Xx7Ww6Vv5Uu4Tt3Ss2Rr1Qq0Pp" * 2, "sk-proj-" + "Mm1Nn2Oo3Pp4Qq5Rr6Ss7Tt8Uu9Vv0Ww" * 2, "tsk_" + "Aa1Bb2Cc3Dd4Ee5Ff6Gg7Hh8Ii9Jj0Kk" * 2,
+             "AIza" + "SyAa1Bb2Cc3Dd4Ee5Ff6Gg7Hh8Ii9Jj0Kk1Ll"]
+    for key in fresh:
+        out = redact(f"failed with {key} and ?key={key} and Bearer {key}")
+        assert key not in out and key[:12] not in out

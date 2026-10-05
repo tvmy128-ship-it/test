@@ -9,8 +9,9 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
+from duoskin.logsetup import redact_data
 from duoskin.models.common import PartId, Sha256, Strict, UtcDatetime
 from duoskin.models.part import ApprovalRecord
 
@@ -69,6 +70,12 @@ class GateTile(Strict):
     badges: list[str] = Field(default_factory=list)            # "Wildcard", "Views from GPT (lower reliability)", ...
     allowed_actions: list[GateAction]
     version: int = 0
+
+    @field_validator("facts")
+    @classmethod
+    def _facts_hold_no_secret(cls, v: dict[str, Any]) -> dict[str, Any]:
+        """Facts carry reasons and error texts that may come from an exception or a provider: no key or signed URL reaches the UI or the database."""
+        return redact_data(v)
 
 
 class Gate(Strict):

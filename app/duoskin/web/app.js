@@ -29,7 +29,7 @@ function paintShell() {
   const stageHost = $("#stagebar");
   if (stageHost) renderStageBar(stageHost, project, project ? waiting : 0);
   const costHost = $("#costbar");
-  if (costHost) renderCostBar(costHost, { todayUsd: snap?.today_usd ?? 0, project, queue: snap?.queue, doctor: snap?.doctor, waiting: project ? 0 : waiting, running: (snap?.steps?.running ?? 0) + (snap?.steps?.waiting_remote ?? 0) });
+  if (costHost) renderCostBar(costHost, { demo, todayUsd: snap?.today_usd ?? 0, project, queue: snap?.queue, doctor: snap?.doctor, waiting: project ? 0 : waiting, running: (snap?.steps?.running ?? 0) + (snap?.steps?.waiting_remote ?? 0) });
   const notice = $("#notice-banner");
   if (notice && state.offline) { notice.hidden = false; notice.textContent = state.error || "Cannot reach DuoSkin Studio."; }
   else if (notice && notice.dataset.sticky !== "1") notice.hidden = true;

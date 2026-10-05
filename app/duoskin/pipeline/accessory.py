@@ -188,6 +188,9 @@ def badge_done(ctx: StepContext, loop: AL.AssetLoopSpec, res: AL.LoopResult) -> 
 
 
 # ---------------------------------------------------------------------------------------------------- the board
+PREVIEW_VIEWS = ("front", "left", "back", "three_quarter")      # a slab or a primitive tile shows four views (the judge sheet default is six: it needs right and top)
+
+
 def scale_renders(rt: Runtime, project_id: str, item: itemspec.Item, *, art: Image.Image | None, mesh: Any = None) -> tuple[dict[str, Image.Image], str]:
     """The scale render (front and side) of the item on the mannequin; head-area items sit against the approved hair."""
     from duoskin.render import avatar, sheets
@@ -251,7 +254,7 @@ def run_board(ctx: StepContext, p: AccParams, inputs: list[Any]) -> StepResult:
         sres = SL.build_slab(badge.image, size_studs=max(item.target_studs[:2]), thickness=0.1, tris_budget=2800, kind="sticker_slab",
                              texture_px=item.texture_px)
         mesh = sres.mesh
-        prev = sheets.mesh_judge_sheet(sheets.render_mesh_views(mesh, ("front", "left", "back", "three_quarter"), size=256), cols=4)
+        prev = sheets.mesh_judge_sheet(sheets.render_mesh_views(mesh, PREVIEW_VIEWS, size=256), order=PREVIEW_VIEWS, cols=4)
         assets["slab_preview"] = common.put_png(ctx, prev, role="slab_preview", part_id=part.id, provenance=pv, status="final").sha256
         facts["slab"] = {k: v for k, v in sres.facts.items() if isinstance(v, (int, float, str, bool))}
         results.append(common.mk_result("A_BADGE_SOLID", badge.solidity >= 0.5, kind="hard", metric="solidity", value=float(badge.solidity),
@@ -263,7 +266,7 @@ def run_board(ctx: StepContext, p: AccParams, inputs: list[Any]) -> StepResult:
 
         kind = primitive_kind(item)
         mesh = primitives.build(kind, _primitive_params(kind, item), palette_rgb(spec, item.colour_refs), texture_px=item.texture_px)
-        prev = sheets.mesh_judge_sheet(sheets.render_mesh_views(mesh, ("front", "left", "back", "three_quarter"), size=256), cols=4)
+        prev = sheets.mesh_judge_sheet(sheets.render_mesh_views(mesh, PREVIEW_VIEWS, size=256), order=PREVIEW_VIEWS, cols=4)
         assets["preview"] = common.put_png(ctx, prev, role="primitive_preview", part_id=part.id, provenance=pv, status="final").sha256
         facts["primitive"] = kind
     renders, hair_state = scale_renders(rt, project_id, item, art=art if mesh is None else None, mesh=mesh)

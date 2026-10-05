@@ -48,6 +48,10 @@ def build_head_base(body: HeadIn, rt: Runtime = RT):
     from duoskin.models.job import JobKind
     from duoskin.pipeline import kits
     from duoskin.pipeline.library import HeadParams
+    from duoskin.security import is_network_path
+
+    if is_network_path(body.source_path):
+        raise HTTPException(status_code=422, detail={"error": "network_path", "message": "the source must be on this PC, not on a network share"})
 
     if not kits.blender_present(rt):
         raise HTTPException(status_code=409, detail={"error": "blender_missing", "message": "Building a head base needs Blender. Install it, or add a prebuilt head-base folder with Add kit."})

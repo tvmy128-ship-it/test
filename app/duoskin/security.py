@@ -30,6 +30,11 @@ from typing import Any
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from duoskin.imaging.limits import (  # noqa: F401  (re-exported: the limit lives in imaging/limits.py)
+    MAX_IMAGE_PIXELS,
+    apply_image_limits,
+)
+
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 TOKEN_HEADER = b"x-duoskin-token"
@@ -60,15 +65,11 @@ def child_env(extra: dict[str, str] | None = None, *, base: dict[str, str] | Non
     return env
 
 
-#: No image the app decodes may have more pixels than this (a 4 MB PNG of zeros can claim 100 000 x 100 000). Pillow's own limit (89 MP) only warns.
-MAX_IMAGE_PIXELS = 64_000_000
-
-
-def apply_image_limits() -> None:
-    """Lower Pillow's decompression-bomb limit to ``MAX_IMAGE_PIXELS`` (it raises ``DecompressionBombError`` above twice that). Idempotent."""
-    from PIL import Image
-
-    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+def is_network_path(text: str) -> bool:
+    """A UNC share (``\\\\server\\share``, ``//server/share``) or a device path (``\\\\?\\``, ``\\\\.\\``). Touching one makes Windows send the user's
+    credentials to that server, so a path the user (or a web page that got hold of the token) typed must not be one."""
+    t = str(text).strip()
+    return t.startswith(("\\\\", "//"))
 
 
 def image_pixels(data: bytes) -> int | None:

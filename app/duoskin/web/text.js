@@ -310,3 +310,29 @@ export function licenceLabel(lic) {
     "n/a": "Not applicable",
   })[lic] ?? humanize(lic);
 }
+
+/** What a check says in plain words. The ids (A_PALETTE, F_LINE_SKIN, CHK-M08) never reach the page: an id this list does not know reads "A required check". @param {string} id */
+export function checkLabel(id) {
+  const words = /** @type {Record<string, string>} */ ({
+    A_ALPHA: "Clean see-through background", "CHK-A02": "Clean see-through background", A_COMPONENTS: "One solid piece, not scattered bits", "CHK-A04": "One solid piece, not scattered bits",
+    A_MARGIN: "Enough empty space around it", "CHK-A03": "Enough empty space around it", A_OCR: "No writing in the picture", A_GLYPH: "No writing in the picture", "CHK-A06": "No writing in the picture",
+    A_PALETTE: "Only the colours of the plan", "CHK-A05": "Only the colours of the plan", A_STROKE: "Thin lines stay visible when small", "CHK-A08": "Thin lines stay visible when small",
+    A_SIZE: "The picture has the right size", A_LEAK: "No colours borrowed from the partner", A_SVG: "The vector art is clean", A_SENTINEL: "The background was removed cleanly",
+    A_SYMMETRY: "Left and right match", A_BADGE: "The badge is one compact shape", A_HALO: "No glow around the edges", A_PASTE: "The edit left the rest alone", A_DRIFT: "The final matches the chosen draft",
+    A_VIEWS: "The four views agree", A_REGISTRY: "Not a copy of something made before", A_REFLEAK: "Does not copy your reference picture", "CHK-A15": "Does not copy your reference picture",
+    "CHK-A17": "The 2D face is complete", F_ZONES: "Face features stay in their places", F_LID_COVERS: "A closed eye covers the whole eye", F_LINE_SKIN: "Face lines stand out on every skin tone",
+    F_MOUTH_INTERIOR: "The open mouth is painted", F_LASH_LID_SPLIT: "Lashes sit on the lid only", F_LINE_COLOURS: "Each face line has one colour", F_SKIN_TRANSPARENT: "The skin area is see-through",
+    F_NO_HAIR: "No hair painted on the face", F_AB_FACE_DIFF: "The two faces look different", F_SHADING: "Shading shows on every skin tone", F_BLUSH: "Blush shows on every skin tone",
+    "CHK-B02": "A valid Roblox clothing file", "CHK-B03": "Clothing edges are filled in", "CHK-B04": "Fabric lines meet at the seams", "CHK-B06": "No half-see-through clothing",
+    "CHK-B10": "The body colours are complete", "CHK-D02": "The two characters look different enough", "CHK-D04": "Nothing pokes through anything else",
+    "CHK-D06": "No logos, brands or writing", "CHK-D09": "Approved parts have not changed since",
+    "CHK-M01": "The 3D file opens", "CHK-M02": "One mesh, one material", "CHK-M03": "Small enough for Roblox", "CHK-M04": "The 3D shape is solid and closed",
+    "CHK-M05": "No loose pieces", "CHK-M06": "The texture is the right size", "CHK-M07": "No colours painted on the mesh", "CHK-M08": "Faces the right way",
+    "CHK-M09": "Fits Roblox's size box", "CHK-M13": "Matches the approved pictures", "CHK-M14": "Fits on the character", "CHK-M16": "The imported file matches the part",
+    "CHK-M17": "Hair colours follow the plan", "CHK-M20": "Follows the sticker rules", "CHK-M21": "No leftover guide head in the hair",
+    ip_no_brand: "No brand or logo", ip_no_known_character: "Not a known character", ip_no_text: "No writing", ip_age_appropriate: "Suitable for all ages",
+    dj_no_leak: "No colours borrowed from the partner", dj_not_clones: "The two do not look like clones", cn_back_view: "The back view has no face",
+    cn_front_face: "The front view shows the face", cn_blocky_body: "A Roblox blocky body", cn_views_match: "Front and back match",
+  });
+  return words[id] ?? "A required check";
+}

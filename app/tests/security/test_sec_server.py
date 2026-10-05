@@ -390,3 +390,33 @@ def test_every_route_that_changes_something_is_guarded_by_the_token(app):
             assert r.status_code == 403 and r.json() == {"error": "bad_token"}, (method, path, r.status_code)
             seen += 1
     assert seen >= 20
+
+
+def test_the_server_address_file_holds_no_token(rt):
+    from duoskin import config
+
+    config.write_server_info(rt.paths, port=8765, instance_id=rt.instance_id)
+    text = rt.paths.server_json.read_text(encoding="utf-8")
+    assert rt.token not in text and "token" not in text.lower() and "127.0.0.1" in text
+
+
+def test_uvicorn_is_started_without_proxy_headers_or_a_server_banner():
+    src = (APP_ROOT / "duoskin" / "__main__.py").read_text(encoding="utf-8")
+    assert "proxy_headers=False" in src and "server_header=False" in src
+
+
+def test_the_listening_socket_is_loopback_only_and_refuses_other_hosts():
+    from duoskin import winplat
+
+    for host in ("0.0.0.0", "", "::", "192.168.1.5", "localhost.evil.com", "127.0.0.2.evil"):
+        with pytest.raises(ValueError):
+            winplat.bind_socket(0, host=host)
+
+
+def test_the_settings_api_refuses_network_and_device_folders(client, rt):
+    for path in ("\\\\attacker\\share\\x", "//attacker/share", "\\\\?\\C:\\Windows", "\\\\.\\pipe\\x", "C:\\Users\\..\\Windows", "../up", "x\x00y", ""):
+        for key in ("exports_root", "tripo_inbox"):
+            r = client.put("/api/settings", json={"paths": {key: path}})
+            assert r.status_code == 422, (key, path, r.status_code)
+    ok = client.put("/api/settings", json={"paths": {"exports_root": "C:\\Users\\me\\DuoSkin Exports"}})
+    assert ok.status_code == 200 and ok.json()["paths"]["exports_root"] == "C:\\Users\\me\\DuoSkin Exports"

@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from duoskin.checks.model import CheckResult
 from duoskin.db.db import Database
 from duoskin.db.errors import ConflictError, NotFound
+from duoskin.logsetup import redact_data
 from duoskin.models.asset import AssetLink
 from duoskin.models.common import iso_utc, new_id, utcnow
 from duoskin.models.gate import ChangeRequest, Gate, GateDecision
@@ -465,6 +466,7 @@ class Repo:
         return json.loads(row["value"]) if row else None
 
     def kv_set(self, key: str, value: Any) -> None:
+        value = redact_data(value)       # state records carry reasons and error texts: a key or signed URL is never written down
         with self.db.tx() as c:
             c.execute("INSERT INTO kv (key, value, updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET "
                       "value=excluded.value, updated_at=excluded.updated_at",

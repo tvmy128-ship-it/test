@@ -706,3 +706,45 @@ def test_every_downloader_in_the_adapters_has_a_narrow_allowlist():
         for h in hosts:
             assert h.lower() == h and "*" not in h.replace("*.", "", 1) and h not in ("*", "*.com", "*.net", "*.io", "*.ai", "*.co", "*.org")
             assert h.count(".") >= 2 or not h.startswith("*."), f"{h} is too broad"
+
+
+def test_the_inbox_watcher_looks_only_at_model_files_and_never_hashes_a_huge_one(rt, tmp_path):
+    """The inbox can be set to a Downloads folder: photos, documents and ISOs there are not read, hashed or recorded."""
+    from duoskin.pipeline import manual_mesh
+
+    rt.update_settings({"paths": {"exports_root": str(tmp_path / "ex"), "tripo_inbox": str(tmp_path / "ex" / "inbox")}})
+    inbox = manual_mesh.inbox_dir(rt)
+    (inbox / "holiday.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 64)
+    (inbox / "taxes.pdf").write_bytes(b"%PDF" + b"0" * 64)
+    (inbox / "notes.txt").write_text("hello", encoding="utf-8")
+    with open(inbox / "huge.glb", "wb") as f:
+        f.truncate(60 * 1024 * 1024)
+    (inbox / "model.glb").write_bytes(make_glb(*triangle_doc()))
+    watcher = manual_mesh.watcher(rt)
+    for _ in range(4):
+        watcher.poll_once()
+    names = {e["name"] for e in manual_mesh.inbox_entries(rt)}
+    assert names == {"model.glb"}
+
+
+@pytest.mark.skipif(not hasattr(__import__("resource", fromlist=["x"]), "RLIMIT_AS"), reason="needs resource.setrlimit")
+def test_the_mesh_worker_applies_the_pixel_limit_before_it_decodes_a_glb_texture(tmp_path):
+    """A GLB whose embedded texture header claims 60 000 x 60 000 pixels (14 GB of RGBA) is refused in the worker: with the address space capped at
+    2 GB the load either fails with an error or comes back without that texture, and never allocates it."""
+    import subprocess
+    import sys as _sys
+
+    uri = "data:image/png;base64," + base64.b64encode(png_claiming(60_000, 60_000)).decode()
+    p = tmp_path / "bomb.glb"
+    doc, binary = triangle_doc({"uri": uri})
+    p.write_bytes(make_glb(doc, binary))
+    code = ("import resource\n"
+            "resource.setrlimit(resource.RLIMIT_AS, (2 * 1024**3, 2 * 1024**3))\n"
+            "from duoskin.imaging.limits import apply_image_limits; apply_image_limits()\n"
+            "from duoskin.mesh import load\n"
+            f"lm = load.load_gltf({str(p)!r})\n"
+            "tex = lm.mesh.texture\n"
+            "print('TEX', getattr(tex, 'size', None))\n")
+    res = subprocess.run([_sys.executable, "-c", code], capture_output=True, text=True, cwd=str(APP_ROOT), timeout=120, check=False)
+    assert "MemoryError" not in res.stderr
+    assert res.returncode != 0 or "TEX" in res.stdout and "(60000, 60000)" not in res.stdout, (res.stdout, res.stderr[-300:])

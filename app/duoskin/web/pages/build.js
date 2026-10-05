@@ -10,7 +10,7 @@ import { openGatePanels } from "../components/gatepanels.js";
 import { decide } from "../components/decisions.js";
 import { confirmDialog } from "../components/modal.js";
 import { toast } from "../components/toast.js";
-import { stepLabel, stepStateLabel, partKindLabel, stateLabel } from "../text.js";
+import { stepLabel, stepStateLabel, partKindLabel, stateLabel, checkLabel } from "../text.js";
 
 const ACCEPT = [".glb", ".gltf", ".fbx", ".zip", ".obj", ".blend"];
 const FREE_BANNER = "This file came from Tripo's FREE plan, so the model is public (CC BY 4.0) and carries no commercial rights. It can be used to try things out, but it can never be marked ready to sell.";
@@ -99,7 +99,7 @@ function validationBlock(projectId, part) {
       if (res.unavailable) { setChildren(host, notAvailable("The 3D check list")); return; }
       const checks = /** @type {any[]} */ ((res.data?.checks ?? []).filter((/** @type {any} */ c) => /^(chk-)?m\d|mesh|tris|orient|mirror|box/i.test(String(c.id || c.check_id))));
       if (!checks.length) { setChildren(host, h("p", { class: "muted" }, "No 3D checks have run for this part yet.")); return; }
-      setChildren(host, h("ul", { class: "checks" }, checks.map((c) => h("li", {}, badge(c.status === "passed" ? "Passed" : c.status === "not_applicable" ? "Does not apply" : "Needs a look", c.status === "passed" ? "ok" : c.status === "not_applicable" ? "muted" : "bad"), " ", h("strong", {}, humanize(c.check_id || c.id)), c.evidence ? h("span", { class: "muted" }, ` — ${String(c.evidence).slice(0, 200)}`) : null))));
+      setChildren(host, h("ul", { class: "checks" }, checks.map((c) => h("li", {}, badge(c.status === "passed" ? "Passed" : c.status === "not_applicable" ? "Does not apply" : "Needs a look", c.status === "passed" ? "ok" : c.status === "not_applicable" ? "muted" : "bad"), " ", h("strong", {}, checkLabel(String(c.check_id || c.id)))))));
     } catch (e) { setChildren(host, h("p", { class: "note warn" }, friendly(e))); }
   });
   return d;

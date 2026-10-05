@@ -203,7 +203,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     rt.remember_port(port)
     config.write_server_info(paths, port=port, instance_id=rt.instance_id)
     app = create_app(runtime=rt, run_doctor_on_start=True)
-    server = uvicorn.Server(uvicorn.Config(app, log_config=None, access_log=False, timeout_graceful_shutdown=2, lifespan="on"))
+    # proxy_headers off: nothing may rewrite the client address or scheme from an X-Forwarded-* header; server_header off: no "uvicorn" fingerprint
+    server = uvicorn.Server(uvicorn.Config(app, log_config=None, access_log=False, timeout_graceful_shutdown=2, lifespan="on",
+                                           proxy_headers=False, server_header=False))
 
     def begin_shutdown() -> None:
         """Fast shutdown (APP_SPEC §4.3): stop claiming, cancel flags, end SSE streams, then exit within ~2 s."""

@@ -83,6 +83,8 @@ def test_rem_and_echo_lines_contain_no_cmd_special_characters(name):
         low = ln.strip().lower()
         if low.startswith("rem"):
             assert not re.search(r"[<>|&^]", ln) and "%" not in ln, f"{name}: special character in a rem line: {ln}"
+        if low.startswith("echo ") and " | findstr " in ln:
+            continue                                                             # a deliberate pipe, not text
         if low.startswith("echo ") or low == "echo.":
             assert not re.search(r"[<>|&^]", ln), f"{name}: unescaped special character in: {ln}"
             bare = re.sub(r"%\w+%", "", ln)
@@ -303,7 +305,7 @@ class Bat:
         if low.startswith("copy "):
             self.world.files.add(".venv\\win-x64.lock.installed")
             return NEXT
-        if low.startswith("echo"):
+        if low.startswith("echo") and "|" not in text:
             self.world.out.append(self.expand(text[4:].lstrip(". ")))
             return NEXT
         cmd = re.sub(r"\s*(<nul|>nul|2>&1)", "", self.expand(text)).strip()
@@ -461,6 +463,14 @@ def test_setup_run_from_inside_a_zip_or_without_the_tools_folder_says_so():
     w.files.discard("tools\\probe_python.py")
     assert run_bat("setup.bat", w) == 1
     assert any("extracted" in o for o in w.out)
+
+
+def test_setup_warns_but_continues_inside_onedrive():
+    w = good_world(**{"echo \"C:\\DuoSkin\\app\\\" | findstr": 0})
+    assert run_bat("setup.bat", w) == 0
+    assert any("OneDrive" in o for o in w.out)
+    quiet = good_world()
+    assert run_bat("setup.bat", quiet) == 0 and not any("OneDrive" in o for o in quiet.out)
 
 
 def test_setup_does_not_pause_when_called_by_start_bat():

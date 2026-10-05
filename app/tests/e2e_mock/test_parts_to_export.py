@@ -76,6 +76,10 @@ def test_pick_then_export_is_blocked_for_mock_sources_and_allowed_in_tests(board
     blocked = export_status(client, p.id, ("blocked", "failed", "done"))
     assert blocked["status"] == "blocked", blocked
     assert "CHK-E01" in blocked["checks"], blocked
+    assert blocked["mock"] is True                                                       # the block says WHY: practice (mock) sources
+    preview = blocked["preview"]                                                          # demo mode: the block still shows what a real run would hand over
+    assert preview and {i["type"] for i in preview["items"]} >= {"Shirt", "Pants", "Hair", "Waist", "Shoulder"}
+    assert preview["checklist"]["items"] and all(it["steps"] for it in preview["checklist"]["items"])
     assert "nothing here can be exported" in (blocked["reason"] or "") or "mock" in (blocked["reason"] or "").lower()
     assert not Path(rt.effective_settings().paths.exports_root).exists() or not list(Path(rt.effective_settings().paths.exports_root).glob("*/*Upload*"))
 
@@ -99,6 +103,8 @@ def test_pick_then_export_is_blocked_for_mock_sources_and_allowed_in_tests(board
     assert all(it["lineage"] and it["build_hash"] and it["approval_hash"] and it["license"] for it in prov["items"])
     assert {it["item_id"] for it in prov["items"]} >= {"a.shirt", "a.pants", "a.face", "a.hair", "a.acc.0", "a.colours", "b.shirt", "b.hair", "b.acc.0"}
     manifest = json.loads(next(f for f in files if f.name.endswith("manifest.json")).read_text(encoding="utf-8"))
+    # the preview lists the items the kit really has (the face layer pack and a body without a body base are not uploaded)
+    assert {i["item_id"] for i in preview["items"]} == {it["item_id"] for it in manifest["items"] if it["type"] not in ("FaceLayers", "Body")}
     assert manifest["schema"] == "duoskin.manifest/1" and manifest["mock"] is True
     assert {it["type"] for it in manifest["items"]} >= {"Shirt", "Pants", "FaceLayers", "Hair", "Waist", "Shoulder", "Body"} and "Head" not in {it["type"] for it in manifest["items"]}
     # no head base: the face is the layer pack (a head texture is not made), and there is no Head item
