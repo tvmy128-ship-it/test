@@ -26,10 +26,9 @@ from duoskin.prompts import freetext as free_text
 from duoskin.prompts import slots as S
 from duoskin.prompts import template_lang as TL
 from duoskin.prompts.catalog import TEXT_INVITING, CompileCtx, default_ctx, norm
-from duoskin.prompts.limits import thr
+from duoskin.prompts.limits import TEXT_PROMPT_MAX_SENTENCES, thr
 
 SKELETON = ("PURPOSE", "IMAGES", "SUBJECT", "MUST", "STYLE", "KEEP", "OUTPUT", "EXCLUDE")
-MAX_TEXT_SENTENCES = 3                                 # Tripo edit-multiview prompts (bible §14.2)
 POSITIVE = ("PURPOSE", "IMAGES", "SUBJECT", "MUST")
 CORE = ("PURPOSE", "SUBJECT", "MUST")                  # where the priming words are checked (bible §2.4c)
 PAIR_WORDS = frozenset({"complement", "leader_chaotic", "leader", "chaotic", "same_club", "same club", "mirror", "seasonal_twins",
@@ -182,7 +181,10 @@ def compile(template_id: str, spec: DuoSpec | dict, character: CharKey | None, s
         flags = {name: bool(inputs.get(name, False)) for name in meta.flags}
         flags["bootstrap"] = bootstrap
         flags.update(built.flags)
-        route = dna_router.route_dna(meta.id, spec, character, part=part, phrases=ctx.phrases) if meta.dna_fields else []
+        try:
+            route = dna_router.route_dna(meta.id, spec, character, part=part, phrases=ctx.phrases) if meta.dna_fields else []
+        except ValueError as exc:                                  # no character for a CHARACTER field, or a part with no routing row
+            raise S.PromptBuildError(f"{meta.id}: {exc}") from exc
         dna_names = {d.slot for d in route}
         clash = dna_names & set(built.slots)
         if clash:
@@ -301,7 +303,7 @@ def lint_prompt(cp: CompiledPrompt, ctx: LintCtx, banned: Any = None) -> list[Ch
     if kind == "text":
         add("PRM-01", len(cp.text) <= thr("prm.max_chars_total"), "chars_total", len(cp.text), "<= prm.max_chars_total")
         n_sent = len([x for x in _SENTENCES.split(cp.text) if x.strip()])
-        add("PRM-01", n_sent <= MAX_TEXT_SENTENCES, "sentences", n_sent, f"<= {MAX_TEXT_SENTENCES} (bible §14.2)")
+        add("PRM-01", n_sent <= TEXT_PROMPT_MAX_SENTENCES, "sentences", n_sent, f"<= {TEXT_PROMPT_MAX_SENTENCES} (bible §14.2)")
         return res
 
     s = split_flat(cp.text) if flat else split_sections(cp.text)

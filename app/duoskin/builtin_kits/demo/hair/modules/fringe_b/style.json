@@ -1,0 +1,9 @@
+{
+ "attach_frame": "HairAttachment",
+ "id": "fringe_b",
+ "kind": "fringe",
+ "license": "n/a",
+ "origin": "code_generated",
+ "prompt_phrase": "straight blunt fringe",
+ "tris": 12
+}

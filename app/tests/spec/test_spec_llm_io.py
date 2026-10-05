@@ -106,3 +106,17 @@ def test_change_plan_round_trip():
     assert L.ChangePlan.model_validate(d).patch[0].reason == "the user wants teal"
     with pytest.raises(ValidationError):
         L.ChangePlan.model_validate({**d, "patch": [{**d["patch"][0], "finding": "1"}]})        # a ChangeOp has no finding
+
+
+def test_patch_ops_of_the_spec_record_have_the_same_shape_as_the_llm_schemas():
+    """APP_SPEC §6.4: SpecRecord stores the patches the reviser and the change interpreter return (same fields, same enums)."""
+    from duoskin.models import spec_record
+
+    def shape(cls):
+        sch = cls.model_json_schema()
+        return {k: (v.get("type"), tuple(v.get("enum", ()))) for k, v in sch["properties"].items()}, tuple(sch["required"])
+
+    assert shape(spec_record.RevisionOp) == shape(L.RevisionOp)
+    assert shape(spec_record.ChangeOp) == shape(L.ChangeOp)
+    op = L.RevisionOp(op="replace", path="/a/top/base_ref", value_json='"p3"', finding="1")
+    assert spec_record.RevisionOp.model_validate(op.model_dump()).finding == "1"

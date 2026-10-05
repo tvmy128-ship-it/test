@@ -185,7 +185,7 @@ def adjusted_rand_index(a: np.ndarray, b: np.ndarray) -> float:
     np.add.at(table, (xi, yi), 1)
 
     def comb2(v: np.ndarray) -> np.ndarray:
-        return v * (v - 1) // 2
+        return v.astype(np.float64) * (v - 1) / 2.0           # float64: pixel-pair counts overflow int64 products at full size
 
     sum_ij = comb2(table).sum()
     sum_a = comb2(table.sum(axis=1)).sum()

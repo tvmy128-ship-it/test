@@ -1,0 +1,12 @@
+{
+ "amplitude_dL": 4.0,
+ "id": "demo_weave",
+ "license": "n/a",
+ "material_family": "canvas",
+ "origin": "code_generated",
+ "pattern_phrase": "plain weave",
+ "prompt_phrase": "plain demo canvas weave",
+ "px_per_repeat": 4.0,
+ "repeats": 12,
+ "weave_k": 12
+}

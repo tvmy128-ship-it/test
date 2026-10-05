@@ -1091,27 +1091,34 @@ def leak_sets(spec: DuoSpec, character: str, structure: str | None = None) -> Le
 FORBIDDEN_CHANGE_PATHS = ("/combo", "/is_wildcard", "/a/presentation", "/b/presentation")
 
 
-def patch_scope_problems(ops: Sequence[Any], *, finding_paths: Sequence[str] | None = None, palette_ids: Iterable[str] = ()) -> list[str]:
-    """CHK-G0-11 (ASSERT): which patch ops step outside their allowed paths.
+def patch_scope_problems(ops: Sequence[Any], *, finding_paths: Sequence[str] | None = None, palette_ids: Sequence[str] = (),
+                         referenced_palette_ids: Iterable[str] = ()) -> list[str]:
+    """CHK-G0-11 (ASSERT): which patch ops step outside their allowed paths (bible §9.6 rule 2 and §12.2 rule 2).
 
-    ``finding_paths`` (the reviser, L6): an op may touch only a path named by a finding, or a child of one, or the palette entry that a
-    finding references. Without ``finding_paths`` (the change interpreter, L7) any path is allowed except ``/combo``, ``/is_wildcard``,
-    ``/a/presentation``, ``/b/presentation`` and a palette **id** (hexes may change).
+    ``finding_paths`` (the reviser, L6): an op may touch only a path named by a finding or a child of one, or the palette entry that a
+    finding references: ``palette_ids`` is the spec's palette ids in order (``/palette/<n>`` is ``palette_ids[n]``) and
+    ``referenced_palette_ids`` the ids the findings point at. A palette **id** is never patched. Without ``finding_paths`` (the change
+    interpreter, L7) any path is allowed except ``/combo``, ``/is_wildcard``, ``/a/presentation``, ``/b/presentation`` and a palette id
+    (hexes may change).
     """
     bad: list[str] = []
-    ids = set(palette_ids)
+    order = list(palette_ids)
+    referenced = set(referenced_palette_ids)
     for i, op in enumerate(ops):
         p = op.path
+        pal = re.fullmatch(r"/palette/(\d+)(/.*)?", p)
+        if pal and pal.group(2) == "/id":
+            bad.append(f"op {i}: palette ids stay stable ({p})")
+            continue
         if finding_paths is None:
             if p in FORBIDDEN_CHANGE_PATHS or any(p.startswith(f + "/") for f in FORBIDDEN_CHANGE_PATHS):
                 bad.append(f"op {i}: {p} may not be changed by a change request")
-            m = re.fullmatch(r"/palette/(\d+)/id", p)
-            if m:
-                bad.append(f"op {i}: palette ids stay stable ({p})")
-        else:
-            allowed = any(p == f or p.startswith(f.rstrip("/") + "/") for f in finding_paths)
-            if not allowed and not (re.fullmatch(r"/palette/\d+(/.*)?", p) and ids):
-                bad.append(f"op {i}: {p} is not named by a finding")
+            continue
+        if any(p == f or p.startswith(f.rstrip("/") + "/") for f in finding_paths):
+            continue
+        if pal and int(pal.group(1)) < len(order) and order[int(pal.group(1))] in referenced:
+            continue
+        bad.append(f"op {i}: {p} is not named by a finding")
     return bad
 
 

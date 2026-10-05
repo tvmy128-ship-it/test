@@ -10,6 +10,7 @@ prompt for a JSON object with a ``palette`` key and for the retired example word
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -34,13 +35,23 @@ class LlmPrompt:
     images: str = ""                 # what the caller must attach before the text (a note for the pipeline)
 
 
+_TAG_LIKE = re.compile(r"<(/?[A-Za-z_][A-Za-z0-9_]*\s*/?)>")
+
+
+def neutralise_tags(text: str) -> str:
+    """Data may not close or open one of the prompt's tags: ``</user_change_request>`` inside a value becomes plain text (``&lt;...&gt;``),
+    so a typed request cannot break out of its tag (bible §2: user text only ever appears inside its tag, as data)."""
+    return _TAG_LIKE.sub(lambda m: f"&lt;{m.group(1)}&gt;", text)
+
+
 def as_text(value: Any) -> str:
-    """A slot value as text: strings stay as they are, everything else becomes canonical (sorted) JSON, so the cache key is stable."""
+    """A slot value as text: strings stay as they are, everything else becomes canonical (sorted) JSON, so the cache key is stable.
+    Tag-like text inside a value is neutralised (:func:`neutralise_tags`)."""
     if isinstance(value, str):
-        return value
+        return neutralise_tags(value)
     if isinstance(value, bytes):
-        return value.decode("utf-8")
-    return canonical_json(value).decode("utf-8")
+        return neutralise_tags(value.decode("utf-8"))
+    return neutralise_tags(canonical_json(value).decode("utf-8"))
 
 
 def compile_llm(template_id: str, inputs: dict[str, Any] | None = None, *, inventory: KitInventory | None = None,

@@ -280,7 +280,25 @@ def static_problems(t: Template) -> list[str]:
         bad.append(f"{m.id}: bootstrap variant without an s0 image")
     if m.kind == "llm" and m.provider == "anthropic" and not m.schema_name:
         bad.append(f"{m.id}: llm templates name their schema")
+    if m.kind == "llm":
+        for name in sorted(_required_slots(t.user_nodes)):
+            decl = m.inputs.get(name)
+            if decl is not None and not decl.required and decl.kind != "flag":
+                bad.append(f"{m.id}: optional input {name!r} is a required slot (write {{{name}?}}, so an empty value cannot fail the call)")
     return bad
+
+
+def _required_slots(nodes: Iterable, optional_clause: bool = False) -> set[str]:
+    """Slots written ``{name}`` outside any ``[[ ]]`` clause and any ``{{if}}`` branch (an empty value would raise on every call; a slot
+    inside a flag branch is only needed when the flag is on, and then an empty value *should* fail loudly)."""
+    out: set[str] = set()
+    for n in nodes:
+        if isinstance(n, TL.Slot):
+            if not n.optional and not optional_clause:
+                out.add(n.name)
+        elif isinstance(n, TL.Opt):
+            out |= _required_slots(n.children, True)
+    return out
 
 
 def validate_all() -> list[str]:

@@ -78,3 +78,4 @@ def missing_keys() -> list[str]:
 # Small constants that check modules need but that are not thresholds (so the "no literal numbers in check code" scan stays clean).
 EVIDENCE_ITEMS = 4        # how many findings an evidence string lists before "(+n more)"
 RGB_CHANNELS = 3          # colour channels of an RGB image
+TEXT_PROMPT_MAX_SENTENCES = 3   # Tripo edit-multiview prompts are at most 3 sentences (bible §14.2); not a registry threshold

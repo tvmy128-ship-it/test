@@ -21,7 +21,7 @@ slots:
     lint: [free_text]
   orientation_rule: {source: phrases.r1.orientation_rule}
   exclude_list: {source: phrases.i3.exclude_base}
-style_block: HOUSE_STYLE_2D
+style_block: none
 bootstrap: false
 priming: [face, head, skin, both eyes]
 inputs:

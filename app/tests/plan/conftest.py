@@ -8,9 +8,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "spec"))
 
-import specfix  # noqa: E402
+import specfix
 
-from duoskin.models import kitenums  # noqa: E402
+from duoskin.models import kitenums
 
 
 @pytest.fixture(autouse=True)

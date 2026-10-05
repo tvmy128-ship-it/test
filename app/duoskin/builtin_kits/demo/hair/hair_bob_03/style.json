@@ -1,0 +1,18 @@
+{
+ "attach_frame": "HairAttachment",
+ "clump_k": 5,
+ "default_fringe": "fringe_b",
+ "id": "hair_bob_03",
+ "length_class": "medium",
+ "license": "n/a",
+ "origin": "code_generated",
+ "parting": "centre",
+ "prompt_phrase": "chin-length bob with blunt ends",
+ "silhouette_class": "close",
+ "supported_adjustments": [
+  "fringe_length",
+  "side_length"
+ ],
+ "symmetric": true,
+ "tris": 76
+}

@@ -1,0 +1,19 @@
+{
+ "attach_frame": "HairAttachment",
+ "clump_k": 6,
+ "default_fringe": "fringe_a",
+ "id": "hair_short_crop_01",
+ "length_class": "short",
+ "license": "n/a",
+ "origin": "code_generated",
+ "parting": "left",
+ "prompt_phrase": "short tousled crop with a tapered back",
+ "silhouette_class": "close",
+ "supported_adjustments": [
+  "volume",
+  "fringe_length",
+  "part_side"
+ ],
+ "symmetric": false,
+ "tris": 46
+}
