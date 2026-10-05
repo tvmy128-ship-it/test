@@ -14,8 +14,8 @@ def note(text: str) -> None:
         fh.write(text + "\n")
 
 
-from duoskin.engine.registry import register_handler  # noqa: E402
-from duoskin.engine.runtime import Runtime  # noqa: E402
+from duoskin.engine.registry import register_handler
+from duoskin.engine.runtime import Runtime
 
 
 def remote_run(ctx, p, inputs):

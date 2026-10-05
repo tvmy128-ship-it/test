@@ -1,0 +1,253 @@
+{
+  "version": 1,
+  "dna": {
+    "shape_language": {
+      "line": {
+        "round_soft": "Shape language: soft rounded shapes and gentle curves, no sharp points.",
+        "sharp_angular": "Shape language: crisp angular shapes with pointed corners.",
+        "boxy_sturdy": "Shape language: chunky squared-off shapes, sturdy and simple.",
+        "flowing_curved": "Shape language: long flowing curves and sweeping lines.",
+        "spiky_energetic": "Shape language: bold spiky shapes and dynamic zigzags.",
+        "geometric_clean": "Shape language: clean geometric shapes such as circles, stripes and triangles."
+      },
+      "short": {
+        "round_soft": "softly rounded",
+        "sharp_angular": "crisp angular",
+        "boxy_sturdy": "bold chunky",
+        "flowing_curved": "flowing",
+        "spiky_energetic": "sharp spiky",
+        "geometric_clean": "clean geometric"
+      }
+    },
+    "detail_level": {
+      "line": {
+        "minimal": "Very simple: a few large shapes, generous empty space.",
+        "standard": "Simple main shape with two or three supporting details.",
+        "maximal": "Rich but orderly detail that still reads clearly at small size."
+      },
+      "clause": {
+        "minimal": ", kept very simple",
+        "standard": "",
+        "maximal": ", with a few orderly inner details"
+      },
+      "short": {
+        "minimal": "Very simple, a few large shapes",
+        "standard": "A simple main shape with a few supporting details",
+        "maximal": "Rich but orderly detail that reads clearly when small"
+      }
+    }
+  },
+  "presentation_style": {"boy": "masculine-styled", "girl": "feminine-styled"},
+  "material_phrase": {
+    "plush": "soft plush toy with a velvety matte surface and stitched seams",
+    "vinyl": "smooth matte vinyl toy",
+    "rubber": "soft matte rubber charm",
+    "knit": "chunky hand-knit texture",
+    "canvas": "stiff matte canvas with visible stitching",
+    "enamel_flat": "flat enamel-like surface with a raised rim",
+    "wood": "smooth painted wood"
+  },
+  "face": {
+    "eye_phrase": {
+      "round": "large round eyes",
+      "narrow": "narrow almond eyes",
+      "sleepy": "sleepy half-lidded eyes"
+    },
+    "iris_phrase": {
+      "oval_solid": "plain solid-colour irises",
+      "oval_top_band": "irises with a dark top band",
+      "oval_two_step": "two-tone irises",
+      "oval_ring": "ringed irises",
+      "round_small_pupil": "small round irises showing more white",
+      "vertical_slit": "slit pupils"
+    },
+    "mouth_phrase": {
+      "smile_line": "a small curved smile",
+      "cat_w": "a small w-shaped cat mouth",
+      "smirk_side": "a one-sided smirk",
+      "flat_line": "a flat straight mouth",
+      "small_o": "a small round o mouth",
+      "open_grin": "an open grin",
+      "fang_smile": "a smile with one small fang"
+    }
+  },
+  "cut_words": {
+    "top.sleeve": {"none": "sleeveless", "short": "short sleeves", "three_quarter": "three-quarter sleeves", "long": "long sleeves"},
+    "top.hem": {"crop": "cropped hem", "waist_tucked": "hem tucked in at the waist", "hip_untucked": "untucked hip-length hem"},
+    "top.neckline": {"crew": "crew neck", "v_neck": "v-neck", "collar": "collar", "hood": "hood", "high_zip": "high zip collar", "square": "square neckline"},
+    "top.front": {"closed": "closed front", "open": "open front over {inner}", "layered": "layered over {inner}"},
+    "bottom.leg": {"mini": "mini length", "above_knee": "above-knee length", "knee": "knee length", "midi": "midi length", "full": "full length"},
+    "bottom.waist": {"low": "low waist", "mid": "", "high": "high waist"},
+    "bottom.legwear": {"bare": "", "socks_ankle": "ankle socks", "socks_crew": "crew socks", "socks_knee": "knee socks", "tights": "tights"}
+  },
+  "print": {
+    "template": "with a {size} {motif} print {placement}",
+    "template_no_placement": "with a {size} {motif} print",
+    "size_word": {"small": "small", "medium": "medium", "large": "large"},
+    "placement_top": {
+      "torso_f": "on the chest", "torso_b": "on the back",
+      "rlimb_f": "on the sleeve", "rlimb_b": "on the sleeve", "rlimb_r": "on the sleeve",
+      "llimb_f": "on the sleeve", "llimb_b": "on the sleeve", "llimb_l": "on the sleeve"
+    },
+    "placement_bottom": {
+      "torso_f": "on the hip", "torso_b": "on the back",
+      "rlimb_f": "on the leg", "rlimb_b": "on the leg", "rlimb_r": "on the leg",
+      "llimb_f": "on the leg", "llimb_b": "on the leg", "llimb_l": "on the leg"
+    }
+  },
+  "attachment_phrase": {
+    "hat": "top of the head", "hair": "hair", "face_front": "front of the face", "face_center": "middle of the face",
+    "neck": "neck", "right_shoulder": "right shoulder", "left_shoulder": "left shoulder", "right_collar": "right collar",
+    "left_collar": "left collar", "body_front": "front of the body", "body_back": "back", "waist_front": "front of the waist",
+    "waist_center": "middle of the waist", "waist_back": "back of the waist"
+  },
+  "attachment_option": {
+    "hat": "a flat base to sit on the head",
+    "face_front": "a flat back to rest against the face",
+    "face_center": "a flat back to rest against the face",
+    "neck": "a flat back to rest against the chest",
+    "right_shoulder": "a flat back to rest against the body",
+    "left_shoulder": "a flat back to rest against the body",
+    "right_collar": "a flat back to rest against the body",
+    "left_collar": "a flat back to rest against the body",
+    "body_front": "a flat back to rest against the body",
+    "body_back": "a flat back to rest against the body",
+    "waist_front": "a solid rounded tab on top, fully filled in",
+    "waist_center": "a solid rounded tab on top, fully filled in",
+    "waist_back": "a solid rounded tab on top, fully filled in",
+    "hair": "a flat base to sit on the head",
+    "keychain_charm": "a solid rounded tab on top, fully filled in"
+  },
+  "item_noun": {
+    "plush_pet": "plush pet", "keychain_charm": "charm", "bag": "bag", "small_hat": "small hat",
+    "hair_clip_slab": "hair clip", "sticker_slab": "flat charm", "prop": "prop", "hair": "hairstyle"
+  },
+  "object_noun": {
+    "plush_pet": "plush pet", "keychain_charm": "charm", "bag": "bag", "small_hat": "small hat",
+    "hair_clip_slab": "hair clip", "sticker_slab": "flat charm", "prop": "prop", "hair": "hairstyle"
+  },
+  "asset_noun": {
+    "concept": "character concept art", "face_part": "drawing element", "print": "graphic", "hair": "hairstyle view",
+    "accessory": "toy-like object", "badge": "flat artwork", "fabric": "fabric texture", "shading": "shading panel"
+  },
+  "view_phrase": {"back": "back", "left": "left side", "right": "right side"},
+  "own_view_phrase": {"back": "back", "left": "own left side", "right": "own right side"},
+  "direction_rule": {
+    "left": "The object's front points toward the left edge of the image.",
+    "right": "The object's front points toward the right edge of the image.",
+    "back": "Only the plain back of the object is visible, matching Image 2."
+  },
+  "panel_phrase": {
+    "torso_f": "the front of the torso", "torso_b": "the back of the torso", "torso_side": "a side of the torso",
+    "limb_face_shirt": "one face of a sleeve", "limb_face_pants": "one face of a trouser leg"
+  },
+  "hair": {
+    "parting_phrase": {"left": "parted on the left", "right": "parted on the right", "centre": "parted in the centre", "none": ""},
+    "fringe_phrase": {"present": "with a fringe", "absent": "with a bare forehead"},
+    "bangs_line": "The bangs end in the upper third of the head's front.",
+    "bare_line": "The forehead stays bare; the hairline sits at the top edge of the head's front.",
+    "parting_symmetric": ", symmetric left to right",
+    "parting_side": ", parting on the image's {side} as in Image 2",
+    "parting_side_s0": ", parting on the image's {side}",
+    "custom_clump_k": 6,
+    "default_clump_k": 6
+  },
+  "defaults": {"fold_k": 3, "weave_k": 16, "pattern_phrase": "plain weave"},
+  "kit_defaults": {
+    "recipe_phrase": {
+      "tee": "short-sleeved crew-neck tee",
+      "tee_long": "long-sleeved crew-neck tee",
+      "raglan": "raglan tee with contrast sleeves",
+      "hoodie": "pullover hoodie with a front pocket",
+      "jacket_zip": "zip-up jacket",
+      "jacket_open": "open jacket worn over a layer",
+      "crop_top": "cropped top",
+      "vest": "sleeveless vest",
+      "skirt_pleated": "pleated skirt",
+      "skirt_a_line": "smooth a-line skirt",
+      "jeans_straight": "straight-leg jeans",
+      "jeans_wide": "wide-leg jeans",
+      "shorts": "casual shorts",
+      "cargos": "loose cargo trousers with side pockets",
+      "cargo_joggers": "cargo joggers with elastic cuffs"
+    },
+    "shoe_phrase": {
+      "sneaker_low": "low-top sneakers",
+      "sneaker_high": "high-top sneakers",
+      "boot": "sturdy boots",
+      "loafer": "plain loafers",
+      "sandal_strap": "strap sandals",
+      "mary_jane": "round-toe strap shoes"
+    }
+  },
+  "r1": {
+    "bootstrap_prefix": "Flat vector anime-style illustration of ",
+    "iris_shape": {
+      "oval_solid": "tall oval", "oval_top_band": "tall oval", "oval_two_step": "tall oval", "oval_ring": "tall oval",
+      "round_small_pupil": "small round", "vertical_slit": "tall oval"
+    },
+    "iris_style_clause": {
+      "oval_solid": "",
+      "oval_top_band": ", with a {iris_dark} band across the top third",
+      "oval_two_step": ", upper half {iris_dark}, lower half {iris_colour}",
+      "oval_ring": ", with a {iris_dark} ring around the edge",
+      "round_small_pupil": "",
+      "vertical_slit": ""
+    },
+    "pupil_shape": {
+      "oval_solid": "vertical oval", "oval_top_band": "vertical oval", "oval_two_step": "vertical oval", "oval_ring": "vertical oval",
+      "round_small_pupil": "small round", "vertical_slit": "thin vertical slit"
+    },
+    "flick_clause": {
+      "clean_line": "Both ends taper to clean points",
+      "outer_flick_1": "One short upward flick at the right end",
+      "outer_flicks_3": "Three short chunky flicks at the right end",
+      "wing": "A bold pointed wing extending up and to the right from the right end",
+      "heavy_line_lower_ticks": "An extra-thick stroke with a blunt right end"
+    },
+    "brow_clause": {
+      "thin_arched": "A slim tapered stroke with a gentle high arch",
+      "straight_thick": "A thick nearly straight stroke",
+      "short_round": "A short rounded oval dash",
+      "angled_up": "A thick stroke rising toward the right",
+      "soft_worried": "A soft stroke that is highest at the left and falls gently toward the right"
+    },
+    "brow_end": {
+      "thin_arched": "a thin point", "straight_thick": "a thin point", "short_round": "a rounded end",
+      "angled_up": "a thin point", "soft_worried": "a thin point"
+    },
+    "mouth_clause": {
+      "smile_line": "A short curved line with both corners turned up",
+      "cat_w": "A small w-shaped line",
+      "smirk_side": "A short line raised at the right corner only",
+      "flat_line": "A short straight line",
+      "small_o": "A small round o-shaped outline",
+      "open_grin": "A wide D-shaped outline with the flat edge on top",
+      "fang_smile": "A curved smile line"
+    },
+    "fill_styles": ["small_o", "open_grin"],
+    "open_shape": {"default": "wide rounded D shape", "small_o": "small round o", "open_grin": "wide rounded D shape", "soft": "soft oval"},
+    "teeth_clause": "A narrow {teeth_colour} strip along the top inside edge",
+    "lid_flick_clause": "Both ends taper to clean points",
+    "part_noun": {
+      "iris": "eye iris", "lash_upper": "eyelash line", "brow": "eyebrow", "mouth_closed": "mouth line",
+      "mouth_open": "open mouth", "closed_lid_line": "eyelid line"
+    },
+    "sentinel_names": {"#00FF00": "bright green", "#FF00FF": "magenta", "#00FFFF": "cyan", "#0000FF": "bright blue"},
+    "orientation_rule": "The outer end points to the right edge of the image.",
+    "size": {"iris": "1024x1024", "mouth_closed": "1024x1024", "mouth_open": "1024x1024", "lash_upper": "1536x768",
+             "brow": "1536x768", "closed_lid_line": "1536x768"}
+  },
+  "i3": {
+    "colour_rule_lines": "All lines in one single flat colour: {colour}.",
+    "colour_rule_iris": "Only these flat colours: {colours}.",
+    "colour_rule_mouth_open": "A {inner} interior with a small {tongue} tongue.",
+    "exclude_base": ["skin", "head", "second eye", "eyebrow", "eyeshadow", "highlight dots", "shadow", "text", "watermark"],
+    "exclude_drop": {"brow": ["eyebrow"]}
+  },
+  "sizes": {
+    "square": "1024x1024", "tall": "816x1632", "concept": "1536x1024", "concept_half": "768x1024", "joint": "3072x1024",
+    "hair": "1024x1536"
+  },
+  "free_text": {"fix_sentence_max_words": 25, "edit_sentence_max_words": 60, "edit_sentences_max": 4}
+}

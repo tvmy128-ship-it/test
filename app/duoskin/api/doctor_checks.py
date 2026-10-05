@@ -111,7 +111,7 @@ def run_py(code: str, *, timeout: int = SUBPROCESS_TIMEOUT_S, args: list[str] | 
     """Run ``python -c code`` in a child process (native imports never run in the server process)."""
     env = {**os.environ, "PYTHONUTF8": "1", "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"}
     try:
-        proc = subprocess.run([sys.executable, "-X", "utf8", "-c", code, *(args or [])], capture_output=True,   # noqa: S603
+        proc = subprocess.run([sys.executable, "-X", "utf8", "-c", code, *(args or [])], check=False, capture_output=True,
                               encoding="utf-8", errors="replace", timeout=timeout, env=env, stdin=subprocess.DEVNULL)
         return proc.returncode, proc.stdout or "", proc.stderr or ""
     except subprocess.TimeoutExpired:
@@ -176,7 +176,7 @@ def chk_s02(c: DoctorCtx) -> Outcome:
     code = "import sys; sys.stdout.write(sys.argv[1])"
     env = {**os.environ, "PYTHONUTF8": "1"}
     try:
-        proc = subprocess.run([sys.executable, "-X", "utf8", "-c", code, sample], capture_output=True, encoding="utf-8",   # noqa: S603
+        proc = subprocess.run([sys.executable, "-X", "utf8", "-c", code, sample], check=False, capture_output=True, encoding="utf-8",
                               timeout=30, env=env, stdin=subprocess.DEVNULL)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return Outcome("fail", f"Could not start a child process: {exc}", "Check that Python is installed correctly.")
@@ -258,12 +258,12 @@ ctypes.WinDLL("msvcp140.dll"); ctypes.WinDLL("msvcp140_1.dll"); print("ok")
 
 def _windows_edition_is_n() -> bool:
     try:
-        import winreg   # type: ignore[import-not-found]
+        import winreg  # type: ignore[import-not-found]
 
         with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion") as key:   # type: ignore[attr-defined]
             edition = str(winreg.QueryValueEx(key, "EditionID")[0])   # type: ignore[attr-defined]
         return edition.endswith("N")
-    except Exception:   # noqa: BLE001
+    except Exception:  # noqa: BLE001
         return False
 
 
@@ -331,7 +331,7 @@ def chk_s05(c: DoctorCtx) -> Outcome:
             stacks += 1
             try:
                 mod.get(f"https://{host}/", timeout=8)   # any HTTP answer, even 401/404, proves the TLS handshake worked
-            except Exception as exc:   # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
                 name = type(exc).__name__
                 if "SSL" in name or "Certificate" in name or "certificate" in str(exc).lower():
                     bad.append(f"{provider} via {stack}")
@@ -464,14 +464,14 @@ def chk_s08(c: DoctorCtx) -> Outcome:
 def detect_blender(settings: Any) -> Path | None:
     """Settings path, ``DUOSKIN_BLENDER``, PATH, the registry, Program Files, Steam (APP_SPEC §15.4)."""
     try:
-        from duoskin.mesh import blender as mesh_blender   # the 3D track's own detector, if present
+        from duoskin.mesh import blender as mesh_blender  # the 3D track's own detector, if present
 
         found = getattr(mesh_blender, "detect_blender", None) or getattr(mesh_blender, "detect", None)
         if callable(found):
             result = found()
             if result:
                 return Path(str(result))
-    except Exception:   # noqa: BLE001
+    except Exception:  # noqa: BLE001, S110
         pass
     candidates: list[str | None] = [settings.three_d.blender_path, os.environ.get("DUOSKIN_BLENDER"), shutil.which("blender")]
     for cand in candidates:
@@ -497,7 +497,7 @@ def chk_s09(c: DoctorCtx) -> Outcome:
     if c.quick:
         return not_applicable_outcome(f"Blender found at {exe}; version checks skipped in quick mode")
     try:
-        proc = subprocess.run([str(exe), "--version"], capture_output=True, encoding="utf-8", errors="replace", timeout=60,   # noqa: S603
+        proc = subprocess.run([str(exe), "--version"], check=False, capture_output=True, encoding="utf-8", errors="replace", timeout=60,
                               stdin=subprocess.DEVNULL)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return Outcome("fail", f"Blender at {exe} did not run: {exc}", "Reinstall Blender or clear the Blender path in Settings.")
@@ -508,8 +508,8 @@ def chk_s09(c: DoctorCtx) -> Outcome:
         return Outcome("fail", f"Blender {version} is not in the tested set ({', '.join(tested)}).",
                        "Install a tested Blender (4.2 LTS or newer) or leave Blender unset.", {"path": str(exe)})
     try:
-        bad = subprocess.run([str(exe), "--background", "--factory-startup", "--disable-autoexec", "--python-exit-code", "3",   # noqa: S603
-                              "--python-expr", "raise RuntimeError('doctor')"], capture_output=True, timeout=120,
+        bad = subprocess.run([str(exe), "--background", "--factory-startup", "--disable-autoexec", "--python-exit-code", "3",
+                              "--python-expr", "raise RuntimeError('doctor')"], check=False, capture_output=True, timeout=120,
                              stdin=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except (OSError, subprocess.TimeoutExpired) as exc:
         return Outcome("fail", f"Blender could not run a script: {exc}", "Reinstall Blender.")
@@ -536,13 +536,13 @@ def chk_s10(c: DoctorCtx) -> Outcome:
         probe = getattr(adapter, "startup_probe", None)
     except ImportError:
         return Outcome("warn", "The provider layer is not installed in this build, so Claude could not be probed.", "")
-    except Exception as exc:   # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         return Outcome("fail", f"Could not build the Claude adapter: {redact(str(exc))[:200]}", "Check the key in Settings.")
     if probe is None:
         return Outcome("warn", "The Claude adapter has no startup probe yet; model access and the schema smoke test were not checked.", "")
     try:
         result = probe()
-    except Exception as exc:   # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         return Outcome("fail", f"The Claude probe failed: {redact(str(exc))[:200]}", "Check the key and your internet connection.")
     ok = bool(result.get("ok")) if isinstance(result, dict) else bool(result)
     msg = str(result.get("message", "")) if isinstance(result, dict) else ""
@@ -552,16 +552,31 @@ def chk_s10(c: DoctorCtx) -> Outcome:
 
 # ------------------------------------------------------------------------------------------------------- S11 (split)
 def _flatten_strings(node: Any) -> list[str]:
+    """Every string *value* inside lists and dict values (dict keys are labels, not terms)."""
     if isinstance(node, str):
         return [node]
     if isinstance(node, dict):
-        out = [k for k in node if isinstance(k, str)]
-        for v in node.values():
-            out += _flatten_strings(v)
-        return out
+        return [s for v in node.values() for s in _flatten_strings(v)]
     if isinstance(node, list):
         return [s for v in node for s in _flatten_strings(v)]
     return []
+
+
+def _banned_terms(data: Any) -> list[str]:
+    """``banned_terms.json`` is ``{"version", "groups": {group: [terms]}}``; a plain list or ``{"terms": [...]}`` also works."""
+    if isinstance(data, dict) and isinstance(data.get("groups"), dict):
+        data = data["groups"]
+    elif isinstance(data, dict):
+        data = {k: v for k, v in data.items() if k not in ("version", "note")}
+    return [s for s in _flatten_strings(data) if len(s.strip()) > 1]
+
+
+def _colour_names(data: Any) -> list[str]:
+    """``colour_names.json`` is ``{"version", "note", "colours": {name: hex}}``; a list of names also works."""
+    colours = data.get("colours", data) if isinstance(data, dict) else data
+    if isinstance(colours, dict):
+        return [k for k in colours if isinstance(k, str)]
+    return _flatten_strings(colours)
 
 
 def _norm(text: str) -> str:
@@ -610,27 +625,27 @@ def chk_s11(c: DoctorCtx) -> Outcome:
         try:
             data = json.loads(manifest.read_text(encoding="utf-8"))
             if not isinstance(data, dict):
-                raise ValueError("the manifest is not a JSON object")
+                raise TypeError("the manifest is not a JSON object")
             notes.append("kit manifest loads")
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, TypeError) as exc:
             return Outcome("fail", f"The kit manifest is damaged: {exc}", "Run: python -m duoskin build-kit-manifest")
     if importlib.util.find_spec("duoskin.models.kitenums") is not None:
         ran_any = True
         try:
             importlib.import_module("duoskin.models.kitenums")
             notes.append("kit enums build")
-        except Exception as exc:   # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             return Outcome("fail", f"The kit enums could not be built: {redact(str(exc))[:200]}", "Run: python -m duoskin build-kit-manifest")
     data_dir = config.APP_ROOT / "duoskin" / "data"
     colour_file, banned_file = data_dir / "colour_names.json", data_dir / "banned_terms.json"
     if colour_file.exists() and banned_file.exists():
         ran_any = True
         try:
-            colours = [_norm(s) for s in _flatten_strings(json.loads(colour_file.read_text(encoding="utf-8")))]
-            banned = [_norm(s) for s in _flatten_strings(json.loads(banned_file.read_text(encoding="utf-8"))) if len(s.strip()) > 1]
+            colours = [_norm(s) for s in _colour_names(json.loads(colour_file.read_text(encoding="utf-8")))]
+            banned = [_norm(s) for s in _banned_terms(json.loads(banned_file.read_text(encoding="utf-8")))]
             extra = c.paths.user_data_dir / "banned_terms.extra.json"
             if extra.exists():
-                banned += [_norm(s) for s in _flatten_strings(json.loads(extra.read_text(encoding="utf-8"))) if len(s.strip()) > 1]
+                banned += [_norm(s) for s in _banned_terms(json.loads(extra.read_text(encoding="utf-8")))]
         except (OSError, ValueError) as exc:
             return Outcome("fail", f"A data file could not be read: {exc}", "Reinstall the app files.")
         hits = sorted({b for b in banned for name in colours if re.search(rf"(?<!\w){re.escape(b)}(?!\w)", name)})
@@ -771,7 +786,7 @@ def run_doctor(rt: Runtime | None = None, *, home: Path | None = None, setup: bo
         try:
             outcome = d.fn(ctx)
             result = _to_check_result(d, outcome)
-        except Exception as exc:   # noqa: BLE001 - fail closed
+        except Exception as exc:
             log.exception("doctor check %s crashed", d.id)
             outcome = Outcome("fail", f"The check itself crashed: {type(exc).__name__}: {redact(str(exc))[:200]}", "This is a bug; export diagnostics.")
             result = not_run(d.id, d.kind, f"{type(exc).__name__}", fm_ids=d.fm_ids)

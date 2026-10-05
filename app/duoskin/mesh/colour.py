@@ -87,7 +87,7 @@ def dominant_colours(rgb: np.ndarray, mask: np.ndarray | None = None, k: int = 4
         return []
     shift = 8 - bits
     key = ((px[:, 0] >> shift).astype(np.int64) << (2 * bits)) | ((px[:, 1] >> shift).astype(np.int64) << bits) | (px[:, 2] >> shift).astype(np.int64)
-    uniq, inv, counts = np.unique(key, return_inverse=True, return_counts=True)
+    _uniq, inv, counts = np.unique(key, return_inverse=True, return_counts=True)
     order = np.argsort(-counts)[:k]
     out = []
     for o in order:
@@ -115,4 +115,4 @@ def phash(img: np.ndarray, size: int = 32, keep: int = 8) -> int:
 
 
 def hamming(a: int, b: int) -> int:
-    return bin(a ^ b).count("1")
+    return (a ^ b).bit_count()

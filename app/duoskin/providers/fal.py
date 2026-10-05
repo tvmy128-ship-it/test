@@ -27,6 +27,9 @@ class FalProvider:
     def status(self) -> dict[str, Any]:
         return {"provider": PROVIDER, "implemented": False, "key_stored": self._has_key, "label": "stored, unused"}
 
+    def test_key(self) -> dict[str, Any]:
+        return {"ok": None, "message": "fal is stored but unused: no step calls it, so there is nothing to test."}
+
     def _nope(self) -> NoReturn:
         raise ProviderError(PROVIDER, "other", "fal is a settings slot only; no step calls it", code="not_implemented", billed="no",
                             user_hint="fal is not used by any step yet. Nothing was sent.")

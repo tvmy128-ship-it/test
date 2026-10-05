@@ -155,7 +155,6 @@ def test_run_subprocess_timeout_kills_the_child_and_fails(live):
     pids = []
 
     def h(ctx, p, i):
-        ctx.step  # noqa: B018
         orig = live.repo.add_child_proc
         live.repo.add_child_proc = lambda pid, ct, sid: (pids.append(pid), orig(pid, ct, sid))[1]
         try:

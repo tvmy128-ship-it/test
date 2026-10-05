@@ -107,7 +107,7 @@ class Database:
                 msg = str(exc).lower()
                 if ("locked" in msg or "busy" in msg) and time.monotonic() < deadline:
                     self.lock_retries += 1
-                    time.sleep(delay + random.random() * delay)   # noqa: S311 - jitter, not security
+                    time.sleep(delay + random.random() * delay)
                     delay = min(delay * 2, 0.1)
                     continue
                 raise
@@ -162,7 +162,7 @@ class Database:
             for hook in hooks:
                 try:
                     hook()
-                except Exception:   # noqa: BLE001 - a failing subscriber must not undo a committed change
+                except Exception:
                     log.exception("post-commit hook failed")
 
     # ------------------------------------------------------------------------------------------------ migrations
@@ -247,20 +247,30 @@ class Database:
         return target
 
     def close_all(self) -> None:
-        """Checkpoint the WAL and close every thread's connection (clean shutdown)."""
+        """Checkpoint the WAL, then close the connections that are safe to close.
+
+        Closing a SQLite connection while *another thread is inside a statement on it* can crash the whole process, so only
+        this thread's connection and those of dead threads are closed. Connections of other live threads stay open until
+        their thread ends; ``conn()`` refuses to hand out any connection once the database is closed, so those threads
+        get a Python error instead of touching SQLite again."""
         try:
             if not self._closed and self._state.conn is not None:
                 self.checkpoint("TRUNCATE")
         except sqlite3.Error:
             log.warning("WAL checkpoint failed at shutdown")
         self._closed = True
+        me = threading.current_thread()
         with self._all_lock:
-            for _thread, c in self._all:
-                try:
-                    c.close()
-                except sqlite3.Error:
-                    pass
-            self._all = []
+            keep: list[tuple[threading.Thread, sqlite3.Connection]] = []
+            for thread, c in self._all:
+                if thread is me or not thread.is_alive():
+                    try:
+                        c.close()
+                    except sqlite3.Error:
+                        pass
+                else:
+                    keep.append((thread, c))
+            self._all = keep
         self._state = _ThreadState()
 
 

@@ -91,13 +91,43 @@ def flat_fabric() -> FabricTile:
 # --------------------------------------------------------------------------------------------------------------------
 # procedural generators (float64, periodic by construction)
 # --------------------------------------------------------------------------------------------------------------------
-def _rng(seed: int) -> np.random.Generator:
-    return np.random.Generator(np.random.PCG64(int(seed)))
+class DetRng:
+    """A random stream whose every conversion is specified here, on top of the PCG64 raw 64-bit output (``random_raw``), so the
+    same seed gives the same numbers on every platform and NumPy version (``Generator.normal``/``uniform`` make no such promise).
+    Used for the procedural fabrics and folds, whose pixels are hashed by the golden tests."""
+
+    def __init__(self, seed: int):
+        self._bg = np.random.PCG64(int(seed))
+
+    def random(self, shape: int | tuple[int, ...] = ()) -> np.ndarray | float:
+        """Uniform doubles in [0, 1) with 53 random bits."""
+        shp = (shape,) if isinstance(shape, int) else tuple(shape)
+        n = int(np.prod(shp)) if shp else 1
+        u = (self._bg.random_raw(n) >> np.uint64(11)).astype(np.float64) * (2.0 ** -53)
+        return float(u[0]) if not shp else u.reshape(shp)
+
+    def uniform(self, lo: float, hi: float) -> float:
+        return float(lo + (hi - lo) * self.random())  # type: ignore[arg-type]
+
+    def integers(self, lo: int, hi: int) -> int:
+        """An integer in [lo, hi)."""
+        return int(lo + int(np.floor(float(self.random()) * (hi - lo))))  # type: ignore[arg-type]
+
+    def normal(self, shape: tuple[int, ...]) -> np.ndarray:
+        """Standard normals by Box-Muller from two uniform streams."""
+        n = int(np.prod(shape))
+        u1 = 1.0 - np.asarray(self.random(n))          # (0, 1]
+        u2 = np.asarray(self.random(n))
+        return (np.sqrt(-2.0 * np.log(u1)) * np.cos(2.0 * np.pi * u2)).reshape(shape)
+
+
+def _rng(seed: int) -> DetRng:
+    return DetRng(seed)
 
 
 def _periodic_noise(n: int, seed: int, sigma_px: float, aniso: tuple[float, float] = (1.0, 1.0)) -> np.ndarray:
     """Zero-mean unit-std periodic noise: white noise low-passed with a Gaussian of ``sigma_px`` (x, y scaled by ``aniso``)."""
-    w = _rng(seed).standard_normal((n, n))
+    w = _rng(seed).normal((n, n))
     fy = np.fft.fftfreq(n)[:, None]
     fx = np.fft.rfftfreq(n)[None, :]
     k = np.exp(-2.0 * np.pi ** 2 * ((sigma_px * aniso[0] * fx) ** 2 + (sigma_px * aniso[1] * fy) ** 2))
@@ -133,7 +163,7 @@ def _grid(n: int) -> tuple[np.ndarray, np.ndarray]:
 def _worley(n: int, seed: int, points: int) -> np.ndarray:
     """Periodic Worley F1 distance (toroidal) normalised by the mean nearest-neighbour spacing."""
     rng = _rng(seed)
-    pts = rng.random((points, 2))
+    pts = np.asarray(rng.random((points, 2)))
     u, v = _grid(n)
     best = np.full((n, n), np.inf)
     for px, py in pts:
@@ -169,7 +199,7 @@ def _denim(n: int, seed: int, r: int) -> np.ndarray:
     u, v = _grid(n)
     diag = 0.5 + 0.5 * np.cos(2 * np.pi * r * (u + v))
     weft = 0.5 + 0.5 * np.cos(2 * np.pi * r * 1.0 * v)
-    slub = _periodic_noise(n, seed, 2.2, (0.35, 1.0))          # horizontal streaks (anisotropic)
+    slub = _periodic_noise(n, seed, 3.6, (0.4, 1.0))           # horizontal streaks (anisotropic)
     return 0.55 * diag + 0.25 * weft + 0.22 * slub
 
 
@@ -190,8 +220,8 @@ def _wool(n: int, seed: int, r: int) -> np.ndarray:
 def _canvas(n: int, seed: int, r: int) -> np.ndarray:
     u, v = _grid(n)
     weave = np.cos(2 * np.pi * r * u) * np.cos(2 * np.pi * r * v)
-    streak = _periodic_noise(n, seed, 1.8, (0.45, 1.0))
-    return 0.5 * weave + 0.2 * streak + 0.1 * _periodic_noise(n, seed + 1, 1.2)
+    streak = _periodic_noise(n, seed, 3.2, (0.5, 1.0))
+    return 0.5 * weave + 0.2 * streak + 0.1 * _periodic_noise(n, seed + 1, 2.2)
 
 
 def _leather(n: int, seed: int, r: int) -> np.ndarray:
@@ -324,19 +354,19 @@ def seam_energy_ratio(tile: np.ndarray) -> float:
 
 
 def alias_energy_fraction(tile: np.ndarray, to: int = 128, cutoff: float = 0.35) -> float:
-    """Share of the (non-DC) spectral energy above ``cutoff`` cycles/px after a box downscale to ``to`` px."""
+    """Share of the (non-DC) spectral energy that would sit above ``cutoff`` cycles/px once the tile is resampled to ``to`` px
+    (CLO-13 moire test). Measured on the original tile: a frequency f cycles/px there becomes f * n / to at ``to`` px, so the
+    cut-off is ``cutoff * to / n``. (Box-downscaling first would hide exactly the content that aliases.)"""
     g = _grey_of(tile)
     n = g.shape[0]
-    if n > to:
-        k = n // to
-        g = g[:to * k, :to * k].reshape(to, k, to, k).mean(axis=(1, 3))
     g = g - g.mean()
     spec = np.abs(np.fft.fft2(g)) ** 2
     fy = np.fft.fftfreq(g.shape[0])[:, None]
     fx = np.fft.fftfreq(g.shape[1])[None, :]
     rad = np.hypot(fx, fy)
+    lim = cutoff * min(to, n) / n
     tot = spec.sum()
-    return float(spec[rad > cutoff].sum() / tot) if tot > 0 else 0.0
+    return float(spec[rad > lim].sum() / tot) if tot > 0 else 0.0
 
 
 def block_luminance_std(tile: np.ndarray, block: int = 64) -> float:

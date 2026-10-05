@@ -1,0 +1,329 @@
+{
+ "version": 1,
+ "partner_only_min_de_key": "con.partner_only_de",
+ "leak_max_share_key": "con.leak_area_max",
+ "axis_groups": {
+  "colour": [
+   "colour_temperature",
+   "value"
+  ],
+  "hair": [
+   "hair_shape",
+   "hair_length"
+  ],
+  "face": [
+   "face_eyes",
+   "face_mouth",
+   "expression"
+  ],
+  "cut": [
+   "top_type",
+   "bottom_type",
+   "sleeve_length",
+   "leg_length",
+   "neckline",
+   "layering",
+   "block_layout"
+  ],
+  "print": [
+   "pattern_scale"
+  ],
+  "accessory": [
+   "accessory_kind",
+   "accessory_slot"
+  ],
+  "other": [
+   "fabric",
+   "shape_language"
+  ]
+ },
+ "profiles": {
+  "complement": {
+   "summary": "Two characters with clearly different main colours and different structure.",
+   "colour_rule": {
+    "kind": "main_contrast",
+    "soft": true,
+    "threshold_key": "pln.contrast_colour_de",
+    "text": "a_main and b_main differ by CIEDE2000 >= 15 (warning only)."
+   },
+   "contrast_rule": {
+    "colour_axes": "default",
+    "text": "At least 5 measurable contrasts on distinct axes, at most 2 of them colour axes."
+   },
+   "cut_rule": {
+    "top_or_bottom_type_differs": true,
+    "min_cut_differences": 2,
+    "attributes": [
+     "sleeve",
+     "hem",
+     "leg",
+     "neckline",
+     "front",
+     "block_layout"
+    ],
+    "text": "A and B differ in top or bottom garment type (the recipe family) and in at least 2 of: sleeve, hem, leg, neckline, front, block_layout. No structure has an exception."
+   },
+   "typical_anchor_kinds": [
+    "colour",
+    "motif",
+    "material"
+   ],
+   "leak_policy": {
+    "mode": "standard",
+    "text": "A and B each keep their own role colours; the partner's colours must not appear."
+   }
+  },
+  "leader_chaotic": {
+   "summary": "A calm leader and an energetic partner.",
+   "colour_rule": {
+    "kind": "main_contrast",
+    "soft": true,
+    "threshold_key": "pln.contrast_colour_de",
+    "text": "a_main and b_main differ by CIEDE2000 >= 15 (warning only)."
+   },
+   "contrast_rule": {
+    "colour_axes": "default",
+    "required_any_axes": [
+     "expression",
+     "shape_language"
+    ],
+    "text": "As complement, and expression or shape_language is among the contrasts."
+   },
+   "cut_rule": {
+    "top_or_bottom_type_differs": true,
+    "min_cut_differences": 2,
+    "attributes": [
+     "sleeve",
+     "hem",
+     "leg",
+     "neckline",
+     "front",
+     "block_layout"
+    ],
+    "text": "A and B differ in top or bottom garment type (the recipe family) and in at least 2 of: sleeve, hem, leg, neckline, front, block_layout. No structure has an exception."
+   },
+   "typical_anchor_kinds": [
+    "motif",
+    "accessory_pair"
+   ],
+   "leak_policy": {
+    "mode": "standard",
+    "text": "A and B each keep their own role colours; the partner's colours must not appear."
+   }
+  },
+  "same_club": {
+   "summary": "A team or club look: a shared main colour is welcome; the difference comes from structure.",
+   "colour_rule": {
+    "kind": "none",
+    "soft": true,
+    "text": "No main-colour rule: the pair may share a main colour."
+   },
+   "contrast_rule": {
+    "colour_axes": "same_club",
+    "min_from_groups": {
+     "groups": [
+      "hair",
+      "face",
+      "cut",
+      "print",
+      "accessory"
+     ],
+     "min": 4
+    },
+    "text": "At least 5 measurable contrasts, at most 1 colour axis, and at least 4 from hair, face, cut, print or accessory axes."
+   },
+   "cut_rule": {
+    "top_or_bottom_type_differs": true,
+    "min_cut_differences": 2,
+    "attributes": [
+     "sleeve",
+     "hem",
+     "leg",
+     "neckline",
+     "front",
+     "block_layout"
+    ],
+    "text": "A and B differ in top or bottom garment type (the recipe family) and in at least 2 of: sleeve, hem, leg, neckline, front, block_layout. No structure has an exception."
+   },
+   "typical_anchor_kinds": [
+    "material",
+    "trim",
+    "motif"
+   ],
+   "leak_policy": {
+    "mode": "shared_by_design",
+    "shared_roles": [
+     [
+      "a_main",
+      "b_main"
+     ]
+    ],
+    "text": "The shared main colour is never a leak; the other role colours are tested as usual."
+   }
+  },
+  "mirror": {
+   "summary": "Swapped colour roles or a mirrored composition, with different structure.",
+   "colour_rule": {
+    "kind": "role_swap",
+    "soft": true,
+    "threshold_key": "pln.mirror_role_de_max",
+    "text": "Swapped roles: a_main close to b_second and b_main close to a_second (CIEDE2000 <= 10, warning only)."
+   },
+   "contrast_rule": {
+    "colour_axes": "default",
+    "must_differ": [
+     "hair_kit_style",
+     "garment_type",
+     "accessory_category"
+    ],
+    "text": "As complement, plus a different hair kit style, garment type and accessory category."
+   },
+   "cut_rule": {
+    "top_or_bottom_type_differs": true,
+    "min_cut_differences": 2,
+    "attributes": [
+     "sleeve",
+     "hem",
+     "leg",
+     "neckline",
+     "front",
+     "block_layout"
+    ],
+    "text": "A and B differ in top or bottom garment type (the recipe family) and in at least 2 of: sleeve, hem, leg, neckline, front, block_layout. No structure has an exception."
+   },
+   "typical_anchor_kinds": [
+    "colour",
+    "silhouette_detail"
+   ],
+   "leak_policy": {
+    "mode": "role_swap",
+    "swapped_roles": [
+     [
+      "a_main",
+      "b_second"
+     ],
+     [
+      "a_second",
+      "b_main"
+     ]
+    ],
+    "text": "Swapped roles are shared by design and never count as a leak."
+   }
+  },
+  "seasonal_twins": {
+   "summary": "One theme with two season palettes.",
+   "colour_rule": {
+    "kind": "season_split",
+    "soft": true,
+    "threshold_key": "pln.contrast_colour_de",
+    "text": "a_main and b_main fall into different season groups (data/season_map.json) and differ by CIEDE2000 >= 15 (warning only)."
+   },
+   "contrast_rule": {
+    "colour_axes": "default",
+    "min_non_colour": 4,
+    "text": "At least 4 non-colour contrasts."
+   },
+   "cut_rule": {
+    "top_or_bottom_type_differs": true,
+    "min_cut_differences": 2,
+    "attributes": [
+     "sleeve",
+     "hem",
+     "leg",
+     "neckline",
+     "front",
+     "block_layout"
+    ],
+    "text": "A and B differ in top or bottom garment type (the recipe family) and in at least 2 of: sleeve, hem, leg, neckline, front, block_layout. No structure has an exception."
+   },
+   "typical_anchor_kinds": [
+    "motif",
+    "material"
+   ],
+   "leak_policy": {
+    "mode": "standard",
+    "text": "A and B each keep their own role colours; the partner's colours must not appear."
+   }
+  },
+  "object_mascot": {
+   "summary": "Two human blocky characters; the mascot is the signature accessory or the linked accessory pair.",
+   "colour_rule": {
+    "kind": "main_contrast",
+    "soft": true,
+    "threshold_key": "pln.contrast_colour_de",
+    "text": "a_main and b_main differ by CIEDE2000 >= 15 (warning only)."
+   },
+   "contrast_rule": {
+    "colour_axes": "default",
+    "mascot": {
+     "kinds": [
+      "plush_pet",
+      "keychain_charm",
+      "prop"
+     ],
+     "anchor_kind": "accessory_pair"
+    },
+    "text": "As complement, plus at least one accessory of kind plush_pet, keychain_charm or prop with linked_to_partner true, or an accessory_pair anchor."
+   },
+   "cut_rule": {
+    "top_or_bottom_type_differs": true,
+    "min_cut_differences": 2,
+    "attributes": [
+     "sleeve",
+     "hem",
+     "leg",
+     "neckline",
+     "front",
+     "block_layout"
+    ],
+    "text": "A and B differ in top or bottom garment type (the recipe family) and in at least 2 of: sleeve, hem, leg, neckline, front, block_layout. No structure has an exception."
+   },
+   "typical_anchor_kinds": [
+    "accessory_pair"
+   ],
+   "leak_policy": {
+    "mode": "standard",
+    "text": "A and B each keep their own role colours; the partner's colours must not appear."
+   }
+  },
+  "other": {
+   "summary": "Any other relationship; describe it in structure_note.",
+   "colour_rule": {
+    "kind": "none",
+    "soft": true,
+    "text": "No main-colour rule."
+   },
+   "contrast_rule": {
+    "colour_axes": "default",
+    "text": "As complement."
+   },
+   "cut_rule": {
+    "top_or_bottom_type_differs": true,
+    "min_cut_differences": 2,
+    "attributes": [
+     "sleeve",
+     "hem",
+     "leg",
+     "neckline",
+     "front",
+     "block_layout"
+    ],
+    "text": "A and B differ in top or bottom garment type (the recipe family) and in at least 2 of: sleeve, hem, leg, neckline, front, block_layout. No structure has an exception."
+   },
+   "typical_anchor_kinds": [
+    "colour",
+    "motif",
+    "material",
+    "trim",
+    "silhouette_detail",
+    "accessory_pair",
+    "hair_detail",
+    "face_detail"
+   ],
+   "leak_policy": {
+    "mode": "standard",
+    "text": "A and B each keep their own role colours; the partner's colours must not appear."
+   }
+  }
+ }
+}

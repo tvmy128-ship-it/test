@@ -150,6 +150,32 @@
    "label": 4
   },
   {
+   "id": "armhole_bind_up",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      231,
+      8,
+      234,
+      71
+     ]
+    },
+    {
+     "rect": [
+      355,
+      8,
+      358,
+      71
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
    "id": "armhole_r",
    "stage": "blocks",
    "op": "paint",

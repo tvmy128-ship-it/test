@@ -42,7 +42,7 @@ def main():
             mesh_smooth_type="OFF", use_triangles=True)
         _write(result_path, {"ok": True, "files": {"fbx": args["dst"]}, "blender_version": bpy.app.version_string})
     except Exception as exc:  # noqa: BLE001
-        _write(result_path, {"ok": False, "error": "%s: %s" % (type(exc).__name__, exc), "trace": traceback.format_exc()[-1500:]})
+        _write(result_path, {"ok": False, "error": f"{type(exc).__name__}: {exc}", "trace": traceback.format_exc()[-1500:]})
         sys.exit(3)
 
 

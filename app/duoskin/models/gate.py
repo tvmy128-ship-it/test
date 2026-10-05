@@ -36,6 +36,7 @@ class GateAction(StrEnum):
     BACK_TO_CONCEPT = "back_to_concept"  # Gate 2 only
     SELECT_ALTERNATIVE = "select_alternative"
     MAKE_MANUAL = "make_manual"         # hair/accessory: "Make it myself on Tripo"
+    FLIP_MIRRORED = "flip_mirrored"     # hair/accessory: "Flip left/right (I checked)"; only when the mirrored match wins (§10.9)
     PICK = "pick"                       # Gate 3 winner
     EXPORT = "export"                   # Gate 3
     OVERRIDE_WARNING = "override_warning"
@@ -90,6 +91,8 @@ class GateDecisionIn(Strict):           # API request body
     text: str = Field(default="", max_length=1000)     # "Change..." text or New-plan reasons (data, never instructions)
     mask_sha: Sha256 | None = None      # brush mask for a local edit, uploaded first via /api/uploads
     choice: str | None = None           # alternative index, plan id, candidate id, warning id or new cap
+    target: str | None = None           # Gate 1 Reimagine/Change: "a" | "b" | "both" (default both); face tile:
+                                        # "iris" | "lash" | "brow" | "mouth_closed" | "mouth_open" | "all"
     expected_version: int               # optimistic lock: 409 if the tile changed (ENG-11)
     client_decision_id: str = Field(min_length=1, max_length=80)   # idempotency key
 

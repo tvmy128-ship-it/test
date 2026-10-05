@@ -9,7 +9,7 @@ It looks for small, thin-stroked, high-contrast marks that sit in text-like rows
 3. glyph-like marks of similar height whose vertical centres align and which follow each other horizontally form a *row*;
 4. ``score = min(1, N / 6)`` where ``N`` is the number of marks in the longest row (a row needs at least 2 marks).
 
-The check passes when ``score < img.glyph_score_max`` (0.3). It is deliberately conservative toward flagging (the VLM ``ip_no_text``
+The check passes when ``score < ocr.glyph_score_max`` (0.3). It is deliberately conservative toward flagging (the VLM ``ip_no_text``
 rule has the last word) and it is a *fallback*: with rapidocr available, ``imaging/ocr.py`` runs the real detector first.
 """
 from __future__ import annotations
@@ -197,10 +197,10 @@ def glyph_score(im: Image.Image) -> GlyphReport:
 
 
 def check_glyph(im: Image.Image, *, subject_sha: str = "") -> CheckResult:
-    """A_GLYPH (HARD, class stray_text): no row of text-like marks (score < ``img.glyph_score_max``)."""
+    """A_GLYPH (HARD, class stray_text): no row of text-like marks (score < ``ocr.glyph_score_max``)."""
     rep = glyph_score(im)
-    lim = float(TH.get("img.glyph_score_max"))
+    lim = float(TH.get("ocr.glyph_score_max"))
     return build_result("A_GLYPH", passed=rep.score < lim, subject_sha=subject_sha, metric="glyph_score", value=rep.score,
-                        threshold=TH.describe("img.glyph_score_max", "<"),
+                        threshold=TH.describe("ocr.glyph_score_max", "<"),
                         evidence=f"score {rep.score:.2f}: longest row {rep.longest_row} of {rep.glyphs} glyph-like marks "
                                  f"({rep.candidates} candidates)", fix_hint="regenerate")

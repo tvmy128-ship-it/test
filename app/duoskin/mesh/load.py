@@ -62,7 +62,7 @@ def sniff(path: str | Path) -> str:
         return "jpeg"
     if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
         return "webp"
-    if head.startswith(b"ply\n") or head.startswith(b"ply\r\n"):
+    if head.startswith((b"ply\n", b"ply\r\n")):
         return "ply"
     text = head.lstrip(b"\xef\xbb\xbf \t\r\n")
     if text.startswith(b"{"):
@@ -214,14 +214,14 @@ def merge_parts(parts: list[dict[str, Any]], messages: list[str], atlas_px: int 
         return MeshData(np.vstack(verts), np.vstack(faces), np.vstack(uvs) if has_uv else None, tex,
                         {"materials_merged": 1, "has_uv": has_uv})
     # several materials: grid atlas
-    cols = int(math.ceil(math.sqrt(n_tex)))
-    rows = int(math.ceil(n_tex / cols))
+    cols = math.ceil(math.sqrt(n_tex))
+    rows = math.ceil(n_tex / cols)
     cell = max(64, atlas_px // max(cols, rows))
     atlas = Image.new("RGB", (cols * cell, rows * cell), (128, 128, 128))
     for i, (img, fac) in enumerate(keys):
         c, r = i % cols, i // cols
         if img is None:
-            tile = Image.new("RGB", (cell, cell), tuple(int(round(x * 255)) for x in fac))
+            tile = Image.new("RGB", (cell, cell), tuple(round(x * 255) for x in fac))
         else:
             tile = img.convert("RGB").resize((cell, cell), Image.Resampling.LANCZOS)
         atlas.paste(tile, (c * cell, r * cell))

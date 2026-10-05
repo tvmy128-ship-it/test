@@ -16,8 +16,8 @@ import numpy as np
 
 from duoskin.checks.model import CheckResult, not_applicable, not_run
 from duoskin.mesh import texture as tx
-from duoskin.mesh.gltf_io import check_gltf_files, gltf_structure_facts, read_gltf_json  # noqa: F401  (re-exported)
 from duoskin.mesh.geometry import face_normals_areas, weld
+from duoskin.mesh.gltf_io import check_gltf_files, gltf_structure_facts, read_gltf_json  # noqa: F401  (re-exported)
 from duoskin.mesh.types import MeshData, MeshError
 
 GENERATOR = "DuoSkin Studio mesh export"
@@ -117,7 +117,7 @@ def build_gltf(mesh: MeshData, *, png_bytes: bytes | None, bin_uri: str | None, 
             {"bufferView": 0, "componentType": 5126, "count": len(v), "type": "VEC3", "min": lo, "max": hi},
             {"bufferView": 1, "componentType": 5126, "count": len(v), "type": "VEC3"},
             {"bufferView": 2, "componentType": 5126, "count": len(v), "type": "VEC2"},
-            {"bufferView": 3, "componentType": 5123 if idx_dtype == np.uint16 else 5125, "count": int(len(idx)), "type": "SCALAR",
+            {"bufferView": 3, "componentType": 5123 if idx_dtype == np.uint16 else 5125, "count": len(idx), "type": "SCALAR",
              "min": [int(idx.min())] if len(idx) else [0], "max": [int(idx.max())] if len(idx) else [0]},
         ],
         "bufferViews": views,

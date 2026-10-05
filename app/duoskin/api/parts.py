@@ -3,17 +3,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from duoskin.api import get_rt, not_implemented
+from duoskin.api import RT, not_implemented
 from duoskin.engine.runtime import Runtime
 
 router = APIRouter(prefix="/api")
 
 
 @router.get("/projects/{project_id}/parts/{part_id}")
-def get_part(project_id: str, part_id: str, rt: Runtime = Depends(get_rt)) -> dict[str, Any]:
+def get_part(project_id: str, part_id: str, rt: Runtime = RT) -> dict[str, Any]:
     """The part plus its asset links, check results and a provenance summary."""
     part = rt.repo.get_part(project_id, part_id)
     links = rt.repo.list_links(project_id=project_id, part_id=part_id)

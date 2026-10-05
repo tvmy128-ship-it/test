@@ -50,7 +50,7 @@ USER_HINTS: dict[str, str] = {
 }
 
 
-class Cancelled(Exception):   # noqa: N818 - the spec's name (providers.base.CallCtx.check_cancel raises Cancelled)
+class Cancelled(Exception):
     """Raised by ``StepContext.check_cancel()`` when the step was cancelled, lost its lease or the app is stopping."""
 
 

@@ -42,11 +42,11 @@ import numpy as np
 from duoskin.checks import thresholds as TH
 from duoskin.checks.model import CheckResult, not_applicable, not_run
 from duoskin.checks.policy import effective_kind
-from duoskin.checks.runner import CheckUnavailable, NotApplicable
+from duoskin.checks.runner import CheckUnavailable
 from duoskin.models.common import sha256_of
 from duoskin.roblox import limits_clothing as LC
 from duoskin.roblox import template as T
-from duoskin.roblox.mesh_validators import validate_accessory  # noqa: F401  (re-export: APP_SPEC §5.4 lists both here)
+from duoskin.roblox.mesh_validators import validate_accessory
 
 STAGE_ORDER = ("blocks", "fabric", "folds", "details", "prints", "kit", "finish")
 LABEL_PRINT, LABEL_BRACELET, LABEL_SHOES, LABEL_LEGWEAR = 3, 5, 6, 7
@@ -60,6 +60,16 @@ FM = {"CHK-B01": ["CLO-01"], "CHK-B02": ["CLO-02", "EXP-07"], "CHK-B03": ["CLO-0
 DEFAULT_KIND = {"CHK-B01": "assert", "CHK-B02": "assert", "CHK-B03": "hard", "CHK-B04": "hard", "CHK-B05": "assert",
                 "CHK-B06": "hard", "CHK-B07": "assert", "CHK-B08": "assert", "CHK-B11": "assert", "A_OCR": "hard",
                 "CHK-MOD01": "hard"}
+
+
+class NotApplicable(Exception):
+    """Raised by a check that finds an OPTIONAL input absent (no plan, no skin tone, no paired template, no OCR engine): the result is
+    a recorded ``not_applicable`` with the reason. A REQUIRED input that is missing raises ``CheckUnavailable`` instead, which is
+    ``ran=False`` (fail closed, a failed hard/assert check). Kit-flag N/A (no head/body base) is the runner's job, not ours."""
+
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -250,8 +260,8 @@ def check_b11(img: np.ndarray, label_map: np.ndarray | None, ctx: dict[str, Any]
 # CHK-B04 seam continuity
 # --------------------------------------------------------------------------------------------------------------------
 def seam_stats(img: np.ndarray, seams: Sequence[T.Seam] | None = None) -> list[dict[str, Any]]:
-    """Per seam: mean/max CIEDE2000 between the touching edge pixels (both sides garment), and the share of pixels where only
-    one side is garment (an intentional cut edge or an error)."""
+    """Per seam: mean/max/95th-percentile CIEDE2000 between the touching edge pixels (both sides garment), and the share of
+    pixels where only one side is garment (an intentional cut edge or an error)."""
     from duoskin.imaging.palette import deltaE2000, srgb_to_lab
 
     out: list[dict[str, Any]] = []
@@ -261,10 +271,10 @@ def seam_stats(img: np.ndarray, seams: Sequence[T.Seam] | None = None) -> list[d
         one = (ea[:, 3] > 0) != (eb[:, 3] > 0)
         if both.any():
             d = deltaE2000(srgb_to_lab(ea[both, :3].astype(np.float64)), srgb_to_lab(eb[both, :3].astype(np.float64)))
-            mean, mx = float(d.mean()), float(d.max())
+            mean, mx, p95 = float(d.mean()), float(d.max()), float(np.percentile(d, 95))
         else:
-            mean = mx = 0.0
-        out.append({"seam": f"{s.a}.{s.side_a}|{s.b}.{s.side_b}", "kind": s.kind, "mean": mean, "max": mx, "n": int(both.sum()),
+            mean = mx = p95 = 0.0
+        out.append({"seam": f"{s.a}.{s.side_a}|{s.b}.{s.side_b}", "kind": s.kind, "mean": mean, "max": mx, "p95": p95, "n": int(both.sum()),
                     "one_sided": float(one.sum() / len(ea))})
     return out
 
@@ -281,16 +291,38 @@ def check_b04(base: np.ndarray) -> CheckResult:
                 "change_technique")
 
 
+def check_b04_from_labels(img: np.ndarray, label_map: np.ndarray) -> CheckResult:
+    """CHK-B04 without the compositor's base layer: the seam pixel pairs where both sides are plain fabric (label 1) on the final file.
+    Stitches and folds sit on label 1 too, so the tail is judged at the 95th percentile instead of the strict maximum (approximate;
+    pass ``base_layer`` for the exact check)."""
+    mean_max, max_max = LC.seam_de_limits()
+    fab = np.where(label_map[..., None] == 1, img, 0).astype(np.uint8)
+    stats = [s for s in seam_stats(fab) if s["n"] > 0]
+    if not stats:
+        return _res("CHK-B04", True, "seam_de_mean_worst", 0.0, f"mean <= {mean_max}, p95 <= {max_max} (approximate)", "no seam has fabric on both sides")
+    wm = max(stats, key=lambda s: s["mean"])
+    wp = max(stats, key=lambda s: s["p95"])
+    ok = wm["mean"] <= mean_max and wp["p95"] <= max_max
+    return _res("CHK-B04", ok, "seam_de_mean_worst", wm["mean"], f"mean <= {mean_max} and p95 <= {max_max} on every pair (no base layer: label-1 pixels)",
+                f"{len(stats)} seams with fabric on both sides; worst mean {wm['mean']:.2f} at {wm['seam']}; worst p95 {wp['p95']:.2f} at {wp['seam']}",
+                "change_technique")
+
+
 def check_b04_composite(img: np.ndarray) -> CheckResult:
+    """The seam metric on the final composite (SOFT, CLO-04). A 1-px stitch or an anti-aliased colour edge may reach a seam on
+    purpose, so the tail is judged at the 95th percentile instead of the single worst pixel (the HARD check on the base fabric
+    layer keeps the strict maximum)."""
     mean_max, max_max = LC.seam_de_limits()
     stats = [s for s in seam_stats(img) if s["n"] > 0]
     if not stats:
         return _res("CHK-B04.composite", True, "seam_de_mean_worst", 0.0, "SOFT: same limits as CHK-B04", "no seam has garment on both sides")
     wm = max(stats, key=lambda s: s["mean"])
-    wx = max(stats, key=lambda s: s["max"])
-    ok = wm["mean"] <= mean_max and wx["max"] <= max_max
-    return _res("CHK-B04.composite", ok, "seam_de_mean_worst", wm["mean"], f"SOFT: mean <= {mean_max}, max <= {max_max}",
-                f"composite seams (prints may end at an edge on purpose): worst mean {wm['mean']:.2f} at {wm['seam']}, worst max {wx['max']:.2f} at {wx['seam']}")
+    wp = max(stats, key=lambda s: s["p95"])
+    ok = wm["mean"] <= mean_max and wp["p95"] <= max_max
+    return _res("CHK-B04.composite", ok, "seam_de_mean_worst", wm["mean"],
+                f"SOFT: mean <= {mean_max} and 95th percentile <= {max_max} on every pair",
+                f"composite seams (prints may end at an edge on purpose): worst mean {wm['mean']:.2f} at {wm['seam']}, "
+                f"worst p95 {wp['p95']:.2f} at {wp['seam']}")
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -309,7 +341,7 @@ def _row_groups(rows: np.ndarray) -> list[tuple[int, int]]:
 
 def check_b05(kind: str, label_map: np.ndarray | None) -> CheckResult:
     if label_map is None:
-        raise NotApplicable("no_label_map")
+        raise CheckUnavailable("no label map: shoe, glove and bracelet placement cannot be verified")
     problems: list[str] = []
     lo, hi = LC.shoe_top_row_range()
     shoes = label_map == LABEL_SHOES
@@ -342,44 +374,43 @@ def check_b05(kind: str, label_map: np.ndarray | None) -> CheckResult:
                 "; ".join(problems[:6]) or "shoes, legwear, bracelets and gloves sit inside their bands", "regenerate")
 
 
-def _vertical_steps(img: np.ndarray, r0: int, r1: int, x0: int, x1: int) -> int:
-    """Columns of rows r0|r0+1 .. r1|r1+1 inside x0..x1 where the pixel changes by an alpha edge or ΔE2000 > 20."""
+def check_split_rows(img: np.ndarray, ctx: dict[str, Any]) -> CheckResult:
+    """CLO-07 (SOFT): trim or print edges within 2 px of the R15 split rows 170, 418/419 and 467.
+
+    Forbidden rows are the rows closer than 2 px to a split (torso 169-171, limbs 417-420 and 466-468). A step between two
+    opaque rows is flagged when either row is forbidden and the colour changes by more than CIEDE2000 20; an alpha edge is
+    flagged when the OPAQUE row is forbidden (a piece that ends at row 465 or starts at 469 lies inside its band). Alpha edges
+    at the recipe's own hem rows (torso hem, sleeve end, leg hem, waist) are by design and exempt."""
     from duoskin.imaging.palette import deltaE2000, srgb_to_lab
 
-    cols = np.zeros(x1 - x0 + 1, dtype=bool)
-    for r in range(r0, r1 + 1):
-        a, b = img[r, x0:x1 + 1], img[r + 1, x0:x1 + 1]
-        edge = (a[:, 3] > 0) != (b[:, 3] > 0)
-        both = (a[:, 3] > 0) & (b[:, 3] > 0)
-        step = np.zeros_like(edge)
-        if both.any():
-            d = deltaE2000(srgb_to_lab(a[both, :3].astype(np.float64)), srgb_to_lab(b[both, :3].astype(np.float64)))
-            step[both] = d > 20.0
-        cols |= edge | step
-    return int(cols.sum())
-
-
-def check_split_rows(img: np.ndarray, ctx: dict[str, Any]) -> CheckResult:
-    """CLO-07 (SOFT): colour or alpha steps across the row boundaries within 2 px of rows 170, 418/419 and 467, except at the
-    recipe's own hem rows (the garment edge there is by design)."""
     hem = set(ctx.get("hem_rows") or [])
     flagged: list[str] = []
     total = 0
-    lo, hi = T.FORBIDDEN_ROWS_TORSO
-    spans = [(("torso_f", "torso_b", "torso_l", "torso_r"), lo - 1, hi)]
-    for a, b in T.FORBIDDEN_ROWS_LIMB:
-        spans.append((("rlimb_f", "rlimb_b", "rlimb_l", "rlimb_r", "llimb_f", "llimb_b", "llimb_l", "llimb_r"), a - 1, b))
-    for regions, r0, r1 in spans:
+    t_lo, t_hi = T.FORBIDDEN_ROWS_TORSO
+    groups: list[tuple[tuple[str, ...], set[int]]] = [(("torso_f", "torso_b", "torso_l", "torso_r"), set(range(t_lo, t_hi + 1)))]
+    forb_limb = {r for a, b in T.FORBIDDEN_ROWS_LIMB for r in range(a, b + 1)}
+    groups.append((("rlimb_f", "rlimb_b", "rlimb_l", "rlimb_r", "llimb_f", "llimb_b", "llimb_l", "llimb_r"), forb_limb))
+    for regions, forb in groups:
+        r_lo, r_hi = min(forb) - 1, max(forb)
         for region in regions:
             x0, _y0, x1, _y1 = T.REGIONS[region]
-            rs = [r for r in range(r0, r1 + 1) if not (r in hem)]
-            if not rs:
-                continue
-            n = 0
-            for r in rs:
-                n += _vertical_steps(img, r, r, x0, x1)
+            cols = np.zeros(x1 - x0 + 1, dtype=bool)
+            for r in range(r_lo, r_hi + 1):
+                a, b = img[r, x0:x1 + 1], img[r + 1, x0:x1 + 1]
+                oa, ob = a[:, 3] > 0, b[:, 3] > 0
+                if r not in hem:
+                    top_edge = oa & ~ob                       # garment ends at row r
+                    bot_edge = ~oa & ob                       # garment starts at row r+1
+                    cols |= (top_edge & (r in forb)) | (bot_edge & ((r + 1) in forb))
+                both = oa & ob
+                if both.any() and (r in forb or (r + 1) in forb):
+                    d = deltaE2000(srgb_to_lab(a[both, :3].astype(np.float64)), srgb_to_lab(b[both, :3].astype(np.float64)))
+                    step = np.zeros_like(both)
+                    step[both] = d > 20.0
+                    cols |= step
+            n = int(cols.sum())
             if n >= LC.SPLIT_FLAG_MIN_COLUMNS:
-                flagged.append(f"{region} rows {r0}-{r1 + 1}: {n} px")
+                flagged.append(f"{region}: {n} px")
                 total += n
     return _res("CHK-B05.split_rows", not flagged, "split_row_step_columns", float(total), "SOFT: no trim or print edge within 2 px of rows 170, 418/419, 467",
                 "; ".join(flagged[:5]) or "no steps across the split rows (hem rows exempt)")
@@ -387,7 +418,7 @@ def check_split_rows(img: np.ndarray, ctx: dict[str, Any]) -> CheckResult:
 
 def check_print_inset(img: np.ndarray, label_map: np.ndarray | None, placements: Sequence[Any] | None, kind: str) -> list[CheckResult]:
     if label_map is None:
-        raise NotApplicable("no_label_map")
+        raise NotApplicable("no_label_map")        # soft flags: nothing to flag without knowing where the prints are
     inset = LC.bevel_inset_px()
     wrap_regions = {p.region for p in (placements or []) if getattr(p, "wrap", False)}
     near = []
@@ -486,7 +517,7 @@ def check_waistband_hidden(kind: str, img: np.ndarray, label_map: np.ndarray | N
 def check_b07(stack: Sequence[Mapping[str, Any]] | None, golden_hash: str | None, placements: Sequence[Any] | None,
               label_map: np.ndarray | None) -> CheckResult:
     if stack is None and placements is None and label_map is None:
-        raise NotApplicable("no_stack_no_placements_no_label_map")
+        raise CheckUnavailable("no layer stack, no placements and no label map: nothing to verify")
     problems: list[str] = []
     detail = []
     if stack is not None:
@@ -634,11 +665,12 @@ def validate_template(png: Any, kind: str, label_map: np.ndarray | None = None, 
     * ``png``: PNG bytes, a path, a PIL image or an RGBA ndarray (bytes give the exact file facts for CHK-B02).
     * ``kind``: ``"shirt"`` or ``"pants"``. Shirt-only: bracelets/gloves; Pants-only: shoes/legwear, hidden leg rows, Pants U faces.
     * ``label_map``: the compositor's uint8 585x559 class map (0 skin, 1 fabric, 2 secondary, 3 print, 4 trim, 5 bracelet/glove,
-      6 shoes, 7 legwear); without it the checks that need it are ``not_applicable`` (``no_label_map``).
+      6 shoes, 7 legwear); CHK-B05 and CHK-B11's skin rule need it (without it they are ``ran=False``; the SOFT print flags are N/A).
     * ``recipe``: an ``imaging.recipes.Recipe`` or the compositor's ``meta`` dict (``vars``, ``hem_rows`` ...): the hem rows the
       recipe cuts on purpose are exempt from the split-row warning.
-    * ``base_layer``: the base fabric layer (``ComposeResult.base_layer_png``) for the HARD seam check CHK-B04; without it CHK-B04
-      is ``not_applicable`` (``no_base_layer``) and only the SOFT composite check runs.
+    * ``base_layer``: the base fabric layer (``ComposeResult.base_layer_png``) for the strict HARD seam check CHK-B04; without it CHK-B04
+      measures the label-1 (plain fabric) seam pixels of the file instead (95th percentile; approximate), and without a label
+      map too it is ``ran=False``.
     * ``placements``, ``stack``, ``golden_hash``: the compositor's print placements and layer stack (CHK-B07).
     * ``plan``: ``{"skin_tone", "modesty_colour", "bottom_waist", "allow_midriff"}`` for the modesty rules; ``skin`` an RGB/hex for
       the skin-in-clothing flag (defaults to ``plan["skin_tone"]``); ``other_png`` the paired template for the waistband flag.
@@ -673,9 +705,11 @@ def validate_template(png: Any, kind: str, label_map: np.ndarray | None = None, 
     results += _guard("CHK-B03", lambda: check_b03(img), sha)
 
     def b04() -> CheckResult:
-        if base is None:
-            raise NotApplicable("no_base_layer")
-        return check_b04(base)
+        if base is not None:
+            return check_b04(base)
+        if label_map is None:
+            raise CheckUnavailable("no base fabric layer and no label map: the fabric seams cannot be measured")
+        return check_b04_from_labels(img, label_map)
 
     results += _guard("CHK-B04", b04, sha)
     results += _guard("CHK-B04.composite", lambda: check_b04_composite(img), sha)
@@ -704,5 +738,19 @@ def warnings(results: Sequence[CheckResult]) -> list[CheckResult]:
     return [r for r in results if r.kind == "soft" and r.ran and not r.passed]
 
 
-__all__ = ["validate_template", "validate_accessory", "seam_stats", "failures", "warnings", "check_b01", "check_b02", "check_b03",
-           "check_b04", "check_b05", "check_b06", "check_b07", "check_b08", "check_b11"]
+__all__ = [
+    "check_b01",
+    "check_b02",
+    "check_b03",
+    "check_b04",
+    "check_b05",
+    "check_b06",
+    "check_b07",
+    "check_b08",
+    "check_b11",
+    "failures",
+    "seam_stats",
+    "validate_accessory",
+    "validate_template",
+    "warnings",
+]

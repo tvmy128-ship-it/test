@@ -135,7 +135,7 @@ class Cas:
             with Image.open(io.BytesIO(data)) as im:
                 im.load()
                 return im.width, im.height, pixel_sha(data)
-        except Exception as exc:   # noqa: BLE001 - Pillow raises many types for damaged files
+        except Exception as exc:
             raise CasError(f"not a valid {kind} image: {type(exc).__name__}") from exc
 
     def add_link(self, link: AssetLink) -> AssetLink:

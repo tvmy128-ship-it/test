@@ -149,3 +149,18 @@ def make_openai_client(handler: Callable[[Any], Any], **kw: Any) -> Any:
 
 def noop_sleep(_s: float) -> None:
     return None
+
+
+class FakeClock:
+    """A clock whose ``sleep`` advances it instantly: pass ``now`` / ``sleep`` to a RateLimiter (and an adapter) so waits cost no time."""
+
+    def __init__(self, start: float = 1000.0) -> None:
+        self.t = start
+        self.sleeps: list[float] = []
+
+    def now(self) -> float:
+        return self.t
+
+    def sleep(self, s: float) -> None:
+        self.sleeps.append(s)
+        self.t += s

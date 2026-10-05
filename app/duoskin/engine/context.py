@@ -14,9 +14,10 @@ import sys
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from duoskin.checks.model import CheckResult
 from duoskin.engine.errors import Cancelled, StepFailure
@@ -171,7 +172,7 @@ class StepContext:
         return self.rt.repo.insert_checks(results, project_id=self.step.project_id, step_id=self.step.id)
 
     # ------------------------------------------------------------------------------------------------ events
-    def emit(self, type: str, payload: dict[str, Any] | None = None) -> int:   # noqa: A002
+    def emit(self, type: str, payload: dict[str, Any] | None = None) -> int:
         return self.rt.bus.emit(type, {"step_id": self.step.id, **(payload or {})}, self.step.project_id)
 
     # ------------------------------------------------------------------------------------------------ graph and gates
@@ -210,7 +211,7 @@ class StepContext:
             return LocalCallCtx(self.step.id, self.heartbeat, self.check_cancel, self.progress)
 
     # ------------------------------------------------------------------------------------------------ subprocess
-    def run_subprocess(self, argv: list[str], *, timeout_s: int | float, env: dict[str, str] | None = None,
+    def run_subprocess(self, argv: list[str], *, timeout_s: float, env: dict[str, str] | None = None,
                        cwd: str | os.PathLike[str] | None = None) -> dict[str, Any]:
         """Run a child process (mesh worker, Blender) with a timeout and cancellation. Results come back through a JSON
         file, never stdout: ``{result_json}`` in ``argv`` and the ``DUOSKIN_RESULT_JSON`` environment variable hold its path.
@@ -234,7 +235,7 @@ class StepContext:
             kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         else:
             kwargs["start_new_session"] = True
-        proc = subprocess.Popen(full_argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL,   # noqa: S603
+        proc = subprocess.Popen(full_argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL,
                                 env=child_env, cwd=cwd, encoding="utf-8", errors="replace", **kwargs)
         try:
             create_time = psutil.Process(proc.pid).create_time()

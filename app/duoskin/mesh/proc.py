@@ -11,9 +11,9 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
 TAIL_CHARS = 6000
 
@@ -95,7 +95,7 @@ def run_process(cmd: Sequence[str], *, timeout_s: float, cwd: str | Path | None 
     with tempfile.TemporaryDirectory(prefix="duoskin_proc_") as td:
         out_path, err_path = os.path.join(td, "out.txt"), os.path.join(td, "err.txt")
         with open(out_path, "wb") as fo, open(err_path, "wb") as fe:
-            proc = subprocess.Popen(list(cmd), stdout=fo, stderr=fe, stdin=subprocess.DEVNULL, cwd=str(cwd) if cwd else None,  # noqa: S603
+            proc = subprocess.Popen(list(cmd), stdout=fo, stderr=fe, stdin=subprocess.DEVNULL, cwd=str(cwd) if cwd else None,
                                     env=full_env, **kwargs)
             timed_out = killed_mem = False
             while True:

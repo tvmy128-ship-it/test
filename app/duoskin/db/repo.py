@@ -21,7 +21,7 @@ from duoskin.models.asset import AssetLink
 from duoskin.models.common import iso_utc, new_id, utcnow
 from duoskin.models.gate import ChangeRequest, Gate, GateDecision
 from duoskin.models.job import Job, Step
-from duoskin.models.part import ApprovalRecord, Part
+from duoskin.models.part import ApprovalRecord, BuildStamp, Part
 from duoskin.models.project import Project, Stage, slugify
 from duoskin.models.spec_record import SpecRecord
 
@@ -371,25 +371,47 @@ class Repo:
         return [GateDecision.model_validate_json(r["json"]) for r in rows]
 
     # ----------------------------------------------------------------------------------------------- approvals
-    def upsert_approval(self, project_id: str, rec: ApprovalRecord, *, valid: bool = True) -> None:
+    # Two stamps per part (APP_SPEC 9.7): ``stamp='approval'`` (Gate 2, ``ApprovalRecord``) and ``stamp='build'``
+    # (written when the part is BUILT, confirmed by the Gate 3 pick, ``BuildStamp``).
+    def _upsert_stamp(self, project_id: str, part_id: str, stamp: str, stamp_hash: str, decision_id: str, valid: bool,
+                      payload: str, created: str) -> None:
         with self.db.tx() as c:
             c.execute(
-                "INSERT INTO approvals (project_id, part_id, approval_hash, decision_id, valid, json, created_at) "
-                "VALUES (?,?,?,?,?,?,?) ON CONFLICT(project_id, part_id, approval_hash) DO UPDATE SET "
+                "INSERT INTO approvals (project_id, part_id, stamp, stamp_hash, decision_id, valid, json, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(project_id, part_id, stamp, stamp_hash) DO UPDATE SET "
                 "decision_id=excluded.decision_id, valid=excluded.valid, json=excluded.json",
-                (project_id, rec.part_id, rec.approval_hash, rec.decision_id, 1 if valid else 0, rec.model_dump_json(),
-                 iso_utc(rec.approved_at)))
+                (project_id, part_id, stamp, stamp_hash, decision_id, 1 if valid else 0, payload, created))
 
-    def invalidate_approvals(self, project_id: str, part_id: str) -> int:
+    def upsert_approval(self, project_id: str, rec: ApprovalRecord, *, valid: bool = True) -> None:
+        self._upsert_stamp(project_id, rec.part_id, "approval", rec.approval_hash, rec.decision_id, valid,
+                           rec.model_dump_json(), iso_utc(rec.approved_at))
+
+    def upsert_build_stamp(self, project_id: str, stamp: BuildStamp, *, valid: bool = True) -> None:
+        self._upsert_stamp(project_id, stamp.part_id, "build", stamp.build_hash, stamp.confirmed_decision_id or "", valid,
+                           stamp.model_dump_json(), iso_utc(stamp.built_at))
+
+    def invalidate_approvals(self, project_id: str, part_id: str, *, stamp: str | None = None) -> int:
+        """Mark a part's stamps invalid (both by default: an invalid Gate 2 approval takes its build stamp with it)."""
+        sql, args = "UPDATE approvals SET valid=0 WHERE project_id=? AND part_id=? AND valid=1", [project_id, part_id]
+        if stamp is not None:
+            sql += " AND stamp=?"
+            args.append(stamp)
         with self.db.tx() as c:
-            cur = c.execute("UPDATE approvals SET valid=0 WHERE project_id=? AND part_id=? AND valid=1", (project_id, part_id))
-            return cur.rowcount
+            return c.execute(sql, args).rowcount
+
+    def _valid_stamp_json(self, project_id: str, part_id: str, stamp: str) -> str | None:
+        row = self.db.conn().execute(
+            "SELECT json FROM approvals WHERE project_id=? AND part_id=? AND stamp=? AND valid=1 "
+            "ORDER BY created_at DESC, rowid DESC LIMIT 1", (project_id, part_id, stamp)).fetchone()
+        return row["json"] if row else None
 
     def valid_approval(self, project_id: str, part_id: str) -> ApprovalRecord | None:
-        row = self.db.conn().execute(
-            "SELECT json FROM approvals WHERE project_id=? AND part_id=? AND valid=1 ORDER BY created_at DESC LIMIT 1",
-            (project_id, part_id)).fetchone()
-        return ApprovalRecord.model_validate_json(row["json"]) if row else None
+        raw = self._valid_stamp_json(project_id, part_id, "approval")
+        return ApprovalRecord.model_validate_json(raw) if raw else None
+
+    def valid_build_stamp(self, project_id: str, part_id: str) -> BuildStamp | None:
+        raw = self._valid_stamp_json(project_id, part_id, "build")
+        return BuildStamp.model_validate_json(raw) if raw else None
 
     # ----------------------------------------------------------------------------------------------- changes
     def save_change(self, ch: ChangeRequest) -> ChangeRequest:

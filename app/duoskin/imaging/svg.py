@@ -173,8 +173,13 @@ def _check_tree(root: ET.Element) -> None:
 
 
 def _inline_uses(root: ET.Element) -> None:
-    """Replace every internal ``<use href="#id">`` by a copy of its target (external hrefs are rejected)."""
+    """Replace every internal ``<use href="#id">`` by a copy of its target (external hrefs are rejected).
+
+    Only uses outside ``<defs>`` / ``<symbol>`` are expanded in place; each copied target is expanded recursively, so a cycle hits the depth
+    limit and an exponential chain of uses hits the element cap before it can eat memory.
+    """
     ids = {e.get("id"): e for e in root.iter() if e.get("id")}
+    produced = [sum(1 for _ in root.iter())]
 
     def target_of(use: ET.Element) -> ET.Element:
         href = None
@@ -189,7 +194,8 @@ def _inline_uses(root: ET.Element) -> None:
         if depth > MAX_USE_DEPTH:
             raise SvgRejected("use", "<use> nesting is too deep (cycle?)")
         for i, ch in enumerate(list(parent)):
-            if local(ch.tag) == "use":
+            name = local(ch.tag)
+            if name == "use":
                 tgt = target_of(ch)
                 g = ET.Element(f"{{{SVG_NS}}}g")
                 x, y = ch.get("x", "0"), ch.get("y", "0")
@@ -201,6 +207,9 @@ def _inline_uses(root: ET.Element) -> None:
                     if ch.get(a) is not None:
                         g.set(a, ch.get(a))
                 body = copy.deepcopy(tgt)
+                produced[0] += sum(1 for _ in body.iter())
+                if produced[0] > MAX_ELEMENTS:
+                    raise SvgRejected("size", f"more than {MAX_ELEMENTS} elements after inlining <use>")
                 if local(body.tag) == "symbol":
                     for c in list(body):
                         g.append(c)
@@ -209,14 +218,10 @@ def _inline_uses(root: ET.Element) -> None:
                     g.append(body)
                 parent[i] = g
                 expand(g, depth + 1)
-            else:
+            elif name not in ("defs", "symbol") or depth > 0:
                 expand(ch, depth)
 
     expand(root, 0)
-    # inlined copies keep unique ids out of the document: drop ids so nothing is referenced twice
-    total = sum(1 for _ in root.iter())
-    if total > MAX_ELEMENTS:
-        raise SvgRejected("size", f"more than {MAX_ELEMENTS} elements after inlining <use>")
 
 
 def _clip_ids(root: ET.Element) -> set[str]:
@@ -254,15 +259,17 @@ def sanitize_and_normalize(svg: str) -> ET.Element:
     def visit(el: ET.Element, inherited: dict[str, str], in_clip: bool) -> None:
         name = local(el.tag)
         p = dict(inherited)
-        for sel in ("*", name, f"#{el.get('id')}" if el.get("id") else None):
-            if sel and sel in css:
+        for a in PAINT_PROPS:                                  # presentation attributes ...
+            if el.get(a) is not None:
+                p[a] = el.get(a)
+        for sel in ("*", name):                                # ... are beaten by stylesheet rules (specificity: * < tag < class < id) ...
+            if sel in css:
                 p.update({k: v for k, v in css[sel].items() if k in PAINT_PROPS})
         for c in (el.get("class") or "").split():
             p.update({k: v for k, v in css.get(f".{c}", {}).items() if k in PAINT_PROPS})
-        for a in PAINT_PROPS:
-            if el.get(a) is not None:
-                p[a] = el.get(a)
-        decl = _parse_declarations(el.get("style") or "")
+        if el.get("id") and f"#{el.get('id')}" in css:
+            p.update({k: v for k, v in css[f"#{el.get('id')}"].items() if k in PAINT_PROPS})
+        decl = _parse_declarations(el.get("style") or "")      # ... and by the inline style attribute
         for k, v in decl.items():
             if k in PAINT_PROPS:
                 p[k] = v

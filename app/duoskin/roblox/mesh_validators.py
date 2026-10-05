@@ -143,8 +143,14 @@ def check_shells(f: Facts) -> list[CheckResult]:
         return [m]
     n = int(f["shells"])
     mx, warn = int(limits.threshold("mesh.components_max")), int(limits.threshold("mesh.shells_warn"))
-    return [_res("CHK-M05", fm, "hard", n <= mx, "shells", float(n), limits.describe("mesh.components_max", "<="),
-                 f"{n} shells ({f.get('closed_shells', '?')} closed)", "regenerate"),
+    micro = int(f.get("micro_shells") or 0)
+    problems = []
+    if n > mx:
+        problems.append(f"{n} shells (limit {mx})")
+    if micro:
+        problems.append(f"{micro} micro-islands (tiny floating pieces the validator rejects)")
+    return [_res("CHK-M05", fm, "hard", not problems, "shells", float(n), limits.describe("mesh.components_max", "<=") + "; no micro-islands",
+                 "; ".join(problems) or f"{n} shells ({f.get('closed_shells', '?')} closed)", "regenerate"),
             _res("CHK-M05W", fm, "soft", n <= warn, "shells_warn", float(n), limits.describe("mesh.shells_warn", "<="), f"{n} shells")]
 
 

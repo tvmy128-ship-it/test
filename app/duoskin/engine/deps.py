@@ -11,9 +11,10 @@ Two stamps per part (issue file, ENG-01):
 
 * ``approval_hash`` (Gate 2): spec slice of the part's own output-affecting paths, input shas, **board** outputs, prompt
   ids and hashes, model snapshots, kit subset, house-style version. It does *not* cover ``build_assets``.
-* ``build_hash`` (written when the part reaches BUILT, confirmed by the Gate 3 pick): the approval hash plus the build
-  assets. CHK-D09 / CHK-E02 compare each stamp with its own value, so a rebuilt mesh needs a Gate 3 look but never a
-  Gate 2 re-approval.
+* ``build_hash`` (``Part.build_stamp``; written when the part reaches BUILT, confirmed by the Gate 3 pick): the
+  ``approval_hash`` it was built under, the sorted build asset shas and the BUILD step versions. CHK-D09 / CHK-E02
+  compare each stamp with its own value, so a rebuilt mesh needs a Gate 3 look ("rebuilt since you last looked") but
+  never a Gate 2 re-approval.
 """
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import Field
 
 from duoskin.models.common import PartId, Strict, iso_utc, sha256_of, utcnow
-from duoskin.models.part import ApprovalRecord, DepEffect, DepRule, Part, PartState
+from duoskin.models.part import ApprovalRecord, BuildStamp, DepEffect, DepRule, Part, PartState
 from duoskin.models.project import VersionPins
 
 if TYPE_CHECKING:
@@ -169,6 +170,15 @@ _DNA_SHAPE = re.compile(rf"^/{_C}/dna/shape_language{_TAIL}")
 _DNA_MOTIF = re.compile(rf"^/{_C}/dna/motif_object{_TAIL}")
 _DNA_LINT_ONLY = re.compile(rf"^/{_C}/dna/(?:colour_plan|focal_location|accessory_style|energy){_TAIL}")
 _WORLD_DETAIL = re.compile(rf"^/world/detail_level{_TAIL}")
+_HAIR_ANY = re.compile(rf"^/{_C}/hair{_TAIL}")
+_FACE_STYLE = re.compile(rf"^/{_C}/face/(?P<f>iris_style|lash_style|brow_style|mouth_style)(?:/.*)?$")
+# Which AI face parts a style field regenerates (the tile's ``GateDecisionIn.target`` uses the same names, §6.9).
+FACE_STYLE_TARGETS: dict[str, tuple[str, ...]] = {
+    "iris_style": ("iris",), "lash_style": ("lash",), "brow_style": ("brow",), "mouth_style": ("mouth_closed", "mouth_open"),
+}
+# ``/world/detail_level`` regenerates only these face parts: lash, brow and mouth_closed carry shape language only (bible §3.3).
+DETAIL_LEVEL_FACE_TARGETS: tuple[str, ...] = ("iris", "mouth_open")
+HAIR_RECHECK_ACCESSORY_CATEGORIES = frozenset({"hat", "hair", "face"})
 _WORLD_LINT_ONLY = re.compile(rf"^/(?:world/(?:material_family|theme|story|pair_structure|structure_note|palette_family)|"
                               rf"shared_anchors|contrasts){_TAIL}")
 _NOT_PATCHABLE = re.compile(r"^/(?:combo|is_wildcard|[ab]/presentation|palette/\d+/id)(?:/.*)?$")
@@ -221,6 +231,7 @@ class PartEffect(Strict):
     part_id: str
     effect: DepEffect
     reasons: list[str] = Field(default_factory=list)       # changed spec paths (or "redo")
+    targets: list[str] = Field(default_factory=list)       # face tile only: the AI parts to redo; empty = the whole part
     estimate_usd: float | None = None
 
 
@@ -314,11 +325,14 @@ def _palette_part_effects(path_ptr: str, c: str, i: str | None) -> list[tuple[st
 
 def affected_parts(old: dict[str, Any], new: dict[str, Any], redo: Iterable[Any] = (), *,
                    existing_parts: Iterable[str] | None = None, gate3_open: bool = False,
+                   approved_parts: Iterable[str] | None = None,
                    estimator: Callable[[PartEffect], float] | None = None) -> InvalidationReport:
     """Diff two specs path by path and apply the §9.8 table. ``redo`` (the L7 ``redo_parts``) is merged in (union).
 
     ``existing_parts``: the project's part ids (the pipeline passes ``[p.id for p in repo.list_parts(...)]``); without it
-    the parts are derived from ``new`` with ``default_parts``. ``estimator`` turns each affected part into USD."""
+    the parts are derived from ``new`` with ``default_parts``. ``approved_parts``: the part ids whose Gate 2 approval
+    exists; a hair change re-checks the hat/hair/face accessories only once the hair is approved (``None`` = assume it).
+    ``estimator`` turns each affected part into USD."""
     existing = list(existing_parts) if existing_parts is not None else default_parts(new)
     effects: dict[str, PartEffect] = {}
     lint_only: list[str] = []
@@ -326,15 +340,24 @@ def affected_parts(old: dict[str, Any], new: dict[str, Any], redo: Iterable[Any]
     changed_chars: set[str] = set()
     paths = changed_pointers(old, new)
 
-    def add(part_id: str, effect: DepEffect, reason: str) -> None:
+    whole: set[str] = set()      # parts that some path redoes entirely (no face-part targets)
+
+    def add(part_id: str, effect: DepEffect, reason: str, targets: Sequence[str] | None = None) -> None:
         cur = effects.get(part_id)
         if cur is None:
-            effects[part_id] = PartEffect(part_id=part_id, effect=effect, reasons=[reason])
+            cur = effects[part_id] = PartEffect(part_id=part_id, effect=effect, reasons=[reason])
         else:
             if _EFFECT_ORDER[effect] > _EFFECT_ORDER[cur.effect]:
                 cur.effect = effect
             if reason not in cur.reasons:
                 cur.reasons.append(reason)
+        if targets:
+            cur.targets = sorted({*cur.targets, *targets})
+        elif effect != DepEffect.RECHECK:
+            whole.add(part_id)
+
+    approved = set(approved_parts) if approved_parts is not None else None
+    accessories_of = {c: (new.get(c) or {}).get("accessories") if isinstance(new, dict) else None for c in ("a", "b")}
 
     for path in paths:
         if _NOT_PATCHABLE.match(path):
@@ -349,6 +372,14 @@ def affected_parts(old: dict[str, Any], new: dict[str, Any], redo: Iterable[Any]
                     for part_id, eff in _palette_part_effects(loc, lm.group("c"), None):
                         add(part_id, eff, path)
             continue
+        hm = _HAIR_ANY.match(path)
+        if hm and (approved is None or f"{hm.group('c')}.hair" in approved):
+            hc = hm.group("c")
+            accs = accessories_of.get(hc)
+            for idx, acc in enumerate(accs if isinstance(accs, list) else []):
+                category = acc.get("category") if isinstance(acc, dict) else None
+                if category in HAIR_RECHECK_ACCESSORY_CATEGORIES and f"{hc}.acc.{idx}" in existing:
+                    add(f"{hc}.acc.{idx}", K, path)     # the scale tile is re-rendered with the new hair; no new art
         handled = False
         for row in DEP_TABLE:
             m = row.regex.match(path)
@@ -356,8 +387,10 @@ def affected_parts(old: dict[str, Any], new: dict[str, Any], redo: Iterable[Any]
                 gd = m.groupdict()
                 c, i = gd.get("c", ""), gd.get("i", "")
                 changed_chars.add(c)
+                fm = _FACE_STYLE.match(path)
+                targets = FACE_STYLE_TARGETS[fm.group("f")] if fm else None
                 for template, eff in row.parts:
-                    add(template.format(c=c, i=i), eff, path)
+                    add(template.format(c=c, i=i), eff, path, targets if template.endswith(".face") else None)
                 handled = True
                 break
         if handled:
@@ -378,7 +411,7 @@ def affected_parts(old: dict[str, Any], new: dict[str, Any], redo: Iterable[Any]
             continue
         if _WORLD_DETAIL.match(path):
             for pid in dna_field_users("detail_level", "a", parts=existing):
-                add(pid, R, path)
+                add(pid, R, path, DETAIL_LEVEL_FACE_TARGETS if pid.endswith(".face") else None)
             continue
         if _DNA_LINT_ONLY.match(path) or _WORLD_LINT_ONLY.match(path):
             lint_only.append(path)
@@ -389,6 +422,8 @@ def affected_parts(old: dict[str, Any], new: dict[str, Any], redo: Iterable[Any]
         add(part_id, eff, "redo")
         changed_chars.add(part_id.split(".")[0])
 
+    for pid in whole:
+        effects[pid].targets = []
     # a REGENERATE of a built part drops its build assets; the effect list already says so. Pair re-checks:
     pair: set[str] = set()
     changed_plain = {c for c in changed_chars if c in ("a", "b")}
@@ -468,14 +503,26 @@ def approval_hash(part: Part, spec: Any, pins: VersionPins | None, facts: Approv
     })
 
 
-def build_hash(part: Part, build_inputs: Sequence[str] = ()) -> str:
-    """The second stamp: written when the part reaches BUILT, confirmed by the Gate 3 pick. Covers the approved
-    ``approval_hash`` and the build outputs, so a rebuilt mesh changes it without touching the approval."""
+def part_build_step_versions(repo: Repo, part: Part) -> list[list[Any]]:
+    """Handler versions and params of the BUILD steps that made the part's build assets (from their provenance):
+    ``[[step_kind, handler_version, sha256_of(params)], ...]``, sorted."""
+    built = set(part.build_assets.values())
+    seen: set[tuple[Any, ...]] = set()
+    for link in repo.list_links(project_id=part.project_id, part_id=part.id):
+        if link.asset_sha in built:
+            prov = link.provenance
+            seen.add((prov.step_kind or "", prov.handler_version, sha256_of(prov.params)))
+    return [list(t) for t in sorted(seen, key=str)]
+
+
+def build_hash(part: Part, build_steps: Sequence[Any] = ()) -> str:
+    """Stamp 2 (§9.7): the ``approval_hash`` the part was built under, the sorted build asset shas and the BUILD step
+    versions. A rebuilt mesh changes it without touching the approval; it never reads ``board_assets``."""
     return sha256_of({
         "part_id": part.id,
         "approval_hash": part.approval.approval_hash if part.approval else None,
-        "build_assets": {k: part.build_assets[k] for k in sorted(part.build_assets)},
-        "build_inputs": sorted(build_inputs),
+        "build_assets": sorted(part.build_assets.values()),
+        "build_steps": [list(x) if isinstance(x, (list, tuple)) else x for x in build_steps],
     })
 
 
@@ -507,14 +554,15 @@ def check_approval(part: Part, spec: Any, pins: VersionPins | None, facts: Appro
     return StampCheck(ok=True, expected=now, actual=now)
 
 
-def check_build(part: Part, build_inputs: Sequence[str] = ()) -> StampCheck:
-    """Second stamp: do the build assets still match what was built and shown at Gate 3?"""
-    if part.approval is None or part.approval.build_hash is None:
+def check_build(part: Part, build_steps: Sequence[Any] = ()) -> StampCheck:
+    """Stamp 2: do the build assets still match what was built (and shown at Gate 3)? Compared with its **own** stamp."""
+    stamp = part.build_stamp
+    if stamp is None:
         return StampCheck(ok=False, reason="the build was never stamped")
-    now = build_hash(part, build_inputs)
-    if now != part.approval.build_hash:
+    now = build_hash(part, build_steps)
+    if now != stamp.build_hash:
         return StampCheck(ok=False, reason="the build files changed after they were stamped: look again at Gate 3",
-                          expected=part.approval.build_hash, actual=now)
+                          expected=stamp.build_hash, actual=now)
     return StampCheck(ok=True, expected=now, actual=now)
 
 
@@ -526,60 +574,85 @@ class Verification(Strict):
     needs_gate3_look: bool = False
 
 
-def stamp_build(repo: Repo, project_id: str, part_id: str, *, build_inputs: Sequence[str] = ()) -> Part:
-    """Write ``build_hash`` when the part reaches BUILT (the build files are in ``Part.build_assets``)."""
+def stamp_build(repo: Repo, project_id: str, part_id: str, *, build_steps: Sequence[Any] | None = None) -> Part:
+    """Write ``Part.build_stamp`` when the part reaches BUILT (the build files are in ``Part.build_assets``).
+
+    The approval is untouched: the part stays APPROVED-by-the-user. A *re*build (an earlier stamp with another hash)
+    flags ``build_changed`` ("rebuilt since you last looked") and marks the ``duo`` part STALE; the Gate 3 pick clears
+    the flag (``confirm_build``)."""
+    before = repo.get_part(project_id, part_id)
+    steps = list(build_steps) if build_steps is not None else part_build_step_versions(repo, before)
+    previous = before.build_stamp
+    changed: list[bool] = []
+
     def apply(p: Part) -> None:
         if p.approval is None:
             raise ValueError(f"{p.id} has no approval to stamp a build on")
+        digest = build_hash(p, steps)
+        rebuilt = previous is not None and previous.build_hash != digest
+        changed.append(rebuilt)
         p.state = PartState.BUILT
-        p.approval = p.approval.model_copy(update={"build_hash": build_hash(p, build_inputs), "build_stamped_at": utcnow(),
-                                                   "build_confirmed_at": None, "build_confirmed_decision_id": None})
-        p.flags = [f for f in p.flags if f != "build_changed"]
+        p.build_stamp = BuildStamp(part_id=p.id, build_hash=digest, approval_hash=p.approval.approval_hash,   # type: ignore[arg-type]
+                                   build_asset_shas=sorted(p.build_assets.values()), built_at=utcnow())
+        flags = [f for f in p.flags if f != "build_changed"]
+        p.flags = [*flags, "build_changed"] if rebuilt else flags
 
     part = repo.mutate_part(project_id, part_id, apply)
-    if part.approval is not None:
-        repo.upsert_approval(project_id, part.approval, valid=True)
+    if part.build_stamp is not None:
+        repo.upsert_build_stamp(project_id, part.build_stamp, valid=True)
+    if changed and changed[-1] and part.character in ("a", "b"):
+        duo = repo.find_part(project_id, "duo")
+        if duo is not None and duo.state not in (PartState.PLANNED, PartState.GENERATING, PartState.STALE):
+            repo.mutate_part(project_id, "duo", lambda d: setattr(d, "state", PartState.STALE))
     return part
 
 
 def confirm_build(repo: Repo, project_id: str, part_id: str, decision_id: str) -> Part:
     """Gate 3 pick: the user looked at this exact build."""
     def apply(p: Part) -> None:
-        if p.approval is None or p.approval.build_hash is None:
+        if p.build_stamp is None:
             raise ValueError(f"{p.id} has no build stamp to confirm")
-        p.approval = p.approval.model_copy(update={"build_confirmed_at": utcnow(), "build_confirmed_decision_id": decision_id})
+        p.build_stamp = p.build_stamp.model_copy(update={"confirmed_decision_id": decision_id})
+        p.flags = [f for f in p.flags if f != "build_changed"]
 
     part = repo.mutate_part(project_id, part_id, apply)
-    if part.approval is not None:
-        repo.upsert_approval(project_id, part.approval, valid=True)
+    if part.build_stamp is not None:
+        repo.upsert_build_stamp(project_id, part.build_stamp, valid=True)
     return part
 
 
 def verify_part(repo: Repo, part: Part, spec: Any, pins: VersionPins | None, *, facts: ApprovalFacts | None = None,
-                build_inputs: Sequence[str] = ()) -> Verification:
-    """Compare a part with both stamps (read-only)."""
+                build_steps: Sequence[Any] | None = None) -> Verification:
+    """Compare a part with both stamps (read-only): the approval at every BUILD step, the DUO job and export (CHK-D09,
+    CHK-E02); the build stamp at the DUO job and export, against its own value."""
     facts = facts if facts is not None else collect_facts(repo, part)
     a = check_approval(part, spec, pins, facts)
-    b = check_build(part, build_inputs) if part.build_assets else None
+    b = None
+    if part.build_assets:
+        steps = list(build_steps) if build_steps is not None else part_build_step_versions(repo, part)
+        b = check_build(part, steps)
     return Verification(part_id=part.id, approval=a, build=b, stale=not a.ok,
                         needs_gate3_look=bool(a.ok and b is not None and not b.ok))
 
 
 def apply_verification(repo: Repo, project_id: str, v: Verification, bus: Any = None) -> Part:
-    """Act on ``verify_part``: an approval mismatch sets the tile STALE ("re-approve", the step that noticed reopens the
-    gate); a build mismatch only flags ``build_changed`` and clears the Gate 3 confirmation (a new look, no re-approval)."""
+    """Act on ``verify_part``: an approval mismatch sets the tile STALE ("re-approve", the step that noticed it opens
+    the gate again); a build mismatch only flags ``build_changed`` and clears the Gate 3 confirmation (a new look, never
+    a Gate 2 re-approval)."""
     def apply(p: Part) -> None:
         if v.stale and p.state not in (PartState.STALE,):
             p.state = PartState.STALE
         elif v.needs_gate3_look:
             if "build_changed" not in p.flags:
                 p.flags = [*p.flags, "build_changed"]
-            if p.approval is not None:
-                p.approval = p.approval.model_copy(update={"build_confirmed_at": None, "build_confirmed_decision_id": None})
+            if p.build_stamp is not None:
+                p.build_stamp = p.build_stamp.model_copy(update={"confirmed_decision_id": None})
 
     part = repo.mutate_part(project_id, v.part_id, apply)
     if v.stale:
         repo.invalidate_approvals(project_id, v.part_id)
+    elif v.needs_gate3_look and part.build_stamp is not None:
+        repo.upsert_build_stamp(project_id, part.build_stamp, valid=True)
     if bus is not None and (v.stale or v.needs_gate3_look):
         bus.emit("part.state", {"project_id": project_id, "part_id": v.part_id, "state": part.state.value,
                                 "reason": v.approval.reason if v.stale else (v.build.reason if v.build else "")}, project_id)

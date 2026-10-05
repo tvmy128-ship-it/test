@@ -194,13 +194,13 @@ def decimate(mesh: MeshData, target_tris: int, *, uv_weight: float = 0.4, max_in
 
     collapses = 0
     while n_alive > target_tris and heap:
-        cost, _, a, b, stamp = heapq.heappop(heap)
+        _cost, _, a, b, stamp = heapq.heappop(heap)
         if not alive_v[a] or not alive_v[b] or stamp != ver[a] * 1_000_003 + ver[b]:
             continue
         r = evaluate(a, b)           # neighbours may have changed since the push
         if r is None:
             continue
-        cost2, cmap = r
+        _cost2, cmap = r
         dead = vfaces[a] & vfaces[b]
         for fi in dead:
             alive_f[fi] = 0

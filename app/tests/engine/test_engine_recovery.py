@@ -6,7 +6,6 @@ import json
 import os
 import subprocess
 import sys
-import time
 from datetime import timedelta
 from pathlib import Path
 
@@ -161,7 +160,7 @@ def test_real_process_crash_resumes_without_a_second_paid_submit(tmp_path):
     home = tmp_path / "home"
     worker = Path(__file__).with_name("crash_worker_f.py")
     env = {**os.environ, "PYTHONPATH": str(config.APP_ROOT), "PYTHONUTF8": "1"}
-    proc = subprocess.run([sys.executable, str(worker), str(home)], capture_output=True, encoding="utf-8", timeout=60,
+    proc = subprocess.run([sys.executable, str(worker), str(home)], check=False, capture_output=True, encoding="utf-8", timeout=60,
                           cwd=str(config.APP_ROOT), env=env)
     assert proc.returncode == 17, proc.stderr[-2000:]
     ids = json.loads(proc.stdout.strip().splitlines()[-1])

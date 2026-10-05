@@ -24,6 +24,20 @@ from duoskin.imaging import palette as P
 
 
 # ------------------------------------------------------------------ small geometry helpers
+def alpha_min() -> int:
+    """Alpha at or above which a pixel is visible (``img.alpha_binarize``, 128)."""
+    return int(TH.get("img.alpha_binarize"))
+
+
+def visible(alpha: np.ndarray) -> np.ndarray:
+    """Bool mask of the visible pixels of an alpha channel."""
+    return alpha >= alpha_min()
+
+
+def _connectivity(connectivity: int | None) -> int:
+    return int(TH.get("img.connectivity")) if connectivity is None else connectivity
+
+
 def alpha_of(im: Image.Image) -> np.ndarray:
     """``(H, W) uint8`` alpha of an RGBA image (a RGB image is fully opaque)."""
     return np.asarray(im.convert("RGBA"))[..., 3]
@@ -45,21 +59,22 @@ def silhouette_iou(a: np.ndarray, b: np.ndarray) -> float:
     return 1.0 if u == 0 else float(np.logical_and(a, b).sum() / u)
 
 
-def label_components(mask: np.ndarray, connectivity: int = 8) -> tuple[np.ndarray, int]:
+def label_components(mask: np.ndarray, connectivity: int | None = None) -> tuple[np.ndarray, int]:
     from scipy import ndimage as ndi
 
-    st = np.ones((3, 3), bool) if connectivity == 8 else None
+    k = int(TH.get("img.morph_kernel"))
+    st = np.ones((k, k), bool) if _connectivity(connectivity) == int(TH.get("img.connectivity")) else None
     lab, n = ndi.label(mask, structure=st)
     return lab, int(n)
 
 
-def component_areas(mask: np.ndarray, connectivity: int = 8) -> list[int]:
+def component_areas(mask: np.ndarray, connectivity: int | None = None) -> list[int]:
     lab, n = label_components(mask, connectivity)
     return [] if n == 0 else [int(c) for c in np.bincount(lab.ravel())[1:]]
 
 
 # ------------------------------------------------------------------ A_ALPHA
-def checker_peak_ratio(im: Image.Image, *, block: int | None = None, k_min: int | None = None, max_blocks: int = 24) -> tuple[float, str]:
+def checker_peak_ratio(im: Image.Image, *, block: int | None = None, k_min: int | None = None, max_blocks: int | None = None) -> tuple[float, str]:
     """Strongest two-dimensional periodic peak in the fully opaque parts of ``im`` (a painted checkerboard).
 
     For each fully opaque ``block x block`` tile the luminance is Hann-windowed and FFT'd. Bins on the axes and below ``k_min``
@@ -72,32 +87,52 @@ def checker_peak_ratio(im: Image.Image, *, block: int | None = None, k_min: int 
     arr = np.asarray(im.convert("RGBA"), dtype=np.float64)
     h, w = arr.shape[:2]
     b = min(blk, h, w)
-    if b < 64:
+    smallest = int(TH.get("img.checker_min_block_px"))
+    if b < smallest:
         return 0.0, "image too small for the FFT test"
-    lum = 0.299 * arr[..., 0] + 0.587 * arr[..., 1] + 0.114 * arr[..., 2]
+    lum = np.asarray(im.convert("L"), dtype=np.float64)
     opaque = arr[..., 3] >= 255
-    origins = [(y, x) for y in range(0, h - b + 1, b) for x in range(0, w - b + 1, b)]
-    if h % b:
-        origins += [(h - b, x) for x in range(0, w - b + 1, b)]
-    if w % b:
-        origins += [(y, w - b) for y in range(0, h - b + 1, b)]
-    origins = sorted(set(origins))
+    cap = int(TH.get("img.checker_max_blocks")) if max_blocks is None else max_blocks
+    best, note, seen = 0.0, "", False
+    size = b
+    while size >= smallest:                       # a pure patch of the pattern may only exist in smaller tiles (a subject covers the rest)
+        r, n, s_ = _checker_scan(lum, opaque, size, kmin, cap)
+        seen = seen or s_
+        if r > best:
+            best, note = r, n
+        size //= 2
+    if not best:
+        note = "no two-dimensional periodic peak" if seen else "no fully opaque tile with contrast"
+    return float(best), note
+
+
+def _checker_scan(lum: np.ndarray, opaque: np.ndarray, b: int, kmin: int, max_blocks: int) -> tuple[float, str, bool]:
+    """Scan fully opaque ``b x b`` tiles; returns ``(best ratio, evidence, whether any tile had contrast)``."""
+    h, w = lum.shape
+    step = max(1, b // 2)
+    ys = sorted({*range(0, h - b + 1, step), h - b})
+    xs = sorted({*range(0, w - b + 1, step), w - b})
+    integral = np.pad(np.cumsum(np.cumsum(opaque.astype(np.float64), axis=0), axis=1), ((1, 0), (1, 0)))
+    need = float(TH.get("img.checker_opaque_frac")) * b * b
+    origins = [(y, x) for y in ys for x in xs
+               if integral[y + b, x + b] - integral[y, x + b] - integral[y + b, x] + integral[y, x] >= need]
     if len(origins) > max_blocks:
-        step = len(origins) / max_blocks
-        origins = [origins[int(i * step)] for i in range(max_blocks)]
+        stride = len(origins) / max_blocks
+        origins = [origins[int(i * stride)] for i in range(max_blocks)]
     win = np.outer(np.hanning(b), np.hanning(b))
     fy_all = np.fft.fftfreq(b) * b
     ky = np.abs(fy_all)[:, None]
     kx = (np.arange(b // 2 + 1))[None, :]
     valid = (ky >= kmin) & (kx >= kmin)
     best = 0.0
-    note = "no fully opaque tile with contrast"
+    note = ""
     seen = False
+    min_std = float(TH.get("img.checker_min_std"))
+    diag_tol = float(TH.get("img.checker_diag_tol"))
+    axis_frac = float(TH.get("img.checker_axis_energy"))
     for y, x in origins:
-        if opaque[y:y + b, x:x + b].mean() < 0.98:
-            continue
         t = lum[y:y + b, x:x + b]
-        if t.std() < 3.0:
+        if t.std() < min_std:
             continue
         seen = True
         spec = np.abs(np.fft.rfft2((t - t.mean()) * win)) ** 2
@@ -117,16 +152,13 @@ def checker_peak_ratio(im: Image.Image, *, block: int | None = None, k_min: int 
             work[y0:y1, x0:x1] = 0.0
             if i == 0:
                 # a checkerboard has its fundamental on the diagonal and (almost) nothing on the axes at that frequency
-                e_ax = max(float(spec[:3, max(0, ix - 1):ix + 2].sum()),
-                           float(spec[max(0, abs(fy) - 1):abs(fy) + 2, :2].sum()))
-                diag_ok = abs(ix - abs(fy)) <= max(1.0, 0.2 * ix) and e_ax < 0.2 * e
+                e_ax = max(float(spec[:3, max(0, ix - 1):ix + 2].sum()), float(spec[max(0, abs(fy) - 1):abs(fy) + 2, :2].sum()))
+                diag_ok = abs(ix - abs(fy)) <= max(1.0, diag_tol * ix) and e_ax < axis_frac * e
         ratio = taken / total if diag_ok else 0.0
         if ratio > best:
             best = ratio
             note = f"tile at ({x},{y}) size {b}: two diagonal peaks hold {ratio:.2f} of the spectrum"
-    if not best and seen:
-        note = "no two-dimensional periodic peak"
-    return float(best), note
+    return best, note, seen
 
 
 def alpha_facts(im: Image.Image, frame: float | None = None) -> dict:
@@ -138,7 +170,7 @@ def alpha_facts(im: Image.Image, frame: float | None = None) -> dict:
     h, w = a.shape
     fy, fx = max(1, int(h * fr)), max(1, int(w * fr))
     border = np.concatenate([a[:fy].ravel(), a[-fy:].ravel(), a[:, :fx].ravel(), a[:, -fx:].ravel()])
-    fg = a >= 128
+    fg = visible(a)
     bb = bbox_of(fg)
     if bb is None:
         return {"empty": True, "clear_share": float((a == 0).mean()), "border_clear": bool((border == 0).all())}
@@ -199,20 +231,20 @@ def check_alpha(im: Image.Image, *, subject_sha: str = "", allow_checker: bool =
                         evidence=f"clear {f['clear_share']:.2f}, haze {f['haze_share']:.4f}, checker {ratio:.3f}")
 
 
-def halo_de(im: Image.Image, ring_px: int = 3) -> tuple[float, float]:
+def halo_de(im: Image.Image, ring_px: int | None = None) -> tuple[float, float]:
     """Mean CIEDE2000 of the 1..``ring_px`` px ring outside the alpha>=128 contour, composited on black and on white, against the
     plain background. Returns ``(on_black, on_white)``; 0 for a clean cut-out."""
     arr = np.asarray(im.convert("RGBA"), dtype=np.float64)
     a = arr[..., 3] / 255.0
-    fg = arr[..., 3] >= 128
-    ring = P.dilate(fg, ring_px) & ~fg
+    fg = visible(arr[..., 3])
+    ring = P.dilate(fg, int(TH.get("img.halo_ring_px")) if ring_px is None else ring_px) & ~fg
     if not ring.any():
         return 0.0, 0.0
     out = []
     for bg in (0.0, 255.0):
         comp = arr[..., :3] * a[..., None] + bg * (1 - a[..., None])
         lab = P.srgb_to_lab(comp[ring])
-        ref = P.srgb_to_lab(np.full((int(ring.sum()), 3), bg))
+        ref = P.srgb_to_lab(np.full((int(ring.sum()), comp.shape[-1]), bg))
         out.append(float(P.deltaE2000(lab, ref).mean()))
     return out[0], out[1]
 
@@ -232,7 +264,7 @@ def gate_a_alpha(im: Image.Image, *, subject_sha: str = "", allow_checker: bool 
 
 
 # ------------------------------------------------------------------ A_COMPONENTS, A_MARGIN
-def count_components(mask: np.ndarray, *, min_area_frac: float | None = None, connectivity: int = 8) -> tuple[int, list[int]]:
+def count_components(mask: np.ndarray, *, min_area_frac: float | None = None, connectivity: int | None = None) -> tuple[int, list[int]]:
     """Connected components (8-connectivity) larger than ``img.component_min_area`` of the mask bbox. Returns ``(count, areas)``."""
     frac = float(TH.get("img.component_min_area")) if min_area_frac is None else min_area_frac
     bb = bbox_of(mask)
@@ -244,12 +276,12 @@ def count_components(mask: np.ndarray, *, min_area_frac: float | None = None, co
 
 
 def check_components(im_or_mask: Image.Image | np.ndarray, expected: int | tuple[int, int], *, subject_sha: str = "",
-                     connectivity: int = 8) -> CheckResult:
+                     connectivity: int | None = None) -> CheckResult:
     """A_COMPONENTS (CHK-A04, HARD): pieces of alpha>=128 (or of a non-background mask) equal the count expected for the asset type.
 
     ``expected`` is an exact count or an inclusive ``(min, max)`` (``mouth_open`` 1..3). Pieces under 0.2% of the bbox are ignored.
     """
-    mask = im_or_mask if isinstance(im_or_mask, np.ndarray) else alpha_of(im_or_mask) >= 128
+    mask = im_or_mask if isinstance(im_or_mask, np.ndarray) else visible(alpha_of(im_or_mask))
     n, areas = count_components(mask.astype(bool), connectivity=connectivity)
     lo, hi = (expected, expected) if isinstance(expected, int) else expected
     ok = lo <= n <= hi
@@ -338,21 +370,22 @@ def check_palette(im: Image.Image, allowed_hex: Sequence[str], *, subject_sha: s
 
 
 # ------------------------------------------------------------------ A_SINGLE_COLOUR
-def distinct_interior_colours(im: Image.Image, tol: int = 2) -> tuple[list[tuple[int, int, int]], int]:
+def distinct_interior_colours(im: Image.Image, tol: int | None = None) -> tuple[list[tuple[int, int, int]], int]:
     """Distinct opaque interior colours (RGB within ``tol`` per channel count as the same), and the number of anti-aliased edge
     pixels whose RGB is not within ``tol`` of one of them. Interior = alpha 255 eroded by 1 px (alpha >= 200 for hair-thin lines)."""
     arr = np.asarray(im.convert("RGBA"))
     a = arr[..., 3]
+    tol = int(TH.get("img.single_colour_tol")) if tol is None else tol
     interior = P.erode(a == 255, 1)
-    if interior.sum() < 4:
-        interior = a >= 200
+    if interior.sum() < int(TH.get("img.min_interior_px")):
+        interior = a >= int(TH.get("img.hairline_alpha"))
     px = arr[interior][:, :3].astype(int)
     colours: list[tuple[int, int, int]] = []
     if len(px):
         uniq, counts = np.unique(px, axis=0, return_counts=True)
         for i in np.argsort(-counts):
             c = tuple(int(v) for v in uniq[i])
-            if not any(max(abs(c[j] - d[j]) for j in range(3)) <= tol for d in colours):
+            if not any(int(np.abs(np.array(c) - np.array(d)).max()) <= tol for d in colours):
                 colours.append(c)  # type: ignore[arg-type]
     edge = (a > 0) & ~interior & (a < 255)
     wrong = 0
@@ -363,7 +396,7 @@ def distinct_interior_colours(im: Image.Image, tol: int = 2) -> tuple[list[tuple
     return colours, wrong
 
 
-def check_single_colour(im: Image.Image, *, expected_hex: str | None = None, subject_sha: str = "", tol: int = 2) -> CheckResult:
+def check_single_colour(im: Image.Image, *, expected_hex: str | None = None, subject_sha: str = "", tol: int | None = None) -> CheckResult:
     """A_SINGLE_COLOUR (CHK-A08 / FACE-01, HARD): a line feature has exactly one opaque interior colour, and its anti-aliased edge
     pixels keep that RGB (only alpha varies). ``expected_hex`` also pins the colour to the spec colour (dE <= 3)."""
     colours, wrong = distinct_interior_colours(im, tol)
@@ -373,7 +406,7 @@ def check_single_colour(im: Image.Image, *, expected_hex: str | None = None, sub
         problems.append(f"{len(colours)} distinct interior colours")
     if wrong:
         problems.append(f"{wrong} edge pixels carry another RGB")
-    if expected_hex and colours and P.de2000_rgb(colours[0], P.hex_to_rgb(expected_hex)) > 3.0:
+    if expected_hex and colours and P.de2000_rgb(colours[0], P.hex_to_rgb(expected_hex)) > float(TH.get("img.single_colour_de")):
         problems.append(f"colour {P.rgb_to_hex(colours[0])} is not the spec colour {expected_hex}")
     return build_result("A_SINGLE_COLOUR", passed=not problems, subject_sha=subject_sha, metric="distinct_colours",
                         value=float(len(colours)), threshold=TH.describe("face.line_colours", "=="),
@@ -398,7 +431,8 @@ def _trimmed_skeleton(mask: np.ndarray, tip_px: int) -> np.ndarray:
     sk = skeletonize(mask)
     if not sk.any():
         return sk
-    nb = ndi.convolve(sk.astype(np.uint8), np.ones((3, 3), np.uint8), mode="constant") - 1
+    k = int(TH.get("img.morph_kernel"))
+    nb = ndi.convolve(sk.astype(np.uint8), np.ones((k, k), np.uint8), mode="constant") - 1
     ends = sk & (nb <= 1)
     if tip_px > 0 and ends.any():
         near = ndi.distance_transform_edt(~ends) <= tip_px
@@ -408,7 +442,7 @@ def _trimmed_skeleton(mask: np.ndarray, tip_px: int) -> np.ndarray:
     return sk
 
 
-def min_stroke_px(mask: np.ndarray, *, tol: float | None = None, tip_px: int | None = None, cap: int = 64) -> int:
+def min_stroke_px(mask: np.ndarray, *, tol: float | None = None, tip_px: int | None = None, cap: int | None = None) -> int:
     """Thinnest sustained stroke width of ``mask`` in whole pixels (square-opening scale), tapers and tips ignored.
 
     The largest ``k`` such that at most ``img.stroke_thin_tol`` (10%) of the trimmed skeleton lies outside the opening of the mask by
@@ -417,6 +451,7 @@ def min_stroke_px(mask: np.ndarray, *, tol: float | None = None, tip_px: int | N
     """
     t = float(TH.get("img.stroke_thin_tol")) if tol is None else tol
     tip = int(TH.get("img.stroke_tip_px")) if tip_px is None else tip_px
+    cap = int(TH.get("img.stroke_cap_px")) if cap is None else cap
     if not mask.any():
         return cap
     sk = _trimmed_skeleton(mask, tip)
@@ -457,7 +492,7 @@ def check_stroke(im: Image.Image, *, placed_scale: float = 1.0, min_px: float | 
     """
     pl = placed_alpha(im, placed_scale)
     a = alpha_of(pl)
-    mask = a >= 128
+    mask = visible(a)
     bb = bbox_of(mask)
     if bb is None:
         return build_result(check_id, passed=False, subject_sha=subject_sha, metric="stroke_px", evidence="no visible pixels")
@@ -467,18 +502,20 @@ def check_stroke(im: Image.Image, *, placed_scale: float = 1.0, min_px: float | 
     else:
         need = float(TH.get("img.stroke_px_min_placed")) if min_px is None else min_px
         thr = TH.describe("img.stroke_px_min_placed", ">=") if min_px is None else f">= {need} px"
-    got = min_stroke_px(mask, cap=int(np.ceil(need)) + 4)
+    got = min_stroke_px(mask, cap=int(np.ceil(need)) + int(TH.get("img.stroke_cap_margin_px")))
     ok = got >= need
     return build_result(check_id, passed=ok, subject_sha=subject_sha, metric="stroke_px_placed", value=float(got), threshold=thr,
                         evidence=f"thinnest stroke {got} px at placed size {pl.size[0]}x{pl.size[1]} (need {need:.1f})",
                         fix_hint="regenerate")
 
 
-def gradient_share(im: Image.Image, *, grad_de: float = 2.0, flat_de: float = 0.5) -> float:
+def gradient_share(im: Image.Image, *, grad_de: float | None = None, flat_de: float | None = None) -> float:
     """Share of interior pixels that sit in a smooth colour ramp: a small but non-zero CIE76 step to both horizontal neighbours.
 
     Flat art has steps of 0 inside fills and large steps at edges, so its value is near 0; airbrushed gradients give a high value.
     """
+    grad_de = float(TH.get("img.gradient_step_max")) if grad_de is None else grad_de
+    flat_de = float(TH.get("img.gradient_step_min")) if flat_de is None else flat_de
     arr = np.asarray(im.convert("RGBA"))
     interior = P.erode(arr[..., 3] == 255, 1)
     if not interior.any():
@@ -512,7 +549,7 @@ def style_metrics(im: Image.Image) -> dict[str, float]:
 
     arr = np.asarray(im.convert("RGBA"))
     a = arr[..., 3]
-    fg = a >= 128
+    fg = visible(a)
     if not fg.any():
         return {"stroke_px_median": 0.0, "gradient_share": 0.0, "specular_share": 0.0, "hf_energy": 0.0}
     dist = ndi.distance_transform_edt(fg)
@@ -521,14 +558,14 @@ def style_metrics(im: Image.Image) -> dict[str, float]:
     sk = skeletonize(fg)
     med = float(np.median(2.0 * dist[sk])) if sk.any() else 0.0
     lab = P.srgb_to_lab(arr[..., :3])
-    spec = ((lab[..., 0] >= 92) & (np.hypot(lab[..., 1], lab[..., 2]) < 10) & fg).sum() / max(1, fg.sum())
+    spec = ((lab[..., 0] >= float(TH.get("img.specular_l_min"))) & (np.hypot(lab[..., 1], lab[..., 2]) < float(TH.get("img.specular_chroma_max"))) & fg).sum() / max(1, fg.sum())
     lum = lab[..., 0] * fg
     f = np.abs(np.fft.fft2(lum - lum[fg].mean() * fg)) ** 2
     h, w = f.shape
     yy = np.fft.fftfreq(h)[:, None]
     xx = np.fft.fftfreq(w)[None, :]
     r = np.hypot(yy, xx)
-    hf = float(f[r > 0.25].sum() / max(f.sum(), 1e-9))
+    hf = float(f[r > float(TH.get("img.hf_cutoff"))].sum() / max(f.sum(), float(TH.get("num.eps"))))
     return {"stroke_px_median": med, "gradient_share": gradient_share(im), "specular_share": float(spec), "hf_energy": hf}
 
 
@@ -573,7 +610,7 @@ def mirror_iou(mask: np.ndarray, about: str = "bbox") -> float:
 
 def check_symmetry(im: Image.Image, *, subject_sha: str = "", about: str = "bbox") -> CheckResult:
     """A_SYMMETRY (CHK-A07, HARD for parts declared symmetric): left-right mirror IoU >= 0.90."""
-    iou = mirror_iou(alpha_of(im) >= 128, about)
+    iou = mirror_iou(visible(alpha_of(im)), about)
     return build_result("A_SYMMETRY", passed=iou >= float(TH.get("img.symmetry_iou_min")), subject_sha=subject_sha, metric="mirror_iou",
                         value=iou, threshold=TH.describe("img.symmetry_iou_min", ">="), evidence=f"mirror IoU {iou:.3f}",
                         fix_hint="regenerate")
@@ -582,11 +619,11 @@ def check_symmetry(im: Image.Image, *, subject_sha: str = "", about: str = "bbox
 def highlight_blobs(im: Image.Image) -> int:
     """Small near-white blobs that sit inside the opaque iris (a painted highlight)."""
     arr = np.asarray(im.convert("RGBA"))
-    fg = arr[..., 3] >= 128
+    fg = visible(arr[..., 3])
     if not fg.any():
         return 0
     lab = P.srgb_to_lab(arr[..., :3])
-    near_white = (lab[..., 0] >= 88) & (np.hypot(lab[..., 1], lab[..., 2]) < 12) & P.erode(fg, 1)
+    near_white = (lab[..., 0] >= float(TH.get("img.white_l_min"))) & (np.hypot(lab[..., 1], lab[..., 2]) < float(TH.get("img.white_chroma_max"))) & P.erode(fg, 1)
     lab_i, n = label_components(near_white)
     if n == 0:
         return 0
@@ -658,8 +695,9 @@ def check_drift(final: Image.Image, draft: Image.Image, *, bg_hex: str | None = 
     iou = silhouette_iou(fa, da)
     nf, _ = count_components(fa)
     nd, _ = count_components(da)
-    pd = P.extract_palette(draft, k=6, mask=da, exclude_hex=[bg_hex] if bg_hex else (), merge_de=4.0)
-    pf = P.extract_palette(final, k=6, mask=fa, exclude_hex=[bg_hex] if bg_hex else (), merge_de=4.0)
+    k, merge = int(TH.get("img.drift_palette_k")), float(TH.get("img.drift_merge_de"))
+    pd = P.extract_palette(draft, k=k, mask=da, exclude_hex=[bg_hex] if bg_hex else (), merge_de=merge)
+    pf = P.extract_palette(final, k=k, mask=fa, exclude_hex=[bg_hex] if bg_hex else (), merge_de=merge)
     shift = 0.0
     if pd and pf:
         lf = np.array([c.lab for c in pf])
@@ -683,7 +721,7 @@ def check_drift(final: Image.Image, draft: Image.Image, *, bg_hex: str | None = 
 # ------------------------------------------------------------------ A_SWATCH, A_LEAK
 def dominant_colour(im: Image.Image, mask: np.ndarray, *, exclude_hex: Sequence[str] = ()) -> str | None:
     """The most common colour (k-means, shading merged) inside ``mask``."""
-    cl = P.extract_palette(im, k=3, mask=mask, exclude_hex=exclude_hex, merge_de=8.0)
+    cl = P.extract_palette(im, k=int(TH.get("img.dominant_k")), mask=mask, exclude_hex=exclude_hex, merge_de=float(TH.get("img.dominant_merge_de")))
     return cl[0].hex if cl else None
 
 
@@ -698,7 +736,7 @@ def check_swatch(im: Image.Image, zones: Mapping[str, tuple[np.ndarray, str]], *
         dom = dominant_colour(im, mask, exclude_hex=exclude_hex)
         if dom is None:
             off.append(f"{name}: empty zone")
-            worst = max(worst, 99.0)
+            worst = max(worst, float(TH.get("num.far_de")))
             continue
         d = P.de2000_hex(dom, planned)
         worst = max(worst, d)
@@ -761,7 +799,7 @@ def check_views(views: Mapping[str, Image.Image], *, subject_sha: str = "") -> C
                             fix_hint="regenerate")
     boxes = {}
     for v in need:
-        a = alpha_of(views[v]) >= 128
+        a = visible(alpha_of(views[v]))
         bb = bbox_of(a)
         if bb is None:
             return build_result("A_VIEWS", passed=False, subject_sha=subject_sha, metric="views", evidence=f"{v} view is empty")
@@ -771,7 +809,7 @@ def check_views(views: Mapping[str, Image.Image], *, subject_sha: str = "") -> C
     h_dev = float(np.abs(heights - med).max() / med)
     grounds = np.array([b[0][3] / b[1][1] for b in boxes.values()])
     g_dev = float(grounds.max() - grounds.min())
-    centre_dev = max(abs(((boxes[v][0][0] + boxes[v][0][2]) / 2) / boxes[v][1][0] - 0.5) for v in ("front", "back"))
+    centre_dev = max(abs((boxes[v][0][0] + boxes[v][0][2]) / 2 / boxes[v][1][0] - 1 / 2) for v in ("front", "back"))
     margin = min(min(b[0][0] / b[1][0], 1 - b[0][2] / b[1][0], b[0][1] / b[1][1], 1 - b[0][3] / b[1][1]) for b in boxes.values())
     problems = []
     if h_dev > float(TH.get("img.views_height_tol")):
@@ -798,20 +836,22 @@ def solidity(mask: np.ndarray) -> float:
     cnts, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     c = max(cnts, key=cv2.contourArea)
     hull = cv2.convexHull(c)
-    ha = cv2.contourArea(hull)
-    return float(mask.sum() / ha) if ha > 0 else 0.0
+    hull_px = np.zeros(m.shape, np.uint8)
+    cv2.fillConvexPoly(hull_px, hull, 1)             # the hull in pixels (the polygon area would sit half a pixel inside the edge)
+    ha = int(hull_px.sum())
+    return min(1.0, float(mask.sum() / ha)) if ha > 0 else 0.0
 
 
 def check_badge(im: Image.Image, *, subject_sha: str = "") -> CheckResult:
     """A_BADGE (I6, HARD): one compact silhouette (solidity >= 0.8, spikes inflate the bounds) with no holes."""
     from scipy import ndimage as ndi
 
-    m = alpha_of(im) >= 128
+    m = visible(alpha_of(im))
     sol = solidity(m)
     holes = int(ndi.binary_fill_holes(m).sum() - m.sum())
-    ok = sol >= float(TH.get("img.slab_solidity_min")) and holes == 0
+    ok = sol >= float(TH.get("acc.slab_convexity_min")) and holes == 0
     return build_result("A_BADGE", passed=ok, subject_sha=subject_sha, metric="solidity", value=sol,
-                        threshold=TH.describe("img.slab_solidity_min", ">="), evidence=f"solidity {sol:.3f}, {holes} hole pixel(s)",
+                        threshold=TH.describe("acc.slab_convexity_min", ">="), evidence=f"solidity {sol:.3f}, {holes} hole pixel(s)",
                         fix_hint="code_alpha_cleanup" if holes else "regenerate")
 
 

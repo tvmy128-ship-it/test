@@ -147,7 +147,7 @@ class Runtime:
         self.doctor_report = report
         try:
             self.repo.kv_set("doctor.last", report)
-        except Exception:   # noqa: BLE001
+        except Exception:
             log.exception("could not store the doctor report")
 
     def paid_blocked_reason(self) -> str | None:
@@ -160,7 +160,7 @@ class Runtime:
         try:
             if self.budget.daily_cap_reached():
                 return "the daily spending cap was reached"
-        except Exception:   # noqa: BLE001
+        except Exception:
             log.exception("daily cap check failed")
         return None
 
@@ -173,14 +173,14 @@ class Runtime:
         if backup:
             try:
                 self.db.backup(self.paths.backups_dir, keep=5)
-            except Exception:   # noqa: BLE001
+            except Exception:
                 log.exception("database backup failed")
         keystore.configure(self.keys)
         self.keys.key_status()          # reads every key once so the log redactor knows their exact values
         config.register_runtime(self)
         try:
             self.bus.prune()
-        except Exception:   # noqa: BLE001
+        except Exception:
             log.exception("event prune failed")
         if recover:
             from duoskin.engine.recovery import recover as run_recovery

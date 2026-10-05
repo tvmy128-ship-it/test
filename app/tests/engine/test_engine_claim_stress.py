@@ -26,7 +26,7 @@ def _claim_all(rt, threads: int, per_thread_cap: int | None = None, pool: str = 
         while per_thread_cap is None or len(claimed[i]) < per_thread_cap:
             try:
                 s = rt.ops.claim_one(pool, f"owner-{i}", emit=False)
-            except BaseException as exc:   # noqa: BLE001
+            except BaseException as exc:  # noqa: BLE001
                 errors.append(exc)
                 return
             if s is None:
@@ -72,7 +72,7 @@ def test_concurrent_claims_while_other_threads_write(rt):
             try:
                 rt.bus.emit("toast", {"n": n})
                 n += 1
-            except BaseException as exc:   # noqa: BLE001
+            except BaseException as exc:  # noqa: BLE001
                 write_errors.append(exc)
                 return
 

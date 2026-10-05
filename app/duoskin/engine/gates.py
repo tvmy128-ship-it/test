@@ -58,9 +58,10 @@ class GateError(Exception):
 
 # ---------------------------------------------------------------------------------------------------- tile actions
 def allowed_actions_for(kind: GateKind, part_kind: PartKind | str | None = None, *, has_alternatives: bool = False,
-                        can_manual: bool = False) -> list[GateAction]:
+                        can_manual: bool = False, mirrored: bool = False) -> list[GateAction]:
     """The action set of a tile (APP_SPEC §9.5/§9.10). Board-level actions (``approve_all``, ``back_to_concept``,
-    ``new_plan``) are included on every tile of their gate and may be sent with any tile id."""
+    ``new_plan``) are included on every tile of their gate and may be sent with any tile id. ``mirrored=True`` (the mesh
+    pipeline found that the mirrored match wins, §10.9) adds ``flip_mirrored`` to a hair or accessory tile."""
     A = GateAction
     pk = part_kind.value if isinstance(part_kind, PartKind) else part_kind
     if kind == GateKind.CONCEPT:
@@ -73,6 +74,8 @@ def allowed_actions_for(kind: GateKind, part_kind: PartKind | str | None = None,
         out.append(A.CHANGE)
         if can_manual and pk in ("hair", "accessory"):
             out.append(A.MAKE_MANUAL)
+        if mirrored and pk in ("hair", "accessory"):
+            out.append(A.FLIP_MIRRORED)      # "Flip left/right (I checked)": never applied automatically
         if has_alternatives or pk in ("face", "print"):
             out.append(A.SELECT_ALTERNATIVE)
         return out + [A.APPROVE_ALL, A.BACK_TO_CONCEPT]
@@ -433,7 +436,7 @@ class GateService:
         elif a == GateAction.PICK and gate.kind == GateKind.FINAL_PICK:
             tile.state = TileState.APPROVED
             for part in self.repo.list_parts(ac.project_id):
-                if part.approval is not None and part.approval.build_hash and part.character in ("a", "b"):
+                if part.build_stamp is not None and part.character in ("a", "b"):
                     deps.confirm_build(self.repo, ac.project_id, part.id, ac.decision.id)
         return res
 

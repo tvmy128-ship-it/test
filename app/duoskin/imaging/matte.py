@@ -29,7 +29,7 @@ class UnmixResult:
     max_residual: float           # worst RGB residual among the unmixed edge pixels (0..441)
 
 
-def unmix_sentinel(im: Image.Image, palette_hex: Sequence[str], sentinel_hex: str, *, bg_de: float = 5.0, solid_de: float = 5.0,
+def unmix_sentinel(im: Image.Image, palette_hex: Sequence[str], sentinel_hex: str, *, bg_de: float = 1.5, solid_de: float = 1.5,
                    max_residual: float = 20.0) -> UnmixResult:
     """Cut a sentinel background out of an opaque image. Raises ``ValueError`` if the sentinel collides with the palette (IMG-12)."""
     pal = [P.normalise_hex(h) for h in palette_hex]

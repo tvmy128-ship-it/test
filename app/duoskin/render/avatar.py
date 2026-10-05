@@ -334,3 +334,19 @@ def place_mesh(mannequin: Mannequin, mesh: MeshData, attachment: str, *, name: s
         if tex.ndim == 3 and tex.shape[2] == 4:
             tex = tex[..., :3]
     return RenderMesh(name, v, mesh.faces, mesh.uv, tex, (200, 200, 200), object_id(name), None, True, smooth)
+
+
+def head_guide_meshdata(mannequin: Mannequin | None = None, rgb: tuple[int, int, int] = (154, 154, 154), attachment: str = "HairAttachment") -> MeshData:
+    """The head mannequin as an exportable ``MeshData`` in the attachment frame (origin at the attachment point, studs, +Z front):
+    the ``head_guide`` of the hair polish pack. A flat guide-grey cube with a gradient so the texture is never one colour."""
+    mq = mannequin or default_mannequin()
+    head = mq.head
+    base = mq.attachment(attachment)
+    from duoskin.mesh.boolean import box_mesh
+
+    box = box_mesh(head.lo - base, head.hi - base)
+    tex = np.zeros((16, 16, 3), np.uint8)
+    tex[...] = rgb
+    tex[8:] = np.clip(np.array(rgb) * 0.92, 0, 255).astype(np.uint8)
+    uv = np.stack([np.where(box.vertices[:, 0] > head.centre[0] - base[0], 0.75, 0.25), np.where(box.vertices[:, 1] > head.centre[1] - base[1], 0.25, 0.75)], axis=1)
+    return MeshData(box.vertices, box.faces, uv, Image.fromarray(tex, "RGB"), {"head_guide": True})

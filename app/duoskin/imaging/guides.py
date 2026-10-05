@@ -20,6 +20,7 @@ Swatch strip note: the bible says "5 squares of 40 px at y=990-1014", but a 40 p
 from __future__ import annotations
 
 import io
+import itertools
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
@@ -178,15 +179,16 @@ def _swatch_strip(arr: np.ndarray, x0: int, colours: Sequence[str]) -> None:
         arr[SWATCH_Y:SWATCH_Y + SWATCH_SIZE, sx + i * SWATCH_PITCH:sx + i * SWATCH_PITCH + SWATCH_SIZE] = P.hex_to_rgb(hx)
 
 
-def guide_concept_char(fig: FigureSpec) -> Guide:
-    """The I1 guide for one character: front figure in slot 1, back figure (same colours) in slot 2."""
-    arr = np.zeros((CANVAS_H, CANVAS_W, 3), np.uint8)
+def _build_concept(figs: Sequence[FigureSpec], names: Sequence[str], guide_id: str) -> Guide:
+    """``len(figs)`` slots of 768x1024 side by side, each built exactly like a ``guide_concept_char`` slot."""
+    width = SLOT_W * len(figs)
+    arr = np.zeros((CANVAS_H, width, 3), np.uint8)
     arr[:] = P.hex_to_rgb(BG_HEX)
-    editable = np.zeros((CANVAS_H, CANVAS_W), bool)
+    editable = np.zeros((CANVAS_H, width), bool)
     slots: dict[str, Slot] = {}
     bodies: dict[str, np.ndarray] = {}
     heads: dict[str, np.ndarray] = {}
-    for i, name in enumerate(("front", "back")):
+    for i, (name, fig) in enumerate(zip(names, figs, strict=True)):
         x0 = i * SLOT_W
         cx = x0 + SLOT_W // 2
         body, head = draw_figure(arr, cx, fig)
@@ -197,26 +199,42 @@ def guide_concept_char(fig: FigureSpec) -> Guide:
         editable[ed_box[1]:ed_box[3], ed_box[0]:ed_box[2]] = True
         slots[name] = Slot(name, x0, cx, fig_box, ed_box)
         bodies[name], heads[name] = body, head
-    img = Image.fromarray(arr, "RGB")
-    return Guide("guide_concept_char", img, editable, slots, bodies, heads, None,
-                 {"size": (CANVAS_W, CANVAS_H), "px_per_stud": PX_PER_STUD, "neckline_y": NECK_Y})
+    return Guide(guide_id, Image.fromarray(arr, "RGB"), editable, slots, bodies, heads, None,
+                 {"size": (width, CANVAS_H), "px_per_stud": PX_PER_STUD, "neckline_y": NECK_Y})
+
+
+def guide_concept_char(fig: FigureSpec) -> Guide:
+    """The I1 guide for one character: front figure in slot 1, back figure (same colours) in slot 2 (1536x1024)."""
+    return _build_concept([fig, fig], ("front", "back"), "guide_concept_char")
+
+
+def guide_concept_front(fig: FigureSpec) -> Guide:
+    """I1f: one 768x1024 slot of ``guide_concept_char`` (the front figure)."""
+    return _build_concept([fig], ("front",), "guide_concept_front")
+
+
+def guide_concept_back(fig: FigureSpec) -> Guide:
+    """I1b: one 768x1024 slot (the back figure, same colours)."""
+    return _build_concept([fig], ("back",), "guide_concept_back")
+
+
+def guide_concept_joint(fig_a: FigureSpec, fig_b: FigureSpec) -> Guide:
+    """I1j: 3072x1024, four slots in the order A front, A back, B front, B back, each from its own character's spec."""
+    return _build_concept([fig_a, fig_a, fig_b, fig_b], ("a_front", "a_back", "b_front", "b_back"), "guide_concept_joint")
 
 
 def check_guide_geometry(g: Guide, *, subject_sha: str = "") -> CheckResult:
-    """CHK-G1-01 (ASSERT): the concept guide has two 768 px slots on a 1536x1024 canvas, each figure is at most 480 px wide, the mask boxes
-    do not overlap, and the swatch strip and background stay protected."""
+    """CHK-G1-01 (ASSERT): the concept guide is made of 768x1024 slots (two on 1536x1024, one, or four on 3072x1024), each figure is at most
+    480 px wide, the mask boxes do not overlap, and the swatch strip and background stay protected."""
     problems = []
-    if g.image.size != (CANVAS_W, CANVAS_H):
-        problems.append(f"canvas {g.image.size}")
     boxes = list(g.slots.values())
-    if len(boxes) != 2:
-        problems.append("expected 2 slots")
+    if g.image.size != (SLOT_W * len(boxes), CANVAS_H) or not boxes:
+        problems.append(f"canvas {g.image.size} for {len(boxes)} slot(s)")
     for sl in boxes:
         if sl.figure_box[2] - sl.figure_box[0] > FIG_W:
             problems.append(f"{sl.name} figure wider than {FIG_W}px")
-    if len(boxes) == 2:
-        a, b = boxes[0].editable_box, boxes[1].editable_box
-        if min(a[2], b[2]) > max(a[0], b[0]):
+    for a, b in itertools.pairwise(boxes):
+        if min(a.editable_box[2], b.editable_box[2]) > max(a.editable_box[0], b.editable_box[0]):
             problems.append("mask boxes overlap")
     if g.editable[SWATCH_Y - 1:, :].any():
         problems.append("swatch strip is not protected")
@@ -226,15 +244,30 @@ def check_guide_geometry(g: Guide, *, subject_sha: str = "") -> CheckResult:
 
 # ------------------------------------------------------------------ bald head guide (I4)
 GREY_CANDIDATES = ("#9a9a9a", "#6f8fb0", "#b08a8f", "#7fa88a", "#c9a45a", "#5f5f8f")
+# Fallback search when no listed candidate is far enough (grey + white + black hair together, say): a deterministic hue ring at several
+# saturations and values, so a guide colour that is >= 30 dE from every hair colour exists for any realistic hair set.
+_RING_HUES = tuple(range(0, 360, 30))
+_RING_SV = ((0.55, 0.45), (0.85, 0.45), (0.55, 0.70), (0.85, 0.70), (0.55, 0.95), (0.85, 0.95))
+
+
+def _hue_ring() -> tuple[str, ...]:
+    import colorsys
+
+    out = []
+    for s_, v_ in _RING_SV:
+        for h_ in _RING_HUES:
+            r, g, b = colorsys.hsv_to_rgb(h_ / 360.0, s_, v_)
+            out.append(P.rgb_to_hex((round(r * 255), round(g * 255), round(b * 255))))
+    return tuple(out)
 
 
 def choose_guide_grey(hair_hexes: Sequence[str], *, min_de: float | None = None) -> str:
     """#9A9A9A unless a hair colour is within dE 30 of it (grey, silver, white hair); then the first candidate that is >= 30 from every hair
-    colour (HAIR-04 assert), else the farthest one."""
+    colour (HAIR-04 assert), then the first colour of the hue ring that is, else the farthest one."""
     lim = float(TH.get("hair.guide_de_min")) if min_de is None else min_de
     hair = P.palette_lab(hair_hexes) if len(hair_hexes) else np.zeros((0, 3))
     best, best_d = GREY_CANDIDATES[0], -1.0
-    for c in GREY_CANDIDATES:
+    for c in (*GREY_CANDIDATES, *_hue_ring()):
         d = float(P.deltaE2000(P.hex_to_lab(c)[None, :], hair).min()) if len(hair) else 1e9
         if d >= lim:
             return c
@@ -355,6 +388,93 @@ def guide_panel(recipe_mask: np.ndarray) -> Guide:
     return Guide("guide_panel", Image.fromarray(arr, "RGB"), recipe_mask.copy(), meta={"size": (w, h)})
 
 
+# ------------------------------------------------------------------ frame and accessory-box guides (I2/I5/I6 without a concept crop; I5g)
+FRAME_SIZES = {"square": (1024, 1024), "tall": (816, 1632)}
+FRAME_MARGIN = 0.10
+FRAME_MARGIN_I5 = 0.12
+ACC_BOX_FILL_MAX = 0.76
+ACC_BOX_MASK_PAD = 0.04
+
+
+def guide_frame(aspect: Literal["square", "tall"] = "square", *, margin: float | None = None) -> Guide:
+    """``guide_frame_<aspect>``: an empty transparent framing canvas. Nothing is drawn; the mask protects the margin band (10% on each side,
+    12% for I5) and leaves the inside editable, and A_MARGIN checks the result."""
+    w, h = FRAME_SIZES[aspect]
+    m = FRAME_MARGIN if margin is None else margin
+    editable = np.zeros((h, w), bool)
+    mx, my = round(w * m), round(h * m)
+    editable[my:h - my, mx:w - mx] = True
+    return Guide(f"guide_frame_{aspect}", Image.new("RGBA", (w, h), (0, 0, 0, 0)), editable, meta={"margin": m, "size": (w, h)})
+
+
+def guide_acc_box(item_studs: tuple[float, float], box_studs: tuple[float, float], *, size: int = 1024) -> Guide:
+    """``guide_acc_box_<attachment>`` (I5g): the planned silhouette box on opaque #F2F2F2, drawn as a mid-grey rounded rectangle, centred,
+    filling at most 76% of the long side. ``item_studs`` is the accessory's planned width x height in studs, ``box_studs`` the face of its
+    Classic box (so the whole box would fill 76%). The mask is the box dilated by 4% of the width."""
+    pps = ACC_BOX_FILL_MAX * size / max(box_studs)
+    w = min(item_studs[0] * pps, ACC_BOX_FILL_MAX * size)
+    h = min(item_studs[1] * pps, ACC_BOX_FILL_MAX * size)
+    img = Image.new("RGB", (size, size), P.hex_to_rgb(BG_HEX))
+    x0, y0 = (size - w) / 2, (size - h) / 2
+    ImageDraw.Draw(img).rounded_rectangle([x0, y0, x0 + w - 1, y0 + h - 1], radius=min(w, h) * 0.18, fill=P.hex_to_rgb(GUIDE_GREY))
+    shape = np.asarray(img)[..., 0] == P.hex_to_rgb(GUIDE_GREY)[0]
+    editable = P.dilate(shape, round(ACC_BOX_MASK_PAD * size))
+    return Guide("guide_acc_box", img, editable, meta={"box_px": (round(x0), round(y0), round(x0 + w), round(y0 + h)), "px_per_stud": pps})
+
+
+# ------------------------------------------------------------------ guide_regions.json (never sent to a model)
+# Default attachment points in studs from the neckline centre (x: image-right positive in the front view, y: up positive). They are an
+# approximation of the R15 block rig; pass ``attachments`` (read from mannequin_blocky.json) to use the real ones.
+DEFAULT_ATTACHMENTS: dict[str, tuple[float, float]] = {
+    "hat": (0.0, 1.1), "hair": (0.0, 1.1), "face_front": (0.0, 0.5), "face_center": (0.0, 0.5), "neck": (0.0, 0.0),
+    "right_collar": (-1.0, -0.05), "left_collar": (1.0, -0.05), "right_shoulder": (-1.5, -0.1), "left_shoulder": (1.5, -0.1),
+    "body_front": (0.0, -1.0), "body_back": (0.0, -1.0), "waist_front": (0.0, -2.0), "waist_center": (0.0, -2.0), "waist_back": (0.0, -2.0),
+}
+SHOE_BAND_STUDS = 0.4
+
+
+def build_guide_regions(g: Guide, attachments: Mapping[str, tuple[float, float]] | None = None) -> dict[str, object]:
+    """The content of ``guide_regions.json`` for a ``guide_concept_char``: per figure the pixel box of every template region the view
+    shows (the character's right limb is image-left in the front view and image-right in the back view), the head box, the Hair box
+    (3 x 5 studs, 2 up and 3 down from the head top), the shoe band and one point per attachment. Code maps ``Print.region`` to a box
+    through this file and never guesses."""
+    att = dict(DEFAULT_ATTACHMENTS)
+    att.update(attachments or {})
+    s = PX_PER_STUD
+    out: dict[str, object] = {"px_per_stud": s, "figures": {}, "attachments_source": "default" if attachments is None else "given"}
+    figures: dict[str, dict[str, object]] = {}
+    for name, sl in g.slots.items():
+        geo = figure_geometry(sl.cx)
+        view = "f" if name.endswith("front") else "b"
+        right_arm, left_arm = ("arm_l", "arm_r") if view == "f" else ("arm_r", "arm_l")
+        right_leg, left_leg = ("leg_l", "leg_r") if view == "f" else ("leg_r", "leg_l")
+        sign = 1.0 if view == "f" else -1.0
+        head = geo["head"]
+        head_top = head[1]
+        hair_box = (sl.cx - int(1.5 * s), head_top - 2 * s, sl.cx + int(1.5 * s), head_top + 3 * s)
+        shoes = {k: (geo[k][0], geo[k][3] - int(SHOE_BAND_STUDS * s), geo[k][2], geo[k][3]) for k in ("leg_l", "leg_r")}
+        figures[name] = {
+            "regions_shirt": {f"torso_{view}": list(geo["torso"]), f"rlimb_{view}": list(geo[right_arm]), f"llimb_{view}": list(geo[left_arm])},
+            "regions_pants": {f"rlimb_{view}": list(geo[right_leg]), f"llimb_{view}": list(geo[left_leg])},
+            "head_box": list(head), "hair_box": list(hair_box),
+            "shoe_band": {"right": list(shoes["leg_l" if view == "f" else "leg_r"]), "left": list(shoes["leg_r" if view == "f" else "leg_l"])},
+            "attachments": {k: [round(sl.cx + sign * dx * s), round(NECK_Y - dy * s)] for k, (dx, dy) in att.items()},
+        }
+    out["figures"] = figures
+    return out
+
+
+def write_guide_regions(g: Guide, path: str, attachments: Mapping[str, tuple[float, float]] | None = None) -> dict[str, object]:
+    """Write ``guide_regions.json`` (UTF-8) next to a concept guide and return its content."""
+    import json
+    from pathlib import Path
+
+    data = build_guide_regions(g, attachments)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(json.dumps(data, indent=1, sort_keys=True), encoding="utf-8")
+    return data
+
+
 # ------------------------------------------------------------------ C2: the 4-up sheet and labels
 def assemble_concept_sheet(a: Image.Image, b: Image.Image) -> Image.Image:
     """The 3072x1024 concept sheet, four 768x1024 slots in the order A front, A back, B front, B back, with no rescaling (C2)."""
@@ -444,6 +564,19 @@ def vlm_image(im: Image.Image, *, min_side: int | None = None, max_long_edge: in
         s = hi / max(out.size)
         out = out.resize((max(1, round(out.width * s)), max(1, round(out.height * s))), Image.Resampling.LANCZOS)
     return out
+
+
+READABILITY_PX = 100
+READABILITY_PX_BADGE = 80
+
+
+def readability_preview(im: Image.Image, *, long_edge: int | None = None, badge: bool = False) -> Image.Image:
+    """The small version a judge sees for the "readable at 100 px (80 px for badges)" rule: area downscale of the premultiplied image so
+    the long edge is that many pixels, composited on grey, then a nearest-neighbour upscale back to at least 256 px (``vlm_image``)."""
+    target = long_edge or (READABILITY_PX_BADGE if badge else READABILITY_PX)
+    k = target / max(im.size)
+    small = im.convert("RGBA").convert("RGBa").resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.Resampling.BOX).convert("RGBA")
+    return vlm_image(small, with_checkerboard=False)
 
 
 def png_bytes(im: Image.Image) -> bytes:

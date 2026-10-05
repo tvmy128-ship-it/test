@@ -4,7 +4,7 @@ from __future__ import annotations
 import base64
 
 import pytest
-from prov_helpers import Spy, json_response, noop_sleep, png_bytes
+from prov_helpers import FakeClock, Spy, json_response, noop_sleep, png_bytes
 
 from duoskin.providers import recraft as R
 from duoskin.providers._http import httpx
@@ -25,14 +25,14 @@ def gen_ok(n=1, **extra):
 
 
 def provider(spy: Spy, **kw) -> R.RecraftProvider:
-    kw.setdefault("limiter", RateLimiter(concurrent=2, ipm=100, rps=50))
+    ft = FakeClock()
+    kw.setdefault("limiter", RateLimiter(concurrent=2, ipm=100, rps=50, clock=ft.now, sleep=ft.sleep))
     kw.setdefault("sleep", noop_sleep)
     return R.RecraftProvider("rc-key-0000", transport=spy.transport, **kw)
 
 
 def vreq(**kw) -> R.VectorRequest:
-    d = dict(model="recraftv4_1_vector", prompt="1. One round eye iris.", size="1024x1024", n=1)
-    d.update(kw)
+    d = {"model": "recraftv4_1_vector", "prompt": "1. One round eye iris.", "size": "1024x1024", "n": 1, **kw}
     return R.VectorRequest(**d)
 
 
@@ -142,7 +142,8 @@ def test_429_backs_off_honouring_retry_after_then_succeeds():
     slept = []
     spy = Spy(httpx.Response(429, json={"message": "slow down"}, headers={"retry-after": "3"}),
               httpx.Response(429, json={"message": "slow down"}), gen_ok())
-    lim = RateLimiter(concurrent=1)
+    ft = FakeClock()
+    lim = RateLimiter(concurrent=1, clock=ft.now, sleep=ft.sleep)
     p = provider(spy, limiter=lim, sleep=lambda s: slept.append(s))
     r = p.generate(vreq(), CTX)
     spy.assert_hit(3)
@@ -285,3 +286,11 @@ def test_cost_sink_and_repr_hide_key():
     p = provider(spy, cost_sink=seen.append)
     p.generate(vreq(), CTX)
     assert len(seen) == 1 and "rc-key" not in repr(p)
+
+
+def test_test_key_uses_the_free_users_endpoint():
+    spy = Spy(json_response({"id": "u1", "credits": 4200}))
+    r = provider(spy).test_key()
+    assert r["ok"] is True and "4200" in r["message"] and spy.requests[0].url.path == "/v1/users/me" and spy.requests[0].method == "GET"
+    bad = provider(Spy(httpx.Response(401, json={"message": "bad token"}))).test_key()
+    assert bad["ok"] is False and bad["kind"] == "auth"

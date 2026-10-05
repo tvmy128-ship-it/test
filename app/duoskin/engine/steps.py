@@ -90,7 +90,7 @@ class StepOps:
             try:
                 p: Any = handler.Params.model_validate(params) if handler.Params is not None else params
                 est = float(handler.estimate(p))
-            except Exception:   # noqa: BLE001 - an estimate that cannot be computed is re-checked at run time
+            except Exception:  # noqa: BLE001
                 est = 0.0
         return Step(id=new_id("stp"), job_id=job_id, project_id=project_id, part_id=part_id, kind=kind,   # type: ignore[arg-type]
                     handler_version=handler.version, pool=handler.pool, state=StepState.PENDING,
@@ -136,6 +136,10 @@ class StepOps:
         now = now or utcnow()
         now_s, lease_s_ = iso_utc(now), iso_utc(now + timedelta(seconds=lease_s))
         state = "waiting_remote" if polls else "ready"
+        # An idle scheduler polls often: look first without taking the write lock. The claim below re-checks atomically.
+        if self.db.conn().execute("SELECT 1 FROM steps WHERE state=? AND pool=? AND (not_before IS NULL OR not_before<=?) LIMIT 1",
+                                  (state, pool, now_s)).fetchone() is None:
+            return None
         extra, args = "", [state, pool, now_s]
         kinds = list(exclude_kinds)
         if kinds:
@@ -208,6 +212,8 @@ class StepOps:
     def promote_pending(self) -> int:
         """PENDING -> READY for steps whose dependencies all finished; PENDING -> CANCELLED when one failed/cancelled."""
         promoted = 0
+        if self.db.conn().execute("SELECT 1 FROM steps WHERE state='pending' LIMIT 1").fetchone() is None:
+            return 0
         with self.db.tx() as c:
             rows = c.execute(
                 "UPDATE steps SET state='ready', json=json_set(json,'$.state','ready') WHERE state='pending' AND NOT EXISTS ("
@@ -254,15 +260,13 @@ class StepOps:
 
     def refresh_job(self, job_id: str) -> Job | None:
         """Recompute the job's state from its steps; emits ``job.state`` when it changes."""
+        if self._job_state_unchanged(job_id):
+            return self.repo.find_job(job_id)
         with self.db.tx():
             job = self.repo.find_job(job_id)
             if job is None or job.state == JobState.CANCELLED:
                 return job
-            states = [StepState(r["state"]) for r in self.db.conn().execute(
-                "SELECT state FROM steps WHERE job_id=?", (job_id,)).fetchall()]
-            new_state = derive_job_state(states)
-            if new_state == JobState.RUNNING and job.project_id and self._project_paused(job.project_id):
-                new_state = JobState.PAUSED
+            new_state = self._derived_state(job)
             if new_state == job.state:
                 return job
             job = job.model_copy(update={"state": new_state, "finished_at": utcnow() if new_state in TERMINAL_JOB_STATES else None})
@@ -270,6 +274,18 @@ class StepOps:
             self.bus.emit("job.state", {"job_id": job.id, "project_id": job.project_id, "kind": job.kind.value,
                                         "state": new_state.value}, job.project_id)
             return job
+
+    def _derived_state(self, job: Job) -> JobState:
+        states = [StepState(r["state"]) for r in self.db.conn().execute("SELECT state FROM steps WHERE job_id=?", (job.id,)).fetchall()]
+        new_state = derive_job_state(states)
+        if new_state == JobState.RUNNING and job.project_id and self._project_paused(job.project_id):
+            new_state = JobState.PAUSED
+        return new_state
+
+    def _job_state_unchanged(self, job_id: str) -> bool:
+        """A read-only pre-check so the common "nothing changed" case never takes the write lock."""
+        job = self.repo.find_job(job_id)
+        return job is None or job.state == JobState.CANCELLED or self._derived_state(job) == job.state
 
     def _project_paused(self, project_id: str) -> bool:
         p = self.repo.find_project(project_id)

@@ -125,7 +125,7 @@ class _FileBackend:
             return None
         try:
             return self._unprotect(base64.b64decode(blob)).decode("utf-8")
-        except Exception:   # noqa: BLE001 - another user's DPAPI blob or a damaged file: treat as not set
+        except Exception:  # noqa: BLE001
             log.warning("could not decrypt the stored %s key", provider)
             return None
 
@@ -177,7 +177,7 @@ class KeyStore:
             if isinstance(backend, fail.Keyring):
                 return None
             return keyring
-        except Exception:   # noqa: BLE001 - no usable keyring on this machine
+        except Exception:  # noqa: BLE001
             return None
 
     # ------------------------------------------------------------------------------------------------------- reading
@@ -187,7 +187,7 @@ class KeyStore:
                 value = self._keyring.get_password(SERVICE, provider)
                 if value:
                     return value, "keyring"
-            except Exception:   # noqa: BLE001 - treat a keyring error as "not in keyring"
+            except Exception:  # noqa: BLE001
                 log.warning("keyring read failed for %s", provider)
         value = self._file.get(provider)
         if value:
@@ -219,7 +219,7 @@ class KeyStore:
                     self._keyring.set_password(SERVICE, provider, value)
                     self._file.delete(provider)   # never leave a stale copy in the fallback file
                     return "keyring"
-                except Exception:   # noqa: BLE001
+                except Exception:  # noqa: BLE001
                     log.warning("keyring write failed for %s; using the %s", provider, self._file.label)
             self._file.set(provider, value)
             return self._file.label
@@ -231,7 +231,7 @@ class KeyStore:
             if self._keyring is not None:
                 try:
                     self._keyring.delete_password(SERVICE, provider)
-                except Exception:   # noqa: BLE001 - PasswordDeleteError when absent
+                except Exception:  # noqa: BLE001, S110
                     pass
             self._file.delete(provider)
         register_secret(old)   # keep masking a deleted key for the rest of the process

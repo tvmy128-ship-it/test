@@ -22,6 +22,7 @@ import numpy as np
 
 from duoskin.checks import thresholds as TH
 from duoskin.checks.model import CheckResult
+from duoskin.imaging.fabric import DetRng
 from duoskin.roblox import template as T
 
 KIT_JSON = Path(__file__).resolve().parent.parent / "builtin_kits" / "folds_procedural.json"
@@ -82,8 +83,8 @@ def procedural_set_ids() -> list[str]:
     return sorted(_kit()["sets"])
 
 
-def _rng(seed: int) -> np.random.Generator:
-    return np.random.Generator(np.random.PCG64(int(seed)))
+def _rng(seed: int) -> DetRng:
+    return DetRng(seed)
 
 
 def _smoothstep(e0: float, e1: float, x: np.ndarray) -> np.ndarray:
@@ -175,7 +176,7 @@ def _panel_delta(region: str, params: dict[str, Any], set_cfg: dict[str, Any], s
         sig = float(el.get("sigma", 2.2))
         amp = float(el.get("strength", 0.05)) * scale
         ya = y0 + Y
-        wob = 0.65 + 0.35 * np.cos(2 * np.pi * (X / w * rng.integers(1, 3) + rng.random()))
+        wob = 0.65 + 0.35 * np.cos(2 * np.pi * (X / w * rng.integers(1, 3) + float(rng.random())))
         for off in (-span / 2.0, span / 2.0):
             delta += amp * wob * _profile(ya - (row + off), sig)
     pl = set_cfg.get("pleats")

@@ -460,7 +460,7 @@ class OpenAIImages(ImageProviderBase):
                  flags: CapabilityFlags | None = None, limiter: RateLimiter | None = None,
                  cost_sink: Callable[[dict[str, Any]], None] | None = None, timeout: float = 900.0,
                  server_error_retries: int = 2, sleep: Callable[[float], None] | None = None,
-                 require_snapshot: bool = False) -> None:
+                 require_snapshot: bool = False, probe_model: str = "gpt-image-2.5-flare-2026-09-08") -> None:
         if client is None:
             import openai
             kw: dict[str, Any] = {"api_key": api_key, "timeout": timeout, "max_retries": 0}
@@ -475,6 +475,8 @@ class OpenAIImages(ImageProviderBase):
         import time as _time
         self._sleep = sleep or _time.sleep
         self.require_snapshot = require_snapshot
+        self.probe_model = probe_model
+        self._key_probed = False
         self.last_kwargs: dict[str, Any] | None = None     # the last SDK kwargs, for tests and diagnostics
 
     def __repr__(self) -> str:
@@ -574,6 +576,24 @@ class OpenAIImages(ImageProviderBase):
         sizes = [png_size(b) or (0, 0) for b in decoded]
         check_response_sizes(req.size, getattr(resp, "size", None), sizes, image1_size, request_id=rid, cost=cost)
         return decoded, usage, rid, cost
+
+    def test_key(self, *, paid: bool = True) -> dict[str, Any]:
+        """Settings "Test key": a free ``models.list`` (is the key accepted?) and, once per adapter (that is, per key), one
+        1024 x 1024 Flare ``low`` image (about $0.006) that proves the image model and the organisation verification work."""
+        try:
+            next(iter(self.client.models.list()), None)
+        except Exception as e:  # noqa: BLE001
+            err = map_openai_error(e)
+            return {"ok": False, "message": err.user_message, "kind": err.kind}
+        if paid and not self._key_probed:
+            try:
+                self.generate(ImageRequest(model=self.probe_model, prompt="A flat blue square on a plain light background.", size="1024x1024",
+                                           quality="low", background="opaque", n=1, tag="probe"), CallCtx.null())
+            except ProviderError as err:
+                return {"ok": False, "message": err.user_message, "kind": err.kind}
+            self._key_probed = True
+            return {"ok": True, "message": "The OpenAI key works and the image model answered (one small test image, about $0.006)."}
+        return {"ok": True, "message": "The OpenAI key is accepted."}
 
     # ----- FM-T6 probes -------------------------------------------------------------------------------------
     def probe(self) -> dict[str, bool]:

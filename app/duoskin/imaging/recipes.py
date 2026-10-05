@@ -26,7 +26,7 @@ part's side-face strip, so a stitch or rib pattern keeps its phase across the se
 
 Shapes (union of): ``{"rect": [x0, y0, x1, y1]}`` inclusive pixel box, ``{"ellipse": [cx, cy, rx, ry]}``, ``{"poly": [[x, y], ..]}``,
 ``{"arc": [cx, cy, rx, ry, thickness, a0, a1]}`` (ring sector, degrees, 0 = +x, clockwise on the sheet), ``{"line": [[x, y], ..],
-"w": 1, "dash": [on, off]}``, ``{"stripes": {"axis": "x"|"y", "from": a, "to": b, "step": s, "w": w, "span": [c0, c1]}}``,
+"w": 1, "dash": [on, off]}`` (points are pixel indices: the stroke runs through pixel centres), ``{"stripes": {"axis": "x"|"y", "from": a, "to": b, "step": s, "w": w, "span": [c0, c1]}}``,
 ``{"ref": "<layer id>"}`` (the mask of an earlier layer). Numbers may be expressions: ``"$sleeve_end - 6"``.
 """
 from __future__ import annotations
@@ -153,7 +153,7 @@ class PrintSlot(Strict):
         return v
 
     @model_validator(mode="after")
-    def _inside(self) -> "PrintSlot":
+    def _inside(self) -> PrintSlot:
         x0, y0, x1, y1 = T.REGIONS[self.region]
         bx0, by0, bx1, by1 = self.box
         inset = T.BEVEL_INSET_PX
@@ -218,7 +218,7 @@ class Layer(Strict):
         return v
 
     @model_validator(mode="after")
-    def _shape_keys(self) -> "Layer":
+    def _shape_keys(self) -> Layer:
         for s in [*self.shapes, *self.minus]:
             keys = [k for k in s if k in SHAPE_KEYS]
             if len(keys) != 1:
@@ -256,7 +256,7 @@ class Recipe(Strict):
         return v
 
     @model_validator(mode="after")
-    def _consistency(self) -> "Recipe":
+    def _consistency(self) -> Recipe:
         ids = [lay.id for lay in self.layers]
         if len(ids) != len(set(ids)):
             raise ValueError(f"{self.recipe_id}: duplicate layer ids")
@@ -562,15 +562,16 @@ def _draw_shape(d: ImageDraw.ImageDraw, s: dict[str, Any], ox: float, oy: float)
         d.polygon([tuple(p) for p in pts], fill=255)
     elif "line" in s:
         w = max(1, int(round(float(s.get("w", 1.0)) * k)))
-        pts = [(float(x), float(y)) for x, y in s["line"]]
+        # line points are PIXEL INDICES (the stroke runs through pixel centres), so a 1-px line at row 40 fills exactly row 40
+        pts = [(float(x) + 0.5, float(y) + 0.5) for x, y in s["line"]]
         dash = s.get("dash")
         paths = _dash_segments(pts, float(dash[0]), float(dash[1])) if dash else [pts]
         for path in paths:
-            xy = [(x * k - ox, y * k - oy) for x, y in path]
+            xy = [(x * k - ox - 0.5, y * k - oy - 0.5) for x, y in path]        # PIL addresses pixel centres
             if len(xy) == 1:
                 continue
             d.line(xy, fill=255, width=w, joint="curve")
-            if w > 2:                                   # round-ish caps
+            if w > 6:                                   # round-ish caps for thick strokes only
                 r = w / 2.0
                 for x, y in (xy[0], xy[-1]):
                     d.ellipse([x - r, y - r, x + r - 1, y + r - 1], fill=255)

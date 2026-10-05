@@ -3,17 +3,18 @@
 ``run_check(check_id, subject_sha, fn, **facts) -> CheckResult`` wraps one check:
 
 * an exception, a missing optional dependency or garbage output gives ``ran=False, passed=False`` (never a pass);
-* a check whose registry entry ``requires`` a kit (``head_base`` / ``body_base``) is not called at all when the manifest
-  flag (``head_base_present=False`` / ``body_base_present=False`` in the facts) says the kit is absent: it returns
-  ``status="not_applicable"`` through ``checks.model.not_applicable`` with the reason ``no_head_base`` / ``no_body_base``.
-  That is different from ``ran=False``: it counts as passed and never blocks;
+* ``applicability()`` runs **before** the check: a check whose registry entry ``requires`` a manifest flag (``["head_base_present"]``,
+  ``["body_base_present"]``, ``["blender_present"]``; ``"!flag"`` = the flag must be False) is not called at all when the flag is False
+  (resp. True), and returns ``status="not_applicable"`` through ``checks.model.not_applicable`` with the reason ``no_head_base``,
+  ``no_body_base``, ``no_blender`` (resp. ``has_head_base``). The flags come from the facts (``head_base_present=False``) or from a
+  ``manifest_flags`` mapping fact. That is different from ``ran=False``: it counts as passed and never blocks. **Only the runner sets
+  N/A, never a check body**, so an exception inside a kit-dependent check is a fail, never an N/A (APP_SPEC S26);
 * ``kind``, ``fm_ids`` and ``thresholds_version`` always come from the registry and the threshold table, never from the
   check function, so a check cannot silently re-label itself HARD or SOFT.
 
 The check function ``fn`` receives the facts it declares (extra facts such as ``head_base_present`` are dropped unless
 ``fn`` takes ``**kwargs``). It may return a ``CheckResult``, a ``CheckOutcome``, a ``bool``, a ``dict`` of outcome fields
-or a list of ``CheckResult`` (aggregated, worst case wins). It may raise ``NotApplicable(reason)`` or
-``CheckUnavailable(why)``.
+or a list of ``CheckResult`` (aggregated, worst case wins). It may raise ``CheckUnavailable(why)`` (a dependency is missing).
 """
 from __future__ import annotations
 
@@ -25,15 +26,7 @@ from typing import Any
 from duoskin.checks import policy, thresholds
 from duoskin.checks.model import CheckResult, FixHint, not_applicable, not_run
 
-MAX_EVIDENCE = 600
-
-
-class NotApplicable(Exception):
-    """Raised by a check function that finds, while running, that it does not apply (for example ``no_head_base``)."""
-
-    def __init__(self, reason: str):
-        super().__init__(reason)
-        self.reason = reason
+ELLIPSIS = "..."
 
 
 class CheckUnavailable(Exception):
@@ -59,7 +52,8 @@ class CheckOutcome:
 
 def _short(text: str) -> str:
     text = " ".join(str(text).split())
-    return text if len(text) <= MAX_EVIDENCE else text[: MAX_EVIDENCE - 3] + "..."
+    limit = int(thresholds.tv("runner.evidence_max"))
+    return text if len(text) <= limit else text[: limit - len(ELLIPSIS)] + ELLIPSIS
 
 
 def build_result(check_id: str, *, passed: bool, subject_sha: str = "", metric: str = "", value: float | None = None,
@@ -99,10 +93,22 @@ def _accepted_facts(fn: Callable[..., Any], facts: dict[str, Any]) -> dict[str, 
     return {k: v for k, v in facts.items() if k in params}
 
 
-def _applicability(m: policy.CheckMeta, facts: dict[str, Any]) -> str | None:
+def _flags(facts: dict[str, Any]) -> dict[str, bool]:
+    """Manifest flags given as facts (``head_base_present=False``) or as a ``manifest_flags`` mapping."""
+    out = {k: v for k, v in (facts.get("manifest_flags") or {}).items() if isinstance(v, bool)}
+    out.update({k: v for k, v in facts.items() if k.endswith("_present") and isinstance(v, bool)})
+    return out
+
+
+def applicability(m: policy.CheckMeta, flags: dict[str, bool]) -> str | None:
+    """The ``na_reason`` when a flag the check ``requires`` rules it out, else ``None``. A flag that is not supplied never rules a
+    check out: the check then runs and fails closed on whatever it lacks."""
     for req in m.requires:
-        if facts.get(f"{req}_present") is False:
-            return f"no_{req}"
+        want = not req.startswith("!")
+        name = req.lstrip("!")
+        if name in flags and flags[name] is not want:
+            stem = name.removesuffix("_present")
+            return f"no_{stem}" if want else f"has_{stem}"
     return None
 
 
@@ -148,13 +154,11 @@ def run_check(check_id: str, subject_sha: str, fn: Callable[..., Any], **facts: 
     """Run one check, fail closed. See the module docstring for the contract."""
     try:
         m = policy.meta(check_id)
-        why_na = _applicability(m, facts)
+        why_na = applicability(m, _flags(facts))
         if why_na:
             return not_applicable_result(check_id, why_na, subject_sha)
         out = fn(**_accepted_facts(fn, facts))
         return _normalise(check_id, subject_sha, out)
-    except NotApplicable as e:
-        return not_applicable_result(check_id, e.reason or "not_applicable", subject_sha)
     except CheckUnavailable as e:
         return fail_closed(check_id, f"unavailable: {e}", subject_sha)
     except (KeyboardInterrupt, SystemExit, GeneratorExit):

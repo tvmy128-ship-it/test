@@ -56,7 +56,7 @@ def api(spy: Spy, *, dl: Spy | None = None, **kw) -> T.TripoApi:
     clk = kw.pop("clk", None) or Clock()
     kw.setdefault("sleep", clk.sleep)
     kw.setdefault("clock", clk.now)
-    kw.setdefault("limiter", RateLimiter(concurrent=2))
+    kw.setdefault("limiter", RateLimiter(concurrent=2, clock=clk.now, sleep=clk.sleep))
     a = T.TripoApi("tsk_secretkey0000", transport=spy.transport, download_transport=(dl.transport if dl else None), **kw)
     a.clk = clk   # type: ignore[attr-defined]
     return a
@@ -242,6 +242,8 @@ def test_upload_is_multipart_png_only():
     with pytest.raises(ProviderError) as ei:
         a.upload(b"GIF89a", name="x.gif")
     assert ei.value.code == "bad_upload"
+    spy2 = Spy(json_response({"code": 0, "data": {"file_token": "ft-2"}}))
+    assert api(spy2).upload(GLB, name="m.glb") == "ft-2" and b"model/gltf-binary" in spy2.requests[0].content
 
 
 # ----- retry table ---------------------------------------------------------------------------------------------------
@@ -645,3 +647,18 @@ def test_no_secret_in_errors_or_repr():
     with pytest.raises(ProviderError) as ei:
         api(spy).image_to_model("tok", P2)
     assert "tsk_secretkey0000" not in str(ei.value) and "tsk_secretkey0000" not in repr(api(Spy()))
+
+
+def test_test_key_and_startup_probe():
+    bal = json_response({"code": 0, "data": {"balance": 480.0, "frozen": 20.0}})
+    spy = Spy(bal)
+    r = api(spy).test_key()
+    assert r["ok"] is True and "480" in r["message"] and "20 frozen" in r["message"]
+    spy2 = Spy(bal, json_response({"code": 0, "data": {"file_token": "ft"}}))
+    p = api(spy2).startup_probe()
+    assert p["ok"] is True and p["upload_ok"] is True and spy2.requests[1].url.path == "/v3/files"
+    spy3 = Spy(bal, err(400, 1003, "image too small"))
+    p3 = api(spy3).startup_probe()
+    assert p3["ok"] is True and p3["upload_ok"] is False and "1x1" in p3["message"]
+    bad = api(Spy(err(401, 1002, "bad key"))).test_key()
+    assert bad["ok"] is False and bad["kind"] == "auth"

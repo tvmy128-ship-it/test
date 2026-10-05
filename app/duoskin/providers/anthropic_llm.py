@@ -782,6 +782,28 @@ class AnthropicProvider:
                     continue
                 yield BatchItemResult(status="succeeded", parsed=parsed, **base)
 
+    # ----- key test and startup probe (free calls) ------------------------------------------------------------
+    def test_key(self) -> dict[str, Any]:
+        """Settings "Test key": ``models.retrieve`` on the planner model (free). Returns ``{"ok", "message"}``; no secrets."""
+        model = self.routes["L3_planner"].model
+        try:
+            info = self.client.models.retrieve(model)
+        except Exception as e:  # noqa: BLE001
+            err = map_sdk_error(e)
+            return {"ok": False, "message": err.user_message, "kind": err.kind}
+        return {"ok": True, "message": f"The Anthropic key works ({getattr(info, 'id', model)})."}
+
+    def startup_probe(self) -> dict[str, Any]:
+        """The free startup probes of bible 8.1.6: ``models.retrieve`` of every route model plus ``allowed_fallback_models``
+        (sets ``anthropic.sonnet_fallbacks``). The schema smoke test needs a schema class: call ``smoke_test`` for that."""
+        caps = self.capabilities()
+        bad = {m: c for m, c in caps.items() if isinstance(c, dict) and "error" in c}
+        fallbacks = {m: self.allowed_fallbacks(m) for m in sorted(caps)}
+        if bad:
+            first = next(iter(bad.values()))
+            return {"ok": False, "message": f"Claude model access problem ({first['error']}): {first['message']}", "capabilities": caps}
+        return {"ok": True, "message": "Claude answered; both models are available.", "capabilities": caps, "allowed_fallbacks": fallbacks}
+
     # ----- Capabilities and smoke test ----------------------------------------------------------------------
     def capabilities(self) -> dict[str, Any]:
         """``models.retrieve(id).capabilities`` for every model the route table uses."""

@@ -7,21 +7,21 @@ milestones and say so.
 import os
 
 # SYS-17: pin native thread pools before numpy (or anything that imports it) loads.
-os.environ.setdefault("OMP_NUM_THREADS", "1")
-os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ.setdefault("PYTHONUTF8", "1")
 
-import argparse  # noqa: E402
-import faulthandler  # noqa: E402
-import importlib  # noqa: E402
-import json  # noqa: E402
-import logging  # noqa: E402
-import sys  # noqa: E402
-import threading  # noqa: E402
-import time  # noqa: E402
-import urllib.request  # noqa: E402
-import webbrowser  # noqa: E402
-from pathlib import Path  # noqa: E402
+import argparse
+import faulthandler
+import importlib
+import json
+import logging
+import sys
+import threading
+import time
+import urllib.request
+import webbrowser
+from pathlib import Path
 
 log = logging.getLogger("duoskin.main")
 
@@ -39,7 +39,7 @@ def _early_setup() -> None:
         import truststore
 
         truststore.inject_into_ssl()
-    except Exception:   # noqa: BLE001 - never block startup on this; doctor CHK-S05 reports it
+    except Exception:  # noqa: BLE001, S110
         pass
     from duoskin import winplat
 
@@ -53,7 +53,7 @@ def cmd_selfcheck(_args: argparse.Namespace) -> int:
     for name in SELFCHECK_MODULES:
         try:
             importlib.import_module(name)
-        except Exception as exc:   # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             missing.append(f"{name} ({type(exc).__name__})")
     if missing:
         print("Missing or broken: " + ", ".join(missing))
@@ -156,7 +156,7 @@ def _wait_for_health(port: int, timeout_s: float = 30.0) -> bool:
     url = f"http://127.0.0.1:{port}/api/health"
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=2) as resp:   # noqa: S310 - fixed loopback URL
+            with urllib.request.urlopen(url, timeout=2) as resp:
                 if resp.status == 200:
                     return True
         except OSError:
@@ -206,7 +206,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         def hard_exit() -> None:
             try:
                 rt.db.checkpoint("TRUNCATE")
-            except Exception:   # noqa: BLE001
+            except Exception:  # noqa: BLE001, S110
                 pass
             os._exit(0)
 

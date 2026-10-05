@@ -89,14 +89,32 @@ def name_palette(colours: Sequence[str], *, max_names: int = MAX_NAMES_PER_PROMP
     return out
 
 
-def find_banned_names(banned_terms: Iterable[str] | None = None) -> list[str]:
-    """Names in the dictionary that contain a banned term as a whole word (NFKC lower-case, word boundaries)."""
+def _fold(text: str) -> str:
+    """NFKC, lower-case, every run of punctuation or spaces becomes one space ("Off-White" and "off white" are the same term)."""
     import unicodedata
 
-    terms = [unicodedata.normalize("NFKC", t).lower() for t in (banned_terms if banned_terms is not None else FALLBACK_BANNED)]
+    return re.sub(r"[\W_]+", " ", unicodedata.normalize("NFKC", text).lower()).strip()
+
+
+def banned_terms_from_data() -> list[str]:
+    """Every term of ``data/banned_terms.json`` (all groups), or the built-in guard list when the file is missing or unreadable."""
+    try:
+        raw = json.loads((_DATA / "banned_terms.json").read_text(encoding="utf-8"))
+        terms = [t for group in raw["groups"].values() for t in group]
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return list(FALLBACK_BANNED)
+    return terms or list(FALLBACK_BANNED)
+
+
+def find_banned_names(banned_terms: Iterable[str] | None = None) -> list[str]:
+    """Names in the dictionary that contain a banned term as a whole word (punctuation-insensitive, NFKC lower-case).
+
+    ``banned_terms=None`` uses ``data/banned_terms.json`` (all groups); pass a list to override it.
+    """
+    terms = [_fold(t) for t in (banned_terms if banned_terms is not None else banned_terms_from_data())]
     bad: list[str] = []
     for name in load_names():
-        low = unicodedata.normalize("NFKC", name).lower()
+        low = _fold(name)
         if any(re.search(rf"\b{re.escape(t)}\b", low) for t in terms if t):
             bad.append(name)
     return bad

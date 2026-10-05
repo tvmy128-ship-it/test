@@ -84,7 +84,7 @@ def main():
         bpy.ops.export_scene.gltf(filepath=args["dst"], export_format="GLB", export_yup=True, use_selection=False)
         _write(result_path, {"ok": True, "files": {"glb": args["dst"]}, "blender_version": bpy.app.version_string})
     except Exception as exc:  # noqa: BLE001
-        _write(result_path, {"ok": False, "error": "%s: %s" % (type(exc).__name__, exc), "trace": traceback.format_exc()[-1500:]})
+        _write(result_path, {"ok": False, "error": f"{type(exc).__name__}: {exc}", "trace": traceback.format_exc()[-1500:]})
         sys.exit(3)
 
 

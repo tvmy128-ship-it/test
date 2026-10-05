@@ -77,7 +77,7 @@ class RedactFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         try:
             message = record.getMessage()
-        except Exception:   # noqa: BLE001 - a bad format string must not lose the line
+        except Exception:  # noqa: BLE001
             message = str(record.msg)
         record.msg = redact(message)
         record.args = None
@@ -188,7 +188,7 @@ def setup_logging(logs_dir: Path, *, level: int | str = logging.INFO, console: b
 
     fault_file: TextIO | None = None
     try:
-        fault_file = open(logs_dir / "faulthandler.log", "a", encoding="utf-8")   # noqa: SIM115 - kept open on purpose
+        fault_file = open(logs_dir / "faulthandler.log", "a", encoding="utf-8")  # noqa: SIM115
         faulthandler.enable(file=fault_file, all_threads=True)
     except (OSError, RuntimeError, ValueError):
         fault_file = None

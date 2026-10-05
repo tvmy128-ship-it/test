@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from duoskin.api import get_rt
+from duoskin.api import RT
 from duoskin.engine.runtime import Runtime
 
 router = APIRouter()
@@ -26,7 +26,7 @@ CAS_HEADERS = {
 
 
 @router.get("/cas/{name}")
-def get_asset(name: str, rt: Runtime = Depends(get_rt)) -> FileResponse:
+def get_asset(name: str, rt: Runtime = RT) -> FileResponse:
     m = _NAME_RE.match(name)
     if not m:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "no such asset"})

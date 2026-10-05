@@ -1,0 +1,81 @@
+"""CHK-X06 / SYS-06 / SYS-19: the install scripts are ASCII with CRLF, and say what APP_SPEC §15 says."""
+from __future__ import annotations
+
+import re
+import subprocess
+import sys
+
+import pytest
+
+from duoskin import config
+
+ROOT = config.APP_ROOT
+BATS = ["setup.bat", "start.bat", "doctor.bat"]
+
+
+@pytest.mark.parametrize("name", BATS)
+def test_bat_files_are_ascii_with_crlf_only(name):
+    raw = (ROOT / name).read_bytes()
+    assert all(b < 128 for b in raw), f"{name} has non-ASCII bytes"
+    assert b"\r\n" in raw and not re.search(rb"(?<!\r)\n", raw), f"{name} must use CRLF line endings only"
+    assert b"\x1a" not in raw and not raw.startswith(b"\xef\xbb\xbf")
+
+
+def test_gitattributes_forces_crlf_for_bat_files():
+    attrs = (ROOT / ".gitattributes").read_text(encoding="utf-8")
+    assert "*.bat text eol=crlf" in attrs
+
+
+@pytest.mark.parametrize("name", BATS)
+def test_bat_files_never_use_activate_ps1_or_a_bare_python(name):
+    text = (ROOT / name).read_text(encoding="ascii")
+    assert "Activate.ps1" not in text
+    for line in text.splitlines():
+        stripped = line.strip().lower()
+        if stripped.startswith(("rem", "echo")):
+            continue
+        assert not re.match(r"^\s*python(\.exe)?\s", stripped), f"bare python in {name}: {line}"
+
+
+def test_setup_bat_follows_the_spec():
+    t = (ROOT / "setup.bat").read_text(encoding="ascii")
+    assert 'set "PYTHONUTF8=1"' in t and "cd /d \"%~dp0\"" in t
+    assert t.index("py -V:3.14") < t.index("py -V:3.13")                                       # 3.14 first, 3.13 fallback
+    assert "tools\\probe_python.py" in t and "--require-hashes --no-deps --only-binary=:all:" in t
+    assert "requirements\\win-x64.lock" in t and "-m duoskin doctor --setup" in t
+    assert "if errorlevel 3 goto :fail" in t and "winget install 9NQ7512CXL7T" in t
+    assert 'if not defined DUOSKIN_NOPAUSE pause' in t
+
+
+def test_start_bat_follows_the_spec():
+    t = (ROOT / "start.bat").read_text(encoding="ascii")
+    assert "-m duoskin selfcheck" in t and "-m duoskin run --open-browser" in t and 'call "%~dp0setup.bat"' in t
+    assert "%LOCALAPPDATA%\\DuoSkin\\logs" in t
+
+
+def test_doctor_bat_runs_the_doctor():
+    t = (ROOT / "doctor.bat").read_text(encoding="ascii")
+    assert "-m duoskin doctor" in t and "pause" in t
+
+
+def test_probe_python_matches_the_spec():
+    probe = ROOT / "tools" / "probe_python.py"
+    text = probe.read_text(encoding="utf-8")
+    for needle in ("win-amd64", "Py_GIL_DISABLED", "windowsapps", "(3, 14), (3, 13)"):
+        assert needle in text
+    assert subprocess.run([sys.executable, str(probe)], check=False, capture_output=True).returncode == 1       # a Linux dev host is not a supported build
+
+
+def test_readme_is_plain_english_and_has_the_windows_steps():
+    text = (ROOT / "README.txt").read_text(encoding="utf-8")
+    assert "Unblock" in text and "C:\\DuoSkin\\app" in text and "start.bat" in text and "doctor.bat" in text
+    assert "http://127.0.0.1:8765/" in text and "%LOCALAPPDATA%\\DuoSkin" in text and "Demo mode" in text
+    assert "OneDrive" in text and "Media Feature Pack" in text and "vc_redist" in text
+    assert text.index("Unblock") < text.index("Extract everything")                           # the order of the steps matters
+    assert all(ord(c) < 128 for c in text)                                                     # opens correctly in any editor
+
+
+def test_the_shell_page_keeps_the_token_placeholder():
+    html = (ROOT / "duoskin" / "web" / "index.html").read_text(encoding="utf-8")
+    assert '<meta name="duoskin-token" content="__DUOSKIN_TOKEN__">' in html
+    assert '<script type="module" src="/web/app.js">' in html

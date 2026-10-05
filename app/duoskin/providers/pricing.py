@@ -43,6 +43,7 @@ DEFAULT_PRICES: dict[str, Any] = {
         "image_to_multiview": 10, "edit_multiview": 5, "multiview_to_model": 110, "image_to_model": 110,
         "text_to_model": 110, "convert": 10, "import_model": 0,
         "mesh_segment": 40, "mesh_complete": 30, "retopology": 20, "texture_model": 60,   # [UNVERIFIED]
+        "route_credits": {"p1": 50, "h31": 40},    # P1 multiview (textured) and H3.1 + smart_low_poly (bible 15.1, Appendix B)
     },
     "gemini": {   # USD per million tokens; the first row ends 2026-12-31
         "judge_until": "2026-12-31",
@@ -251,10 +252,13 @@ def estimate_recraft(model_or_op: str, *, n: int = 1, operation: str | None = No
 # Tripo (credits)
 # --------------------------------------------------------------------------------------------------------------
 
-def tripo_credits(op: str, *, views: int = 1) -> float:
-    """Credit estimate for a Tripo operation (``edit_multiview`` is per view)."""
+def tripo_credits(op: str, *, views: int = 1, route: str | None = None) -> float:
+    """Credit estimate for a Tripo operation (``edit_multiview`` is per view; ``route`` ``p1`` / ``h31`` prices the
+    fallback generation routes)."""
     t = prices()["tripo"]
     base = float(t.get(op, t["multiview_to_model"]))
+    if route in t.get("route_credits", {}) and op in ("multiview_to_model", "image_to_model", "text_to_model"):
+        base = float(t["route_credits"][route])
     return base * views if op == "edit_multiview" else base
 
 
@@ -278,8 +282,8 @@ def tripo_cost(model: str, *, operation: str, credits: float | None, task_id: st
     return rec
 
 
-def estimate_tripo(op: str, *, views: int = 1) -> PriceEstimate:
-    c = tripo_credits(op, views=views)
+def estimate_tripo(op: str, *, views: int = 1, route: str | None = None) -> PriceEstimate:
+    c = tripo_credits(op, views=views, route=route)
     return PriceEstimate(usd=tripo_usd(c), credits=c, provider="tripo", operation=op)
 
 

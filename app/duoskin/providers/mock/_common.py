@@ -55,6 +55,12 @@ class MockBase:
                 pass
         return row
 
+    def test_key(self) -> dict[str, Any]:
+        return {"ok": True, "message": "Mock provider: nothing to test, no call was made."}
+
+    def startup_probe(self) -> dict[str, Any]:
+        return {"ok": True, "message": "Mock provider: no probe needed."}
+
     def reset(self) -> None:
         with self._lock:
             self.requests.clear()

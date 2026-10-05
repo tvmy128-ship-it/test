@@ -24,8 +24,14 @@ def state_of(rt, step):
 
 def wait_state(rt, step, *states, timeout=5.0):
     want = set(states)
-    return wait_for(lambda: rt.repo.get_step(step.id) if rt.repo.get_step(step.id).state in want else None, timeout,
-                    message=f"step {step.kind} to reach {[s.value for s in want]} (is {rt.repo.get_step(step.id).state.value})")
+    def reached():
+        return rt.repo.get_step(step.id) if rt.repo.get_step(step.id).state in want else None
+
+    try:
+        return wait_for(reached, timeout, message=f"step {step.kind} to reach {[s.value for s in want]}")
+    except AssertionError as exc:
+        now = rt.repo.get_step(step.id)
+        raise AssertionError(f"{exc}; it is {now.state.value}, attempt {now.attempt}, error={now.error}, message={now.message!r}") from None
 
 
 def make_project(rt, name="Test Duo", **settings):

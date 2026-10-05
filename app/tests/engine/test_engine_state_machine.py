@@ -7,7 +7,6 @@ import time
 import pytest
 from helpers_f import add_step, make_project, new_job, ok_handler, png_handler, state_of, wait_state
 
-from duoskin.engine import registry
 from duoskin.engine.errors import StepFailure
 from duoskin.engine.registry import Pending, StepResult, register_handler
 from duoskin.engine.steps import derive_job_state
@@ -26,12 +25,15 @@ class FakeProviderError(Exception):
 
 # ------------------------------------------------------------------------------------------------ happy path
 def test_pending_to_ready_to_succeeded_with_deps(live):
+    gate = threading.Event()
     register_handler("t.ok", ok_handler)
+    register_handler("t.held", lambda ctx, p, i: gate.wait(5) and StepResult())
     job = new_job(live)
-    a = add_step(live, job, "t.ok", params={"n": 1})
+    a = add_step(live, job, "t.held")
     b = live.ops.new_step("t.ok", job_id=job.id, params={"n": 2}, deps=[a.id])
     live.scheduler.spawn(job.id, [b])
-    assert state_of(live, b) == StepState.PENDING
+    assert state_of(live, b) == StepState.PENDING             # its dependency is still running
+    gate.set()
     wait_state(live, a, StepState.SUCCEEDED)
     wait_state(live, b, StepState.SUCCEEDED)
     assert live.repo.get_job(job.id).state == JobState.SUCCEEDED
@@ -251,8 +253,8 @@ def test_submission_uncertain_waits_remote_and_polls_to_reconcile(live):
 
 
 def test_unknown_step_kind_fails_with_a_clear_message(rt):
-    from duoskin.models.job import Step
     from duoskin.models.common import new_id, utcnow
+    from duoskin.models.job import Step
 
     job = new_job(rt)
     s = Step(id=new_id("stp"), job_id=job.id, kind="no.such.kind", pool="cpu", created_at=utcnow())

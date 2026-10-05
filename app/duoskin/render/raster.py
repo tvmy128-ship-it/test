@@ -12,8 +12,8 @@ sort), so a 4000-triangle accessory at 1024 px takes well under a second.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable
 
 import numpy as np
 
@@ -330,7 +330,7 @@ def silhouette(meshes: list[RenderMesh] | RenderMesh, cam: Camera, width: int, h
 
 def _shade_pass(meshes, cam, width, height, *, nearest: bool, want_labels: bool):
     meshes = [m for m in meshes if len(m.faces)]
-    v, f, owner, zbuf, tbuf, txy, tz = _raster_pass(meshes, cam, width, height)
+    _v, _f, owner, zbuf, tbuf, txy, _tz = _raster_pass(meshes, cam, width, height)
     covered = tbuf >= 0
     rgb = np.zeros((height, width, 3), np.float32)
     ids = np.zeros((height, width), np.int32)

@@ -442,6 +442,32 @@ def pick_reconciled(candidates: list[dict[str, Any]], statuses: dict[str, Remote
 # The adapter
 # --------------------------------------------------------------------------------------------------------------
 
+_PNG_1X1 = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000" "1f15c4890000000d49444154789c6360000002000001e221bc330000000049454e44ae426082")
+
+
+def check_upload(data: bytes) -> str:
+    """Pre-flight of ``/files`` (shared with the mock): images PNG/JPEG up to 20 MB, models GLB/FBX/ZIP up to 150 MB. Returns the kind."""
+    kind = sniff_kind(data)
+    limit = 20 * 1024 * 1024 if kind in ("png", "jpeg") else 150 * 1024 * 1024
+    if kind not in ("png", "jpeg", "glb", "fbx", "zip") or len(data) > limit:
+        raise ProviderError(PROVIDER, "bad_request", "Tripo uploads must be PNG/JPEG images (20 MB) or GLB/FBX/ZIP models (150 MB)",
+                            code="bad_upload", billed="no")
+    return kind
+
+
+def expected_kinds(key: str) -> tuple[str, ...]:
+    """Magic-byte kinds allowed for an output key (shared with the mock)."""
+    return ("glb", "fbx", "zip") if "model" in key else ("png", "jpeg", "webp")
+
+
+def uncertain_error(op: str, path: str, body: dict[str, Any] | None, submitted_at: datetime, why: str) -> ProviderError:
+    """The ``submission_uncertain`` error of a paid POST whose answer was lost (shared with the mock). ``context`` carries
+    ``op``, ``endpoint``, ``submitted_at`` and ``body`` for ``reconcile_uncertain``."""
+    return ProviderError(PROVIDER, "submission_uncertain", f"Tripo {path}: {why}; not resent", code="submission_uncertain", billed="unknown",
+                         context={"op": op, "endpoint": path, "submitted_at": submitted_at, "body": dict(body or {})},
+                         user_hint="Checking whether Tripo received the job. The app will not send it a second time.")
+
+
 def poll_intervals(first: float = 5.0, start: float = 3.0, factor: float = 1.4, cap: float = 15.0) -> Iterable[float]:
     """5 s, then 3 s growing by x1.4 up to 15 s."""
     yield first
@@ -451,7 +477,232 @@ def poll_intervals(first: float = 5.0, start: float = 3.0, factor: float = 1.4, 
         cur = min(cap, cur * factor)
 
 
-class TripoApi:
+class TripoCommon:
+    """Polling, credit checks and reconciliation shared by the real adapter and the mock.
+
+    Needs ``task()``, ``usage()``, ``balance()``, ``flags``, ``cost_sink``, ``_sleep``, ``_clock``, ``_ops`` and ``_costed``."""
+
+    name = PROVIDER
+    flags: CapabilityFlags
+    cost_sink: Callable[[dict[str, Any]], None] | None
+    _sleep: Callable[[float], None]
+    _clock: Callable[[], float]
+    _ops: dict[str, tuple[str, str, int]]
+    _costed: set[str]
+
+    def task(self, task_id: str, *, ctx: CallCtx | None = None) -> RemoteStatus:  # pragma: no cover - abstract
+        raise NotImplementedError
+
+    def usage(self, *, limit: int = 50, offset: int = 0) -> list[dict]:  # pragma: no cover - abstract
+        raise NotImplementedError
+
+    def balance(self) -> tuple[float, float]:  # pragma: no cover - abstract
+        raise NotImplementedError
+
+    def credits_available(self) -> float:
+        """``balance - frozen`` (conservative until the ``tripo.balance_excludes_frozen`` flag says ``balance`` already excludes it)."""
+        bal, frozen = self.balance()
+        return bal if self.flags.get("tripo.balance_excludes_frozen") else bal - frozen
+
+    def ensure_credits(self, est_credits: float, *, budget_left_credits: float | None = None) -> float:
+        """Raise ``billing`` unless ``est_credits <= min(balance - frozen, budget left)``; returns the available credits."""
+        avail = self.credits_available()
+        limit = avail if budget_left_credits is None else min(avail, budget_left_credits)
+        if est_credits > limit:
+            raise ProviderError(PROVIDER, "billing", f"needs {est_credits:g} credits but only {limit:g} are available", code="insufficient_credits",
+                                billed="no", user_hint="Not enough Tripo credits for this step. Add credits or raise the budget.")
+        return avail
+
+    def wait(self, task_id: str, *, ctx: CallCtx | None = None, soft_timeout_s: float = 1200.0,
+             hard_timeout_s: float | None = None) -> RemoteStatus:
+        """Poll until the task is terminal: 5 s, then 3 -> 15 s (x1.4). After ``soft_timeout_s`` (20 min) the status is
+        marked ``slow`` and polling continues; it never resubmits. ``hard_timeout_s`` (default none) raises ``timeout``;
+        cancellation comes through ``ctx.check_cancel``."""
+        ctx = ctx or CallCtx.null()
+        start = self._clock()
+        slow = False
+        for delay in poll_intervals():
+            sleep_checked(delay, ctx, sleep=self._sleep)
+            st = self.task(task_id, ctx=ctx)
+            ctx.progress((st.progress or 0) / 100.0, f"Tripo task {st.status}" + (" (slow)" if slow else ""))
+            if st.done:
+                st.slow = slow
+                self._finish(st)
+                return st
+            elapsed = self._clock() - start
+            if not slow and elapsed >= soft_timeout_s:
+                slow = True
+                ctx.progress((st.progress or 0) / 100.0, "Tripo is slow; still waiting (the job is not resubmitted)")
+            if hard_timeout_s is not None and elapsed >= hard_timeout_s:
+                raise ProviderError(PROVIDER, "timeout", "gave up polling Tripo", code="poll_timeout", retryable=False, billed="unknown",
+                                    context={"task_id": task_id})
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    def wait_success(self, task_id: str, *, ctx: CallCtx | None = None, **kw: Any) -> RemoteStatus:
+        """``wait`` that raises ``status.failure_error()`` for a failed or cancelled task."""
+        st = self.wait(task_id, ctx=ctx, **kw)
+        err = st.failure_error()
+        if err is not None:
+            raise err
+        return st
+
+    def _finish(self, st: RemoteStatus) -> None:
+        """Push the final cost of a terminal task once."""
+        if st.task_id in self._costed or self.cost_sink is None:
+            return
+        credits = st.credits_consumed
+        if st.status != "success" and not credits:
+            return
+        op, model, views = self._ops.get(st.task_id, (st.type or "task", str(st.input.get("model", "")), 1))
+        self._costed.add(st.task_id)
+        try:
+            self.cost_sink(tripo_cost(str(st.input.get("model") or model), operation=op, credits=credits, task_id=st.task_id,
+                                      fallback_op=op if op in ENDPOINTS else None, views=views))
+        except Exception:  # noqa: BLE001, S110 - a ledger failure must not hide the result
+            pass
+
+    def cost_for(self, st: RemoteStatus) -> dict[str, Any]:
+        op, model, views = self._ops.get(st.task_id, (st.type or "task", str(st.input.get("model", "")), 1))
+        return tripo_cost(str(st.input.get("model") or model), operation=op, credits=st.credits_consumed, task_id=st.task_id,
+                          fallback_op=op if op in ENDPOINTS else None, views=views)
+
+
+    # ----- reconciliation -----------------------------------------------------------------------------------
+    def reconcile_uncertain(self, *, endpoint: str, submitted_at: datetime, body: dict, exclude: Iterable[str] = (),
+                            attempts: int = 3, wait_s: float = 5.0, window_s: float = 120.0, op: str | None = None) -> str | None:
+        """After a ``submission_uncertain``: find the task Tripo may have created.
+
+        Looks at ``/account/usage`` for rows of the same type within +-2 minutes of ``submitted_at`` (usage can lag, so
+        it retries ``attempts`` times ``wait_s`` apart), fetches each candidate with ``GET /tasks/{id}`` and compares
+        ``input.model_seed`` / ``texture_seed`` with the body. Returns the task id, or ``None`` when no row matches
+        (then, and only then, the engine may resubmit)."""
+        if submitted_at.tzinfo is None:
+            submitted_at = submitted_at.replace(tzinfo=UTC)
+        wanted = _norm_type(op or _OP_OF_PATH.get(endpoint) or endpoint.split("/")[-1])
+        skip = {str(x) for x in exclude}
+        lo, hi = submitted_at - timedelta(seconds=window_s), submitted_at + timedelta(seconds=window_s)
+        for attempt in range(max(1, attempts)):
+            rows = self.usage(limit=50)
+            cands = []
+            for r in rows:
+                t = _norm_type(r.get("type"))
+                ts = _parse_ts(r.get("created_at"))
+                if t and (t == wanted or wanted in t or t in wanted) and ts and lo <= ts <= hi:
+                    cands.append(r)
+            statuses: dict[str, RemoteStatus] = {}
+            if cands and any(k in body for k in ("model_seed", "texture_seed")):
+                for r in cands:
+                    tid = str(r.get("task_id", ""))
+                    if tid and tid not in skip:
+                        try:
+                            statuses[tid] = self.task(tid)
+                        except ProviderError:
+                            continue
+            found = pick_reconciled(cands, statuses, body, submitted_at, skip)
+            if found:
+                return found
+            if attempt + 1 < attempts:
+                sleep_checked(wait_s, None, sleep=self._sleep)
+        return None
+
+    # ----- task creation (bodies are built here; ``_create`` sends them: HTTP in the real adapter, a state machine in the mock) -----
+    def _create(self, op: str, body: dict[str, Any], ctx: CallCtx | None, *, model: str = P2, views: int = 1,
+                route: str | None = None, allow: Iterable[str] = ()) -> str:  # pragma: no cover - abstract
+        raise NotImplementedError
+
+    def image_to_multiview(self, token: str, *, ctx: CallCtx | None = None) -> str:
+        """T1 (10 credits)."""
+        return self._create("image_to_multiview", {"input": token}, ctx, model="image_to_multiview")
+
+    def edit_multiview(self, mv_task_id: str, prompts: dict[View, str], *, ctx: CallCtx | None = None) -> str:
+        """T2 (5 credits per view; once per set)."""
+        body = edit_views_body(mv_task_id, prompts)
+        return self._create("edit_multiview", body, ctx, model="edit_multiview", views=len(prompts))
+
+    def multiview_to_model(self, views: dict[View, str] | str, p: RouteParams, *, ctx: CallCtx | None = None) -> str:
+        """T3 (110 credits on P2). ``views``: named file tokens (front required), or a task id to reuse a multiview task."""
+        body = multiview_body(views, p)
+        return self._create("multiview_to_model", body, ctx, model=body["model"], route=p.route, allow=p.explicit_extras())
+
+    def image_to_model(self, token: str, p: RouteParams, *, ctx: CallCtx | None = None) -> str:
+        """T4 (``enable_image_autofix`` is always false)."""
+        body = image_body(token, p)
+        return self._create("image_to_model", body, ctx, model=body["model"], route=p.route, allow=p.explicit_extras())
+
+    def text_to_model(self, prompt: str, p: RouteParams, *, negative_prompt: str = "", ctx: CallCtx | None = None) -> str:
+        if not prompt or len(prompt) > 1024 or len(negative_prompt) > 255:
+            raise ProviderError(PROVIDER, "bad_request", "prompt must be 1..1024 characters (negative_prompt <= 255)", code="bad_prompt", billed="no")
+        body = {**p.body(), "prompt": prompt}
+        if negative_prompt:
+            body["negative_prompt"] = negative_prompt
+        return self._create("text_to_model", body, ctx, model=body["model"], route=p.route, allow=p.explicit_extras())
+
+    def convert(self, source: str, *, fmt: Literal["GLTF", "FBX", "OBJ"], face_limit: int | None, texture_size: int = 1024,
+                texture_format: Literal["PNG"] = "PNG", source_kind: Literal["task", "file"] = "task",
+                ctx: CallCtx | None = None) -> str:
+        """T5 (5-10 credits). Converting a raw file token is refused until the ``tripo.convert_on_file_token`` flag says it works."""
+        if fmt not in ("GLTF", "FBX", "OBJ"):
+            raise ProviderError(PROVIDER, "bad_request", f"unsupported format {fmt!r}", code="bad_format", billed="no")
+        if source_kind == "file" and not self.flags.get("tripo.convert_on_file_token"):
+            raise ProviderError(PROVIDER, "bad_request", "convert on a raw file token is unverified (flag tripo.convert_on_file_token)",
+                                code="convert_on_file_token_unverified", billed="no")
+        body: dict[str, Any] = {"input": source, "format": fmt, "texture_size": texture_size, "texture_format": texture_format,
+                                "export_vertex_colors": False, "pack_uv": True}
+        if face_limit is not None:
+            body["face_limit"] = int(face_limit)
+        return self._create("convert", body, ctx, model="convert")
+
+    def import_model(self, token: str, *, ctx: CallCtx | None = None) -> str:
+        """``POST /models/import`` (free)."""
+        return self._create("import_model", {"input": token}, ctx, model="import")
+
+    def texture_model(self, source: str, *, texture_seed: int, texture_version: str | None = None,
+                      texture_prompt: dict[str, Any] | None = None, ctx: CallCtx | None = None) -> str:
+        """``POST /models/texture``: standard quality, no PBR, ``original_image`` alignment, no compression."""
+        body: dict[str, Any] = {"input": source, "texture": True, "texture_quality": "standard", "pbr": False,
+                                "texture_alignment": "original_image", "texture_seed": int(texture_seed)}
+        if texture_version:
+            body["model"] = texture_version
+        if texture_prompt:
+            body["texture_prompt"] = texture_prompt
+        return self._create("texture_model", body, ctx, model=texture_version or "texture")
+
+    def segment_mesh(self, source: str, *, model: str | None = None, granularity: str | None = None,
+                     split_by_connectivity: bool | None = None, ctx: CallCtx | None = None) -> str:
+        """``POST /mesh/segment``."""
+        body: dict[str, Any] = {"input": source}
+        if model:
+            body["model"] = model
+        if granularity:
+            body["segmentation_granularity"] = granularity
+        if split_by_connectivity is not None:
+            body["split_by_connectivity"] = split_by_connectivity
+        return self._create("mesh_segment", body, ctx, model=model or "segment")
+
+    def complete_mesh(self, seg_task_id: str, *, part_names: list[str] | None = None, completion_mode: str | None = None,
+                      model: str | None = None, ctx: CallCtx | None = None) -> str:
+        """``POST /mesh/complete`` on a segmentation task."""
+        body: dict[str, Any] = {"input": seg_task_id}
+        if part_names:
+            body["part_names"] = list(part_names)
+        if completion_mode:
+            body["completion_mode"] = completion_mode
+        if model:
+            body["model"] = model
+        return self._create("mesh_complete", body, ctx, model=model or "complete")
+
+    def retopology(self, source: str, *, face_limit: int, quad: bool = False, bake: bool | None = None,
+                   ctx: CallCtx | None = None) -> str:
+        """Retopology / decimation (``POST /mesh/decimate``, 1000..20000 faces; triangles unless ``quad``)."""
+        if not 1000 <= face_limit <= 20000:
+            raise ProviderError(PROVIDER, "bad_request", "face_limit must be 1000..20000 for retopology", code="bad_face_limit", billed="no")
+        body: dict[str, Any] = {"input": source, "face_limit": int(face_limit), "quad": bool(quad)}
+        if bake is not None:
+            body["bake"] = bake
+        return self._create("retopology", body, ctx, model="retopology")
+
+
+class TripoApi(TripoCommon):
     """Real Tripo v3 client on httpx (``transport`` / ``download_transport`` are for tests)."""
 
     name = PROVIDER
@@ -587,9 +838,7 @@ class TripoApi:
         return {"op": op, "endpoint": path, "submitted_at": submitted_at, "body": dict(body or {})}
 
     def _uncertain(self, op: str, path: str, body: dict[str, Any] | None, submitted_at: datetime, why: str) -> ProviderError:
-        return ProviderError(PROVIDER, "submission_uncertain", f"Tripo {path}: {why}; not resent", code="submission_uncertain",
-                             billed="unknown", context=self._uncertain_context(op, path, body, submitted_at),
-                             user_hint="Checking whether Tripo received the job. The app will not send it a second time.")
+        return uncertain_error(op, path, body, submitted_at, why)
 
     # ----- task creation ------------------------------------------------------------------------------------
     def _create(self, op: str, body: dict[str, Any], ctx: CallCtx | None, *, model: str = P2, views: int = 1,
@@ -598,7 +847,7 @@ class TripoApi:
         if route is not None:
             check_body(body, route, allow)
         if self.check_balance and op in PAID_OPS:
-            self.ensure_credits(tripo_credits(op, views=views))
+            self.ensure_credits(tripo_credits(op, views=views, route=route))
         self.last_body = body
         data = self._post(op, body, ctx)
         task_id = data.get("task_id") if isinstance(data, dict) else None
@@ -615,106 +864,15 @@ class TripoApi:
         return task_id
 
     def upload(self, png: bytes, *, name: str, ctx: CallCtx | None = None) -> str:
-        """``POST /files`` (free): returns the ``file_token``. Upload just before use (tokens expire)."""
-        kind = sniff_kind(png)
-        if kind not in ("png", "jpeg") or len(png) > 20 * 1024 * 1024:
-            raise ProviderError(PROVIDER, "bad_request", "Tripo image uploads must be PNG or JPEG, at most 20 MB", code="bad_upload", billed="no")
-        data = self._post("upload", None, ctx or CallCtx.null(), files={"file": (name, png, f"image/{'png' if kind == 'png' else 'jpeg'}")})
+        """``POST /files`` (free): returns the ``file_token``. Upload just before use (tokens expire). Images (PNG/JPEG, 20 MB) and
+        models (GLB/FBX/ZIP, 150 MB) are accepted."""
+        kind = check_upload(png)
+        mime = {"png": "image/png", "jpeg": "image/jpeg", "glb": "model/gltf-binary", "fbx": "application/octet-stream", "zip": "application/zip"}[kind]
+        data = self._post("upload", None, ctx or CallCtx.null(), files={"file": (name, png, mime)})
         token = data.get("file_token") if isinstance(data, dict) else None
         if not token:
             raise ProviderError(PROVIDER, "validation", "Tripo returned no file_token", code="no_file_token")
         return str(token)
-
-    def image_to_multiview(self, token: str, *, ctx: CallCtx | None = None) -> str:
-        """T1 (10 credits)."""
-        return self._create("image_to_multiview", {"input": token}, ctx, model="image_to_multiview")
-
-    def edit_multiview(self, mv_task_id: str, prompts: dict[View, str], *, ctx: CallCtx | None = None) -> str:
-        """T2 (5 credits per view; once per set)."""
-        body = edit_views_body(mv_task_id, prompts)
-        return self._create("edit_multiview", body, ctx, model="edit_multiview", views=len(prompts))
-
-    def multiview_to_model(self, views: dict[View, str] | str, p: RouteParams, *, ctx: CallCtx | None = None) -> str:
-        """T3 (110 credits on P2). ``views``: named file tokens (front required), or a task id to reuse a multiview task."""
-        body = multiview_body(views, p)
-        return self._create("multiview_to_model", body, ctx, model=body["model"], route=p.route, allow=p.explicit_extras())
-
-    def image_to_model(self, token: str, p: RouteParams, *, ctx: CallCtx | None = None) -> str:
-        """T4 (``enable_image_autofix`` is always false)."""
-        body = image_body(token, p)
-        return self._create("image_to_model", body, ctx, model=body["model"], route=p.route, allow=p.explicit_extras())
-
-    def text_to_model(self, prompt: str, p: RouteParams, *, negative_prompt: str = "", ctx: CallCtx | None = None) -> str:
-        if not prompt or len(prompt) > 1024 or len(negative_prompt) > 255:
-            raise ProviderError(PROVIDER, "bad_request", "prompt must be 1..1024 characters (negative_prompt <= 255)", code="bad_prompt", billed="no")
-        body = {**p.body(), "prompt": prompt}
-        if negative_prompt:
-            body["negative_prompt"] = negative_prompt
-        return self._create("text_to_model", body, ctx, model=body["model"], route=p.route, allow=p.explicit_extras())
-
-    def convert(self, source: str, *, fmt: Literal["GLTF", "FBX", "OBJ"], face_limit: int | None, texture_size: int = 1024,
-                texture_format: Literal["PNG"] = "PNG", source_kind: Literal["task", "file"] = "task",
-                ctx: CallCtx | None = None) -> str:
-        """T5 (5-10 credits). Converting a raw file token is refused until the ``tripo.convert_on_file_token`` flag says it works."""
-        if fmt not in ("GLTF", "FBX", "OBJ"):
-            raise ProviderError(PROVIDER, "bad_request", f"unsupported format {fmt!r}", code="bad_format", billed="no")
-        if source_kind == "file" and not self.flags.get("tripo.convert_on_file_token"):
-            raise ProviderError(PROVIDER, "bad_request", "convert on a raw file token is unverified (flag tripo.convert_on_file_token)",
-                                code="convert_on_file_token_unverified", billed="no")
-        body: dict[str, Any] = {"input": source, "format": fmt, "texture_size": texture_size, "texture_format": texture_format,
-                                "export_vertex_colors": False, "pack_uv": True}
-        if face_limit is not None:
-            body["face_limit"] = int(face_limit)
-        return self._create("convert", body, ctx, model="convert")
-
-    def import_model(self, token: str, *, ctx: CallCtx | None = None) -> str:
-        """``POST /models/import`` (free)."""
-        return self._create("import_model", {"input": token}, ctx, model="import")
-
-    def texture_model(self, source: str, *, texture_seed: int, texture_version: str | None = None,
-                      texture_prompt: dict[str, Any] | None = None, ctx: CallCtx | None = None) -> str:
-        """``POST /models/texture``: standard quality, no PBR, ``original_image`` alignment, no compression."""
-        body: dict[str, Any] = {"input": source, "texture": True, "texture_quality": "standard", "pbr": False,
-                                "texture_alignment": "original_image", "texture_seed": int(texture_seed)}
-        if texture_version:
-            body["model"] = texture_version
-        if texture_prompt:
-            body["texture_prompt"] = texture_prompt
-        return self._create("texture_model", body, ctx, model=texture_version or "texture")
-
-    def segment_mesh(self, source: str, *, model: str | None = None, granularity: str | None = None,
-                     split_by_connectivity: bool | None = None, ctx: CallCtx | None = None) -> str:
-        """``POST /mesh/segment``."""
-        body: dict[str, Any] = {"input": source}
-        if model:
-            body["model"] = model
-        if granularity:
-            body["segmentation_granularity"] = granularity
-        if split_by_connectivity is not None:
-            body["split_by_connectivity"] = split_by_connectivity
-        return self._create("mesh_segment", body, ctx, model=model or "segment")
-
-    def complete_mesh(self, seg_task_id: str, *, part_names: list[str] | None = None, completion_mode: str | None = None,
-                      model: str | None = None, ctx: CallCtx | None = None) -> str:
-        """``POST /mesh/complete`` on a segmentation task."""
-        body: dict[str, Any] = {"input": seg_task_id}
-        if part_names:
-            body["part_names"] = list(part_names)
-        if completion_mode:
-            body["completion_mode"] = completion_mode
-        if model:
-            body["model"] = model
-        return self._create("mesh_complete", body, ctx, model=model or "complete")
-
-    def retopology(self, source: str, *, face_limit: int, quad: bool = False, bake: bool | None = None,
-                   ctx: CallCtx | None = None) -> str:
-        """Retopology / decimation (``POST /mesh/decimate``, 1000..20000 faces; triangles unless ``quad``)."""
-        if not 1000 <= face_limit <= 20000:
-            raise ProviderError(PROVIDER, "bad_request", "face_limit must be 1000..20000 for retopology", code="bad_face_limit", billed="no")
-        body: dict[str, Any] = {"input": source, "face_limit": int(face_limit), "quad": bool(quad)}
-        if bake is not None:
-            body["bake"] = bake
-        return self._create("retopology", body, ctx, model="retopology")
 
     # ----- account ------------------------------------------------------------------------------------------
     def balance(self) -> tuple[float, float]:
@@ -724,24 +882,31 @@ class TripoApi:
             raise ProviderError(PROVIDER, "validation", "Tripo returned no balance", code="no_balance")
         return float(d["balance"]), float(d.get("frozen", 0.0) or 0.0)
 
-    def credits_available(self) -> float:
-        """``balance - frozen`` (conservative until the ``tripo.balance_excludes_frozen`` flag says ``balance`` already excludes it)."""
-        bal, frozen = self.balance()
-        return bal if self.flags.get("tripo.balance_excludes_frozen") else bal - frozen
-
-    def ensure_credits(self, est_credits: float, *, budget_left_credits: float | None = None) -> float:
-        """Raise ``billing`` unless ``est_credits <= min(balance - frozen, budget left)``; returns the available credits."""
-        avail = self.credits_available()
-        limit = avail if budget_left_credits is None else min(avail, budget_left_credits)
-        if est_credits > limit:
-            raise ProviderError(PROVIDER, "billing", f"needs {est_credits:g} credits but only {limit:g} are available", code="insufficient_credits",
-                                billed="no", user_hint="Not enough Tripo credits for this step. Add credits or raise the budget.")
-        return avail
-
     def usage(self, *, limit: int = 50, offset: int = 0) -> list[dict]:
         d = self._get("/account/usage", params={"limit": limit, "offset": offset})
         rows = d if isinstance(d, list) else (d.get("items") or d.get("data") or [] if isinstance(d, dict) else [])
         return [r for r in rows if isinstance(r, dict)]
+
+    def test_key(self) -> dict[str, Any]:
+        """Settings "Test key": the balance (free)."""
+        try:
+            bal, frozen = self.balance()
+        except ProviderError as err:
+            return {"ok": False, "message": err.user_message, "kind": err.kind}
+        return {"ok": True, "message": f"The Tripo key works; {bal:g} credits ({frozen:g} frozen)."}
+
+    def startup_probe(self) -> dict[str, Any]:
+        """The free startup probes of bible 8.1.6: the balance and a 1 x 1 upload (an upload failure is reported, not fatal)."""
+        res = self.test_key()
+        if not res["ok"]:
+            return res
+        try:
+            self.upload(_PNG_1X1, name="probe.png")
+            res["upload_ok"] = True
+        except ProviderError as err:
+            res["upload_ok"] = False
+            res["message"] += f" The 1x1 test upload failed ({err.kind})."
+        return res
 
     # ----- tasks --------------------------------------------------------------------------------------------
     def task(self, task_id: str, *, ctx: CallCtx | None = None) -> RemoteStatus:
@@ -771,64 +936,7 @@ class TripoApi:
             missed += [str(m) for m in (d.get("missed", []) if isinstance(d, dict) else [])]
         return found, missed
 
-    def wait(self, task_id: str, *, ctx: CallCtx | None = None, soft_timeout_s: float = 1200.0,
-             hard_timeout_s: float | None = None) -> RemoteStatus:
-        """Poll until the task is terminal: 5 s, then 3 -> 15 s (x1.4). After ``soft_timeout_s`` (20 min) the status is
-        marked ``slow`` and polling continues; it never resubmits. ``hard_timeout_s`` (default none) raises ``timeout``;
-        cancellation comes through ``ctx.check_cancel``."""
-        ctx = ctx or CallCtx.null()
-        start = self._clock()
-        slow = False
-        for delay in poll_intervals():
-            sleep_checked(delay, ctx, sleep=self._sleep)
-            st = self.task(task_id, ctx=ctx)
-            ctx.progress((st.progress or 0) / 100.0, f"Tripo task {st.status}" + (" (slow)" if slow else ""))
-            if st.done:
-                st.slow = slow
-                self._finish(st)
-                return st
-            elapsed = self._clock() - start
-            if not slow and elapsed >= soft_timeout_s:
-                slow = True
-                ctx.progress((st.progress or 0) / 100.0, "Tripo is slow; still waiting (the job is not resubmitted)")
-            if hard_timeout_s is not None and elapsed >= hard_timeout_s:
-                raise ProviderError(PROVIDER, "timeout", "gave up polling Tripo", code="poll_timeout", retryable=False, billed="unknown",
-                                    context={"task_id": task_id})
-        raise AssertionError("unreachable")  # pragma: no cover
-
-    def wait_success(self, task_id: str, *, ctx: CallCtx | None = None, **kw: Any) -> RemoteStatus:
-        """``wait`` that raises ``status.failure_error()`` for a failed or cancelled task."""
-        st = self.wait(task_id, ctx=ctx, **kw)
-        err = st.failure_error()
-        if err is not None:
-            raise err
-        return st
-
-    def _finish(self, st: RemoteStatus) -> None:
-        """Push the final cost of a terminal task once."""
-        if st.task_id in self._costed or self.cost_sink is None:
-            return
-        credits = st.credits_consumed
-        if st.status != "success" and not credits:
-            return
-        op, model, views = self._ops.get(st.task_id, (st.type or "task", str(st.input.get("model", "")), 1))
-        self._costed.add(st.task_id)
-        try:
-            self.cost_sink(tripo_cost(str(st.input.get("model") or model), operation=op, credits=credits, task_id=st.task_id,
-                                      fallback_op=op if op in ENDPOINTS else None, views=views))
-        except Exception:  # noqa: BLE001, S110 - a ledger failure must not hide the result
-            pass
-
-    def cost_for(self, st: RemoteStatus) -> dict[str, Any]:
-        op, model, views = self._ops.get(st.task_id, (st.type or "task", str(st.input.get("model", "")), 1))
-        return tripo_cost(str(st.input.get("model") or model), operation=op, credits=st.credits_consumed, task_id=st.task_id,
-                          fallback_op=op if op in ENDPOINTS else None, views=views)
-
     # ----- downloads ----------------------------------------------------------------------------------------
-    @staticmethod
-    def _expected_kinds(key: str) -> tuple[str, ...]:
-        return ("glb", "fbx", "zip") if "model" in key else ("png", "jpeg", "webp")
-
     def download_files(self, task_id: str, keys: list[str], *, ctx: CallCtx | None = None, max_reget: int = 3,
                        status: RemoteStatus | None = None) -> dict[str, DownloadedFile]:
         """Fetch ``keys`` (``model_url``, ``rendered_image_url``, view urls) of a successful task AT ONCE.
@@ -856,7 +964,7 @@ class TripoApi:
                         continue
                     raise
             kind = sniff_kind(data)
-            if kind not in self._expected_kinds(key):
+            if kind not in expected_kinds(key):
                 raise ProviderError(PROVIDER, "validation", f"{key} has unexpected content ({kind})", code=f"bad_magic_{kind}", billed="yes")
             out[key] = DownloadedFile(key=key, data=data, kind=kind, sha256=hashlib.sha256(data).hexdigest(), size=len(data))
         return out
@@ -864,48 +972,40 @@ class TripoApi:
     def download(self, task_id: str, keys: list[str], *, ctx: CallCtx | None = None) -> dict[str, bytes]:
         return {k: f.data for k, f in self.download_files(task_id, keys, ctx=ctx).items()}
 
-    # ----- reconciliation -----------------------------------------------------------------------------------
-    def reconcile_uncertain(self, *, endpoint: str, submitted_at: datetime, body: dict, exclude: Iterable[str] = (),
-                            attempts: int = 3, wait_s: float = 5.0, window_s: float = 120.0, op: str | None = None) -> str | None:
-        """After a ``submission_uncertain``: find the task Tripo may have created.
-
-        Looks at ``/account/usage`` for rows of the same type within +-2 minutes of ``submitted_at`` (usage can lag, so
-        it retries ``attempts`` times ``wait_s`` apart), fetches each candidate with ``GET /tasks/{id}`` and compares
-        ``input.model_seed`` / ``texture_seed`` with the body. Returns the task id, or ``None`` when no row matches
-        (then, and only then, the engine may resubmit)."""
-        if submitted_at.tzinfo is None:
-            submitted_at = submitted_at.replace(tzinfo=UTC)
-        wanted = _norm_type(op or _OP_OF_PATH.get(endpoint) or endpoint.split("/")[-1])
-        skip = {str(x) for x in exclude}
-        lo, hi = submitted_at - timedelta(seconds=window_s), submitted_at + timedelta(seconds=window_s)
-        for attempt in range(max(1, attempts)):
-            rows = self.usage(limit=50)
-            cands = []
-            for r in rows:
-                t = _norm_type(r.get("type"))
-                ts = _parse_ts(r.get("created_at"))
-                if t and (t == wanted or wanted in t or t in wanted) and ts and lo <= ts <= hi:
-                    cands.append(r)
-            statuses: dict[str, RemoteStatus] = {}
-            if cands and any(k in body for k in ("model_seed", "texture_seed")):
-                for r in cands:
-                    tid = str(r.get("task_id", ""))
-                    if tid and tid not in skip:
-                        try:
-                            statuses[tid] = self.task(tid)
-                        except ProviderError:
-                            continue
-            found = pick_reconciled(cands, statuses, body, submitted_at, skip)
-            if found:
-                return found
-            if attempt + 1 < attempts:
-                sleep_checked(wait_s, None, sleep=self._sleep)
-        return None
 
 
 __all__ = [
-    "API_ROOT", "DOWNLOAD_HOSTS", "ENDPOINTS", "FACE_LIMIT", "FACE_LIMIT_RANGE", "FORBIDDEN_BODY_KEYS", "H31", "P1", "P2", "SEEDS",
-    "VIEWS", "DownloadedFile", "H31Params", "P1Params", "P2Params", "RemoteStatus", "RouteParams", "TripoApi", "TripoProvider",
-    "View", "check_body", "edit_views_body", "error_from_response", "image_body", "multiview_body", "parse_task", "pick_reconciled",
-    "poll_intervals", "views_inputs",
+    "API_ROOT",
+    "DOWNLOAD_HOSTS",
+    "ENDPOINTS",
+    "FACE_LIMIT",
+    "FACE_LIMIT_RANGE",
+    "FORBIDDEN_BODY_KEYS",
+    "H31",
+    "P1",
+    "P2",
+    "SEEDS",
+    "VIEWS",
+    "DownloadedFile",
+    "H31Params",
+    "P1Params",
+    "P2Params",
+    "RemoteStatus",
+    "RouteParams",
+    "TripoApi",
+    "TripoCommon",
+    "TripoProvider",
+    "View",
+    "check_body",
+    "check_upload",
+    "edit_views_body",
+    "error_from_response",
+    "expected_kinds",
+    "image_body",
+    "multiview_body",
+    "parse_task",
+    "pick_reconciled",
+    "poll_intervals",
+    "uncertain_error",
+    "views_inputs",
 ]

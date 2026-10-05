@@ -19,6 +19,7 @@ Ops (``MeshJob.op``) and their ``params``:
 ``slab``          build_slab from ``params.art_path`` (size_studs, thickness, back, kind ...) -> export -> validate.
 ``primitive``     primitives.build from ``params.kind`` / ``params.params`` / ``params.palette`` -> export -> validate.
 ``fit_hair``      assemble a kit hair style (modules, palette recolour) in the HairAttachment frame -> repair -> export -> validate.
+``flip_lr``       the tile action "Flip left/right (I checked)": mirror an exported mesh (``input_path``), re-export and re-validate.
 
 ``ok`` means "the op ran to the end"; the gate verdict comes from ``checks`` (``duoskin.checks.model.gate_verdict``).
 """
@@ -239,7 +240,7 @@ def _save_renders(mesh: MeshData, job: MeshJob, out_dir: Path, mq, files: dict[s
     return msgs
 
 
-def _export_and_validate(mesh: MeshData, job: MeshJob, out_dir: Path, mq, *, expect_slab: bool = False, expect_hair: bool = False,
+def _export_and_validate(mesh: MeshData, job: MeshJob, out_dir: Path, mq, *, expect_slab: bool = False, expect_hair: bool = False, code_built: bool = False,
                          pre_checks: list[CheckResult] | None = None, extra_facts: dict[str, Any] | None = None,
                          messages: list[str] | None = None, degraded: list[str] | None = None) -> MeshResult:
     from duoskin.mesh import export
@@ -254,7 +255,8 @@ def _export_and_validate(mesh: MeshData, job: MeshJob, out_dir: Path, mq, *, exp
     files, msgs = export.export_all(exp_mesh, out_dir, stem, blender=job.blender_path or None, want_fbx=bool(p.get("want_fbx", True)))
     messages += msgs
     ctx = ValidateContext(asset_type=job.asset_type, attachment=job.attachment, target_studs=job.target_studs, approved_views=_approved(job), mannequin=mq,
-                          forward_axis=job.forward_axis or "+Z", expect_slab=expect_slab, expect_hair_register=expect_hair, asset_id=job.asset_id)
+                          forward_axis=job.forward_axis or "+Z", expect_slab=expect_slab, expect_hair_register=expect_hair, asset_id=job.asset_id,
+                          code_built=code_built)
     hair_path = p.get("hair_mesh_path")
     if hair_path and Path(hair_path).is_file():
         from duoskin.mesh import load
@@ -274,6 +276,8 @@ def _export_and_validate(mesh: MeshData, job: MeshJob, out_dir: Path, mq, *, exp
         vfacts["fbx_produced"] = "fbx" in files
     facts = _facts_summary(vfacts, extra_facts or {})
     facts["stem"] = stem
+    facts["asset_id"] = job.asset_id
+    facts["licence"] = job.licence
     facts["frame"] = {"units": "studs", "up": "+Y", "front": exp_mesh.meta.get("front", "+Z")}
     facts["attachment_offset"] = np.asarray(exp_mesh.meta.get("attachment_offset", [0, 0, 0])).tolist()
     if p.get("render", True):
@@ -312,7 +316,7 @@ def _repair_pipeline(job: MeshJob, out_dir: Path, *, hair: bool) -> MeshResult:
         asset_type=job.asset_type, attachment=job.attachment, target_studs=None if hair else tuple(job.target_studs), tris_target=job.tris_target,
         texture_px=job.texture_px, approved_views=_approved(job), placement="keep" if hair else str(p.get("placement", "auto")),
         anchor_offset=tuple(p["anchor_offset"]) if p.get("anchor_offset") else None, scale_mode="none" if hair else str(p.get("scale_mode", "fit")),
-        orient=bool(p.get("orient", True)), decimator=dec)
+        orient=bool(p.get("orient", True)), decimator=dec, mannequin=mq)
     if hair:
         ropts.tris_target = max(200, job.tris_target - 200)         # headroom for the faces the head cut creates
     rr = rep.repair_mesh(loaded.mesh, ropts)
@@ -347,10 +351,10 @@ def _op_slab(job: MeshJob, out_dir: Path) -> MeshResult:
                            tris_budget=int(p.get("tris_budget", min(job.tris_target, 2800))), kind=str(p.get("kind", "sticker_slab")),
                            back_rgb=tuple(p["back_rgb"]) if p.get("back_rgb") else None, texture_px=job.texture_px)
     ropts = rep.RepairOptions(asset_type=job.asset_type, attachment=job.attachment, target_studs=None, tris_target=job.tris_target, texture_px=job.texture_px,
-                              approved_views={}, placement=str(p.get("placement", "auto")), scale_mode="none", orient=False)
+                              approved_views={}, placement=str(p.get("placement", "auto")), scale_mode="none", orient=False, mannequin=mq)
     rr = rep.repair_mesh(sres.mesh, ropts)
     rr.mesh.meta.update({k: v for k, v in sres.mesh.meta.items() if k in ("kind", "slab")})
-    return _export_and_validate(rr.mesh, job, out_dir, mq, expect_slab=True, pre_checks=rr.checks, extra_facts={"slab": sres.facts, "repair": rr.report},
+    return _export_and_validate(rr.mesh, job, out_dir, mq, expect_slab=True, code_built=True, pre_checks=rr.checks, extra_facts={"slab": sres.facts, "repair": rr.report},
                                 messages=sres.messages + rr.messages, degraded=rr.degraded)
 
 
@@ -369,10 +373,10 @@ def _op_primitive(job: MeshJob, out_dir: Path) -> MeshResult:
     mesh = primitives.build(str(p.get("kind", "bead")), dict(p.get("params", {})), pal, texture_px=job.texture_px)
     ropts = rep.RepairOptions(asset_type=job.asset_type, attachment=job.attachment, target_studs=tuple(job.target_studs) if p.get("fit", True) else None,
                               tris_target=job.tris_target, texture_px=job.texture_px, approved_views={}, placement=str(p.get("placement", "auto")),
-                              scale_mode="fit" if p.get("fit", True) else "none", orient=False)
+                              scale_mode="fit" if p.get("fit", True) else "none", orient=False, mannequin=mq)
     rr = rep.repair_mesh(mesh, ropts)
     rr.mesh.meta["primitive_kind"] = mesh.meta.get("primitive_kind", "")
-    return _export_and_validate(rr.mesh, job, out_dir, mq, pre_checks=rr.checks, extra_facts={"primitive": mesh.meta.get("primitive_kind"), "repair": rr.report},
+    return _export_and_validate(rr.mesh, job, out_dir, mq, code_built=True, pre_checks=rr.checks, extra_facts={"primitive": mesh.meta.get("primitive_kind"), "repair": rr.report},
                                 messages=rr.messages, degraded=rr.degraded)
 
 
@@ -427,8 +431,32 @@ def _op_fit_hair(job: MeshJob, out_dir: Path) -> MeshResult:
                               texture_px=job.texture_px, approved_views=_approved(job), placement="keep", scale_mode="none", orient=False)
     rr = rep.repair_mesh(fit.mesh, ropts)
     pre = rr.checks + fit.checks
-    return _export_and_validate(rr.mesh, job, out_dir, mq, pre_checks=pre, extra_facts={"hair_fit": fit.facts, "repair": rr.report},
+    return _export_and_validate(rr.mesh, job, out_dir, mq, expect_hair=True, code_built=not _approved(job), pre_checks=pre, extra_facts={"hair_fit": fit.facts, "repair": rr.report},
                                 messages=fit.messages + rr.messages, degraded=rr.degraded)
+
+
+def _op_flip_lr(job: MeshJob, out_dir: Path) -> MeshResult:
+    from duoskin.mesh import load, orient
+    from duoskin.mesh.gltf_io import gltf_structure_facts
+    from duoskin.render import avatar
+
+    mq = avatar.load_mannequin(job.mannequin)
+    loaded = load.load_gltf(job.input_path)
+    extras = gltf_structure_facts(job.input_path).get("extras", {}) or {}
+    mesh = loaded.mesh
+    front = extras.get("front", "+Z")
+    att = np.asarray(extras.get("attachment_offset", [0.0, 0.0, 0.0]), float)
+    if front not in ("+Z", "Z"):
+        mesh.vertices = orient.from_export_frame(mesh.vertices, front)
+        att = orient.from_export_frame(att[None, :], front)[0]
+    mesh.meta["attachment_offset"] = att.tolist()
+    for key in ("attachment", "asset_type", "kind", "slab", "hair_register"):
+        if key in extras:
+            mesh.meta[key] = extras[key]
+    flipped = orient.flip_lr(mesh)
+    return _export_and_validate(flipped, job, out_dir, mq, expect_slab=extras.get("kind") in ("sticker_slab", "hair_clip_slab"),
+                                expect_hair=bool(extras.get("hair_register")), code_built=not _approved(job),
+                                extra_facts={"flipped_lr": True}, messages=["flipped left/right at your request (the decision is logged)"])
 
 
 _OPS = {
@@ -438,6 +466,7 @@ _OPS = {
     "slab": _op_slab,
     "primitive": _op_primitive,
     "fit_hair": _op_fit_hair,
+    "flip_lr": _op_flip_lr,
 }
 
 

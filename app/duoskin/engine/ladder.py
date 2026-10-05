@@ -31,7 +31,7 @@ def max_fixes() -> int:
         from duoskin.checks import thresholds
 
         return int(thresholds.get("ladder.max_fixes_per_part"))
-    except Exception:   # noqa: BLE001 - the ladder must work even if the registry is missing a key
+    except Exception:  # noqa: BLE001
         return DEFAULT_MAX_FIXES
 
 
@@ -41,7 +41,7 @@ def is_blocking(result: CheckResult) -> bool:
         from duoskin.checks import policy
 
         return bool(policy.is_blocking(result))
-    except Exception:   # noqa: BLE001
+    except Exception:  # noqa: BLE001
         return result.kind in ("hard", "assert")
 
 

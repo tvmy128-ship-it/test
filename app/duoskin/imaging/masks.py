@@ -23,6 +23,7 @@ from duoskin.checks.runner import build_result
 from duoskin.imaging import palette as P
 
 MAX_MASK_BYTES = 4 * 1024 * 1024
+MAX_LEGAL_SCALE = 32
 
 
 # ------------------------------------------------------------------ sizes
@@ -58,7 +59,14 @@ class LegalMap:
         crop = canvas.convert("RGBA").crop((x, y, x + self.orig_size[0] * self.scale, y + self.orig_size[1] * self.scale))
         if self.scale == 1:
             return crop
-        return crop.convert("RGBa").resize(self.orig_size, Image.Resampling.BOX).convert("RGBA")
+        k = self.scale
+        arr = np.asarray(crop, dtype=np.float64).reshape(self.orig_size[1], k, self.orig_size[0], k, -1)
+        alpha = arr[..., 3:4] / 255.0
+        pre = (arr[..., :3] * alpha).mean(axis=(1, 3))                    # exact area average in premultiplied float
+        a = alpha.mean(axis=(1, 3))
+        rgb = np.where(a > 0, pre / np.maximum(a, 1e-12), 0.0)
+        out = np.concatenate([rgb, a * 255.0], axis=-1)
+        return Image.fromarray(np.clip(np.rint(out), 0, 255).astype(np.uint8), "RGBA")
 
     def editable_to_canvas(self, editable: np.ndarray) -> np.ndarray:
         """Map a bool mask in asset coordinates to canvas coordinates."""
@@ -71,7 +79,7 @@ class LegalMap:
 
 def legal_map(w: int, h: int) -> LegalMap:
     """Choose the smallest integer scale and a centred pad so that ``valid_size`` holds for the canvas."""
-    for scale in range(1, 9):
+    for scale in range(1, MAX_LEGAL_SCALE + 1):
         sw, sh = w * scale, h * scale
         cw = -(-sw // 16) * 16
         ch = -(-sh // 16) * 16

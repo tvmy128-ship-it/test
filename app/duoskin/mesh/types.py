@@ -20,7 +20,7 @@ from duoskin.checks.model import CheckResult
 from duoskin.models.common import Strict
 
 AssetType = Literal["Hat", "Hair", "Face", "Neck", "Shoulder", "Front", "Back", "Waist"]
-MeshOp = Literal["import", "repair", "validate", "render_views", "slab", "primitive", "fit_hair", "register_hair"]
+MeshOp = Literal["import", "repair", "validate", "render_views", "slab", "primitive", "fit_hair", "register_hair", "flip_lr"]
 
 Licence = Literal[
     "n/a", "tripo_api_private_commercial", "tripo_paid_private_commercial", "tripo_free_public_ccby_noncommercial",
@@ -29,8 +29,8 @@ Licence = Literal[
 
 
 class MeshJob(Strict):
-    """What ``python -m duoskin.mesh.worker job.json`` reads (APP_SPEC 10.9; ``register_hair`` and the trailing optional
-    fields are additive)."""
+    """What ``python -m duoskin.mesh.worker job.json`` reads (APP_SPEC 10.9; the ops ``register_hair`` and ``flip_lr`` and the
+    trailing optional fields are additive)."""
 
     op: MeshOp
     input_path: str
@@ -104,7 +104,7 @@ class MeshData:
 
     @property
     def n_tris(self) -> int:
-        return int(len(self.faces))
+        return len(self.faces)
 
     @property
     def bounds(self) -> np.ndarray:

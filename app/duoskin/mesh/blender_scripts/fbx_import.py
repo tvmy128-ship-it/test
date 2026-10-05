@@ -77,9 +77,9 @@ def _clean_for_rigid():
 
 
 def _export_glb(dst):
-    kwargs = dict(filepath=dst, export_format="GLB", export_yup=True, export_apply=True, use_selection=False,
-                  export_image_format="AUTO", export_materials="EXPORT", export_normals=True, export_cameras=False,
-                  export_lights=False, export_skins=False)
+    kwargs = {"filepath": dst, "export_format": "GLB", "export_yup": True, "export_apply": True, "use_selection": False,
+                  "export_image_format": "AUTO", "export_materials": "EXPORT", "export_normals": True, "export_cameras": False,
+                  "export_lights": False, "export_skins": False}
     while True:
         try:
             bpy.ops.export_scene.gltf(**kwargs)
@@ -105,7 +105,7 @@ def main():
         _export_glb(args["dst"])
         _write(result_path, {"ok": True, "files": {"glb": args["dst"]}, "blender_version": bpy.app.version_string})
     except Exception as exc:  # noqa: BLE001
-        _write(result_path, {"ok": False, "error": "%s: %s" % (type(exc).__name__, exc), "trace": traceback.format_exc()[-1500:]})
+        _write(result_path, {"ok": False, "error": f"{type(exc).__name__}: {exc}", "trace": traceback.format_exc()[-1500:]})
         sys.exit(3)
 
 

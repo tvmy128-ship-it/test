@@ -13,7 +13,14 @@ from duoskin.checks.model import CheckResult
 from duoskin.models.common import Sha256, Strict
 
 
-class PatchOp(Strict):                              # LLM-facing (L6, L7): the value is JSON text
+class RevisionOp(Strict):                           # LLM-facing (L6, bible §9.6): the value is JSON text
+    op: Literal["replace", "add", "remove"]
+    path: str
+    value_json: str
+    finding: str                                    # the finding number this op resolves
+
+
+class ChangeOp(Strict):                             # LLM-facing (L7): a user change has no findings, so it gives a reason
     op: Literal["replace", "add", "remove"]
     path: str
     value_json: str
@@ -28,7 +35,7 @@ class SpecRecord(Strict):
     parent_spec_id: str | None = None
     version: int = 1                                # 1 = planner output; +1 per applied patch
     created_by: Literal["planner", "reviser", "change", "palette_lock", "user"] = "planner"
-    patch_from_parent: list[PatchOp] = Field(default_factory=list)
+    patch_from_parent: list[RevisionOp | ChangeOp] = Field(default_factory=list)   # internal model: a union is allowed
     spec: dict[str, Any]                            # a DuoSpec as plain JSON (opaque here)
     schema_version: Literal[1] = 1
     text_policy: Literal["no_text"] = "no_text"     # code constant, never a model field

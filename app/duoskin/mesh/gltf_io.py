@@ -11,12 +11,13 @@ from typing import Any
 
 from duoskin.mesh.types import MeshError
 
+
 # --------------------------------------------------------------------------------------------------------------------
 def read_gltf_json(path: str | Path) -> tuple[dict[str, Any], bytes | None]:
     """The JSON document of a ``.gltf`` or ``.glb`` and the GLB binary chunk (None for ``.gltf``)."""
     data = Path(path).read_bytes()
     if data[:4] == b"glTF":
-        _, version, length = struct.unpack_from("<4sII", data, 0)
+        _, _version, length = struct.unpack_from("<4sII", data, 0)
         off, js, binchunk = 12, None, None
         while off + 8 <= min(len(data), length):
             clen, ctype = struct.unpack_from("<I4s", data, off)

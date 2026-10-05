@@ -20,7 +20,7 @@ import tempfile
 import time
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 log = logging.getLogger("duoskin.winplat")
 
@@ -89,7 +89,7 @@ def quickedit_off() -> bool:
             return False
         new_mode = (mode.value & ~0x0040) | 0x0080   # clear ENABLE_QUICK_EDIT_MODE, set ENABLE_EXTENDED_FLAGS
         return bool(kernel32.SetConsoleMode(handle, new_mode))
-    except Exception:   # noqa: BLE001 - never block startup on a cosmetic fix
+    except Exception:
         log.exception("could not disable QuickEdit")
         return False
 
@@ -103,7 +103,7 @@ class CtrlHandler:
     def remove(self) -> None:
         try:
             self._remove()
-        except Exception:   # noqa: BLE001
+        except Exception:
             log.exception("could not remove the console handler")
 
 
@@ -123,7 +123,7 @@ def console_ctrl_handler(cb: Callable[[], None]) -> CtrlHandler:
             if event in (0, 1, 2, 5, 6):
                 try:
                     cb()
-                except Exception:   # noqa: BLE001
+                except Exception:  # noqa: BLE001, S110
                     pass
                 return 1
             return 0
@@ -181,7 +181,7 @@ def keep_awake(on: bool) -> bool:
         flags = es_continuous | (es_system_required if on else 0)
         ctypes.windll.kernel32.SetThreadExecutionState(flags)   # type: ignore[attr-defined]
         return True
-    except Exception:   # noqa: BLE001
+    except Exception:
         log.exception("SetThreadExecutionState failed")
         return False
 
@@ -213,7 +213,7 @@ class InstanceLock:
         finally:
             fh.close()
 
-    def __enter__(self) -> InstanceLock:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: object) -> None:
@@ -230,7 +230,7 @@ def single_instance(path: Path | None = None) -> InstanceLock | None:
 
         path = config.paths().run_dir / "instance.lock"
     path.parent.mkdir(parents=True, exist_ok=True)
-    fh = open(path, "a+b")   # noqa: SIM115 - the handle must outlive this function
+    fh = open(path, "a+b")  # noqa: SIM115
     try:
         if IS_WINDOWS:
             import msvcrt
@@ -358,16 +358,20 @@ _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,40}$")
 
 
 def lint_path(path: str | os.PathLike[str], *, max_len: int = 240) -> list[str]:
-    """SYS-15 path linter: length < 240, no reserved Windows names, no trailing dots or spaces. Returns the problems."""
+    """SYS-15 path linter: length < 240, no reserved Windows names, no trailing dots or spaces. Returns the problems.
+
+    Splits on both ``\\`` and ``/`` so a Windows path is judged the same way on a development machine."""
     p = str(path)
     problems: list[str] = []
     if len(p) >= max_len:
         problems.append(f"path is {len(p)} characters long (limit {max_len - 1})")
-    for part in Path(p).parts:
+    for part in (x for x in re.split(r"[\\/]+", p) if x):
+        if re.fullmatch(r"[A-Za-z]:", part):
+            continue
         stem = part.split(".")[0].strip().lower()
         if stem in _RESERVED_NAMES:
             problems.append(f"'{part}' is a reserved Windows name")
-        if part not in ("", "/", "\\") and not re.match(r"^[A-Za-z]:\\?$", part) and (part.endswith(".") or part.endswith(" ")):
+        if part.endswith((".", " ")) and part not in (".", ".."):
             problems.append(f"'{part}' ends with a dot or space")
     return problems
 

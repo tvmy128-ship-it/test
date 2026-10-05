@@ -41,6 +41,8 @@ class RepairOptions:
     orient: bool = True
     decimator: Callable[[MeshData, int], tuple[MeshData, dict[str, Any]]] | None = None   # e.g. the worker's pymeshlab wrapper
     max_hole_edges: int = 400
+    mannequin: Any = None                    # duoskin.render.avatar.Mannequin: enables the snap onto the body surface
+    snap_to_body: bool = True
 
 
 @dataclass
@@ -73,6 +75,12 @@ def topology(mesh: MeshData) -> dict[str, Any]:
     return {"tris": mesh.n_tris, "vertices": len(mesh.vertices), "welded_vertices": len(w.vertices), "shells": count, "closed_shells": closed,
             "boundary_edges": st["boundary_edges"], "nonmanifold_edges": st["nonmanifold_edges"], "watertight": st["watertight"],
             "winding_consistent": st["winding_consistent"], "zero_area": int((area <= 1e-12 * max(diag * diag, 1e-30)).sum())}
+
+
+def welded_volume(mesh: MeshData) -> float:
+    """Signed volume of the mesh measured on its position-welded copy (positive = outward normals on a closed surface)."""
+    w = geo.weld(mesh.vertices, mesh.faces)
+    return geo.signed_volume(w.vertices, w.faces)
 
 
 def _select_faces(mesh: MeshData, keep: np.ndarray) -> MeshData:
@@ -163,7 +171,7 @@ def remove_nonmanifold(mesh: MeshData) -> tuple[MeshData, int]:
     cur = mesh
     for _ in range(6):
         w = geo.weld(cur.vertices, cur.faces)
-        edges, counts, inverse = geo.edge_table(w.faces)
+        _edges, counts, inverse = geo.edge_table(w.faces)
         bad_edges = np.nonzero(counts > 2)[0]
         if len(bad_edges) == 0:
             break
@@ -192,8 +200,11 @@ def remove_nonmanifold(mesh: MeshData) -> tuple[MeshData, int]:
 
 
 def boundary_loops(wfaces: np.ndarray) -> list[list[int]]:
-    """Closed loops of welded vertex ids along boundary edges (in the direction the existing faces use them)."""
-    edges, counts, inverse = geo.edge_table(wfaces)
+    """Simple closed loops of welded vertex ids along boundary edges, in the direction the existing faces use them.
+
+    A loop that touches itself at a vertex (a pinched hole) is split into simple cycles at the repeated vertex.
+    """
+    _edges, counts, inverse = geo.edge_table(wfaces)
     he = np.stack([wfaces[:, [0, 1]], wfaces[:, [1, 2]], wfaces[:, [2, 0]]], axis=1).reshape(-1, 2)
     is_b = counts[inverse] == 1
     nxt: dict[int, list[int]] = {}
@@ -201,26 +212,32 @@ def boundary_loops(wfaces: np.ndarray) -> list[list[int]]:
         nxt.setdefault(a, []).append(b)
     loops: list[list[int]] = []
     used: set[tuple[int, int]] = set()
-    for a0, outs in list(nxt.items()):
-        for b0 in outs:
+    for a0 in list(nxt):
+        for b0 in nxt[a0]:
             if (a0, b0) in used:
                 continue
-            loop = [a0]
-            cur_a, cur_b = a0, b0
-            used.add((cur_a, cur_b))
-            ok = False
-            for _ in range(len(he) + 2):
-                if cur_b == a0:
-                    ok = True
-                    break
-                loop.append(cur_b)
-                cands = [c for c in nxt.get(cur_b, []) if (cur_b, c) not in used]
+            path = [a0]
+            index = {a0: 0}
+            cur, nv = a0, b0
+            while True:
+                used.add((cur, nv))
+                if nv in index:
+                    k = index[nv]
+                    cyc = path[k:]
+                    if len(cyc) >= 3:
+                        loops.append(cyc)
+                    for v in path[k + 1:]:
+                        del index[v]
+                    path = path[:k + 1]
+                    cur = path[-1]
+                else:
+                    path.append(nv)
+                    index[nv] = len(path) - 1
+                    cur = nv
+                cands = [c for c in nxt.get(cur, []) if (cur, c) not in used]
                 if not cands:
                     break
-                used.add((cur_b, cands[0]))
-                cur_a, cur_b = cur_b, cands[0]
-            if ok and len(loop) >= 3:
-                loops.append(loop)
+                nv = cands[0]
     return loops
 
 
@@ -235,7 +252,7 @@ def fill_holes(mesh: MeshData, max_edges: int = 400) -> tuple[MeshData, dict[str
         return mesh, stats
     # split id for each (welded vertex, boundary face): use the first face corner at that vertex that touches a boundary edge
     split_of: dict[int, int] = {}
-    edges, counts, inverse = geo.edge_table(w.faces)
+    _edges, counts, inverse = geo.edge_table(w.faces)
     he_b = (counts[inverse] == 1).reshape(-1, 3)
     for fi in np.nonzero(he_b.any(axis=1))[0]:
         for k in range(3):
@@ -252,7 +269,7 @@ def fill_holes(mesh: MeshData, max_edges: int = 400) -> tuple[MeshData, dict[str
         rev = ids[::-1]                              # new faces must run against the boundary direction
         rpts = pts[::-1]
         c = rpts.mean(axis=0)
-        u, s, vt = np.linalg.svd(rpts - c, full_matrices=False)
+        _u, _s, vt = np.linalg.svd(rpts - c, full_matrices=False)
         ax, ay = vt[0], vt[1]
         xy = np.stack([(rpts - c) @ ax, (rpts - c) @ ay], axis=1)
         area2 = 0.5 * np.sum(xy[:, 0] * np.roll(xy[:, 1], -1) - np.roll(xy[:, 0], -1) * xy[:, 1])
@@ -368,6 +385,91 @@ def place_on_attachment(mesh: MeshData, box: limits.AccessoryBox, anchor: str, a
     return out, info
 
 
+def _snap_candidates(asset_type: str, attachment: str) -> list[np.ndarray]:
+    """Outward directions an item may be pushed along to leave the body, by asset type (unit vectors, attachment frame)."""
+    side = -1.0 if attachment.startswith("Right") else 1.0          # the character's right is -X
+    if asset_type in ("Hat", "Neck"):
+        raw = [(0, 1, 0)]
+    elif asset_type == "Shoulder":
+        raw = [(np.sin(t) * side, np.cos(t), 0.0) for t in np.radians(np.arange(0, 91, 15))]
+    elif asset_type in ("Face", "Front"):
+        raw = [(0, 0, 1)]
+    elif asset_type == "Back":
+        raw = [(0, 0, -1)]
+    elif asset_type == "Waist":
+        raw = [(0, 0, -1)] if "Back" in attachment else [(0, 0, 1)]
+    else:
+        raw = []
+    return [np.asarray(r, float) / np.linalg.norm(r) for r in raw]
+
+
+def _push_out(world_pts: np.ndarray, parts: list[Any], d: np.ndarray, tol: float) -> float | None:
+    """Smallest shift along ``d`` that takes every sample point out of every body box (iterated, since leaving one box can enter another)."""
+    total = 0.0
+    nz = np.abs(d) > 1e-9
+    for _ in range(8):
+        w = world_pts + d * total
+        need = 0.0
+        for part in parts:
+            lo, hi = part.lo, part.hi
+            inside = np.all((w > lo + tol) & (w < hi - tol), axis=1)
+            if not inside.any():
+                continue
+            p = w[inside]
+            t_axis = np.where(d > 0, (hi - p) / np.where(nz, d, 1.0), (lo - p) / np.where(nz, d, 1.0))
+            t_axis = np.where(nz, t_axis, np.inf)
+            need = max(need, float(t_axis.min(axis=1).max()))
+        if need <= 1e-9:
+            return total
+        total += need
+    return None
+
+
+def snap_to_body(mesh: MeshData, mannequin: Any, box: limits.AccessoryBox, asset_type: str, max_shift: float = 1.5, depth_ok: float = 0.01) -> tuple[MeshData, dict[str, Any]]:
+    """Push the mesh (attachment frame) the shortest way out of the mannequin's body boxes (CHK-M14: penetration <= 0.02 stud).
+
+    Collar and waist attachments sit slightly INSIDE the body, so an item placed on them would otherwise clip; shoulder items
+    may leave upward or outward. The shift is reported; the attachment point then sits behind the mesh by that amount.
+    """
+    cands = _snap_candidates(asset_type, box.attachment)
+    info: dict[str, Any] = {"candidates": len(cands)}
+    if not cands or mannequin is None:
+        return mesh, info
+    att = mannequin.attachment(box.attachment)
+    pts, _ = geo.sample_surface(mesh.vertices, mesh.faces, 1500, seed=17)
+    world = np.vstack([mesh.vertices, pts]) + att
+    best: tuple[float, np.ndarray] | None = None
+    for d in cands:
+        t = _push_out(world, mannequin.parts, d, depth_ok * 0.5)
+        if t is not None and (best is None or t < best[0]):
+            best = (t, d)
+    if best is None or best[0] <= 1e-6:
+        return mesh, info
+    if best[0] > max_shift:
+        info["skipped"] = f"would need to move {best[0]:.2f} stud (> {max_shift})"
+        return mesh, info
+    out = mesh.copy()
+    out.vertices = mesh.vertices + best[1] * best[0]
+    info.update({"shift": round(best[0], 5), "direction": best[1].round(4).tolist()})
+    # the shift must not push the item out of the Classic box: shrink it about its contact point when it would
+    blo, bhi = box.lo_hi()
+    lo, hi = out.bounds
+    if np.any(lo < blo - 1e-9) or np.any(hi > bhi + 1e-9):
+        support = out.vertices @ best[1]
+        contact = out.vertices[support <= support.min() + 0.05 * max(support.max() - support.min(), 1e-9)].mean(axis=0)
+        rel = out.vertices - contact
+        with np.errstate(divide="ignore", invalid="ignore"):
+            up = np.where(rel > 1e-9, (bhi - contact) / rel, np.inf)
+            dn = np.where(rel < -1e-9, (blo - contact) / rel, np.inf)
+        scale = float(min(1.0, up.min(), dn.min()))
+        if scale >= 0.85:
+            out.vertices = contact + rel * (scale * 0.999)
+            info["shrunk_to_fit_box"] = round(scale * 0.999, 5)
+        else:
+            info["box_violation_after_snap"] = True
+    return out, info
+
+
 def recentre_for_export(mesh: MeshData) -> MeshData:
     """Handle space: the bbox centre becomes the mesh origin and ``meta['attachment_offset']`` is where the attachment point is
     (the Studio importer re-centres anyway; CHK-M11 wants the centre within 1 stud of the origin)."""
@@ -473,7 +575,7 @@ def repair_mesh(mesh: MeshData, opts: RepairOptions) -> RepairResult:
                                   evidence=f"UV set preserved={cur.uv is not None}; textured-render mean dE2000 {fid['mean_de']:.2f} over {fid['views']} views; "
                                            f"{dec_report['tris_before']} -> {dec_report['tris_after']} triangles by {dec_report['method']}",
                                   fix_hint="none" if ok else "regenerate"))
-        report["decimation"] = {**dec_report, **{"mean_de": round(fid["mean_de"], 4)}}
+        report["decimation"] = {**dec_report, "mean_de": round(fid["mean_de"], 4)}
     # 8. orientation
     orientation = None
     if opts.orient and opts.approved_views:
@@ -490,9 +592,12 @@ def repair_mesh(mesh: MeshData, opts: RepairOptions) -> RepairResult:
     cur, sc = scale_to_target(cur, opts.target_studs, box, opts.scale_mode)
     step("scale", **sc)
     anchor = opts.placement if opts.placement != "auto" else limits.default_anchor(opts.asset_type)
-    anchor_offset = opts.anchor_offset if opts.anchor_offset is not None else ((0.0, -0.2, 0.0) if (opts.asset_type == "Hat" and anchor == "bottom") else (0.0, 0.0, 0.0))
+    anchor_offset = opts.anchor_offset if opts.anchor_offset is not None else (0.0, 0.0, 0.0)
     cur, pl = place_on_attachment(cur, box, anchor, anchor_offset)
     step("placement", **pl)
+    if opts.snap_to_body and opts.mannequin is not None and anchor != "keep":
+        cur, sn = snap_to_body(cur, opts.mannequin, box, opts.asset_type)
+        step("snap_to_body", **sn)
     cur.meta["attachment_offset"] = [0.0, 0.0, 0.0]
     cur = recentre_for_export(cur)
     cur.meta.update({"attachment": box.attachment, "asset_type": opts.asset_type})

@@ -153,3 +153,19 @@ def polish_pack(exe: str, fitted_glb: str | Path, out_dir: str | Path, *, head_g
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     return run_script(exe, "polish_pack.py", {"fitted": str(fitted_glb), "head": str(head_glb) if head_glb else "", "out_dir": str(out_dir)},
                       timeout_s=timeout_s)
+
+
+def status(explicit: str = "") -> dict[str, Any]:
+    """What ``doctor`` and the setup wizard show about Blender (FAILURE_MODES MESH-19, issue #29): where it is, which version, and
+    exactly when it becomes REQUIRED. Blender is optional: without it the glTF set is the upload format and FBX is skipped."""
+    exe = find_blender(explicit)
+    ver = blender_version(exe) if exe else None
+    return {
+        "found": exe is not None, "path": exe, "version": ver, "usable": bool(exe and ver),
+        "optional": True,
+        "required_when": ["Studio rejects the glTF set (calibration test T5)", "the hair polish pack should contain .fbx/.blend files",
+                          "importing an FBX, .blend or zipped OBJ from Tripo or your own tool"],
+        "without_blender": "FBX export is skipped (the manifest says 'fbx: not produced'), the checklist uses the glTF set, and FBX imports "
+                           "ask you to export a GLB instead",
+        "guidance": None if exe else BLENDER_MISSING + " (install Blender 4.x from blender.org or with winget install BlenderFoundation.Blender, then set its path in Settings)",
+    }

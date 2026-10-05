@@ -7,6 +7,7 @@ mannequin (M14), the SOFT group (M18), sticker slabs (M20) and the hair register
 """
 from __future__ import annotations
 
+import itertools
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -38,6 +39,7 @@ class ValidateContext:
     hair_mesh: MeshData | None = None          # the chosen hair in the Hair attachment frame (DUO-06 fit check)
     forward_axis: str = "+Z"
     scale_type: str = "Classic"
+    code_built: bool = False                   # slabs and primitives: no approved 3D views exist, M08/M13 are not applicable
     expect_slab: bool = False
     expect_hair_register: bool = False
     asset_id: str = ""
@@ -70,7 +72,7 @@ def coplanar_intersections(v: np.ndarray, f: np.ndarray, *, chunk_pairs: int = 1
     bounds = np.concatenate([[0], np.nonzero(np.diff(inv[order]))[0] + 1, [len(order)]])
     total = 0
     eps = diag * 1e-7
-    for s0, s1 in zip(bounds[:-1], bounds[1:], strict=True):
+    for s0, s1 in itertools.pairwise(bounds):
         if s1 - s0 < 2:
             continue
         g = idx_all[order[s0:s1]]
@@ -118,7 +120,7 @@ def spike_shrink(v: np.ndarray, f: np.ndarray, frac: float = 0.01, samples: int 
     pts, _ = geo.sample_surface(v, f, samples, seed=7)
     if len(pts) == 0:
         return 0.0
-    k = max(1, int(round(frac * len(pts))))
+    k = max(1, round(frac * len(pts)))
     worst = 0.0
     for axis in range(3):
         col_ = np.sort(pts[:, axis])
@@ -213,10 +215,17 @@ def compute_facts(path: str | Path, ctx: ValidateContext) -> tuple[dict[str, Any
     st = geo.topology_stats(w.faces)
     labels, nshell = geo.shell_labels(w.faces, len(w.vertices))
     closed = sum(1 for k in range(nshell) if geo.topology_stats(w.faces[labels == k])["watertight"])
+    diag_all = geo.bbox_diag(w.vertices)
+    micro = 0
+    for k in range(nshell):
+        idx = np.nonzero(labels == k)[0]
+        pts = w.vertices[np.unique(w.faces[idx])]
+        if len(idx) < 4 or (nshell > 1 and np.linalg.norm(pts.max(axis=0) - pts.min(axis=0)) < float(limits.threshold("mesh.island_diag_frac_min")) * diag_all):
+            micro += 1
     _, areas = geo.face_normals_areas(w.vertices, w.faces)
     diag = geo.bbox_diag(w.vertices)
     facts.update({
-        "tris": int(len(f)), "vertices": int(len(v)), "welded_vertices": int(len(w.vertices)), "shells": int(nshell), "closed_shells": int(closed),
+        "tris": len(f), "vertices": len(v), "welded_vertices": len(w.vertices), "shells": int(nshell), "closed_shells": int(closed), "micro_shells": int(micro),
         "watertight": bool(st["watertight"]), "boundary_edges": int(st["boundary_edges"]), "nonmanifold_edges": int(st["nonmanifold_edges"]),
         "winding_consistent": bool(st["winding_consistent"]), "zero_area_faces": int((areas <= 1e-12 * max(diag * diag, 1e-30)).sum()),
         "normals_out": normals_outward_fraction(w.vertices, w.faces), "determinant": 1.0, "scale_min": 1.0,
@@ -241,6 +250,8 @@ def compute_facts(path: str | Path, ctx: ValidateContext) -> tuple[dict[str, Any
 def check_orientation(mesh: MeshData, ctx: ValidateContext) -> tuple[CheckResult, orient_mod.OrientResult | None]:
     fm = ["MESH-12", "ACC-01"]
     if not ctx.approved_views:
+        if ctx.code_built:
+            return not_applicable("CHK-M08", "hard", "built by code: the geometry is made in the file frame, there is no model to orient", fm_ids=fm), None
         return not_run("CHK-M08", "hard", "no approved views supplied", fm_ids=fm), None
     try:
         res = orient_mod.search_orientation(mesh, ctx.approved_views)
@@ -266,13 +277,15 @@ def check_view_match(mesh: MeshData, ctx: ValidateContext) -> CheckResult:
     """CHK-M13 (code part): silhouette IoU per approved view, palette dE and thin-part IoU. The Sonnet yes/no is the judge step's."""
     fm = ["ACC-07", "ACC-08"]
     if not ctx.approved_views:
+        if ctx.code_built:
+            return not_applicable("CHK-M13", "hard", "built by code: there are no approved multiview images to compare with", fm_ids=fm)
         return not_run("CHK-M13", "hard", "no approved views supplied", fm_ids=fm)
     try:
         masks = V.approved_masks(ctx.approved_views)
         if "front" not in masks:
             return not_run("CHK-M13", "hard", "an approved front view is required", fm_ids=fm)
         v, f = mesh.vertices, mesh.faces
-        per = {name: V.silhouette_iou(v, f, name, m) for name, m in masks.items()}
+        per = {name: V.silhouette_iou(v, f, name, m, size=256, norm=192) for name, m in masks.items()}
         front_min, view_min = float(limits.threshold("acc.front_iou_min")), float(limits.threshold("acc.view_iou_min"))
         problems = []
         for name, val in per.items():
@@ -281,10 +294,10 @@ def check_view_match(mesh: MeshData, ctx: ValidateContext) -> CheckResult:
                 problems.append(f"{name} IoU {val:.2f} < {need}")
         # thin parts (front)
         thin_iou = None
-        approved_front = V.normalise_mask(masks["front"])
+        approved_front = V.normalise_mask(masks["front"], 192)
         thin_a = V.thin_mask(approved_front)
         if thin_a.sum() >= 0.005 * approved_front.sum():
-            thin_b = V.thin_mask(V.normalise_mask(V.mesh_silhouette(v, f, "front")))
+            thin_b = V.thin_mask(V.normalise_mask(V.mesh_silhouette(v, f, "front", 256), 192))
             thin_iou = V.iou(thin_a, thin_b)
             if thin_iou < float(limits.threshold("mesh.thin_part_iou_min")):
                 problems.append(f"thin-part IoU {thin_iou:.2f} < {limits.threshold('mesh.thin_part_iou_min')}")
@@ -293,7 +306,13 @@ def check_view_match(mesh: MeshData, ctx: ValidateContext) -> CheckResult:
         if mesh.texture is not None and mesh.uv is not None:
             front_img = V.load_view_image(ctx.approved_views[next(k for k in ctx.approved_views if V.canonical_view_name(str(k)) == "front")])
             rgba = np.asarray(front_img.convert("RGBA"))
-            ref = col.dominant_colours(rgba[..., :3], masks["front"] if masks["front"].shape == rgba.shape[:2] else None, k=3)
+            fmask = masks["front"] if masks["front"].shape == rgba.shape[:2] else None
+            if fmask is not None:
+                from scipy import ndimage
+
+                core = ndimage.binary_erosion(fmask, iterations=2)          # drop anti-aliased edge pixels blended with the background
+                fmask = core if core.sum() >= 0.2 * fmask.sum() else fmask
+            ref = col.dominant_colours(rgba[..., :3], fmask, k=3)
             pts = v[np.unique(f)]
             cam = raster.fit_camera("front", pts, 256, 256, margin=0.05)
             tex = np.asarray(tx.as_pil(mesh.texture).convert("RGB"))

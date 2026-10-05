@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Query, Request
 from sse_starlette.sse import EventSourceResponse
 
-from duoskin.api import get_rt
+from duoskin.api import RT
 from duoskin.engine.runtime import Runtime
 
 router = APIRouter(prefix="/api")
@@ -28,7 +28,7 @@ def _after_id(request: Request, after: int) -> int:
 
 
 @router.get("/events/poll")
-def poll(after: int = Query(0, ge=0), limit: int = Query(500, ge=1, le=1000), rt: Runtime = Depends(get_rt)) -> dict[str, Any]:
+def poll(after: Annotated[int, Query(ge=0)] = 0, limit: Annotated[int, Query(ge=1, le=1000)] = 500, rt: Runtime = RT) -> dict[str, Any]:
     events = rt.bus.events_after(after, limit=limit)
     return {"events": [e.model_dump(mode="json") for e in events], "max_event_id": rt.bus.max_event_id()}
 
@@ -40,7 +40,7 @@ async def event_stream(rt: Runtime, after: int, *, once: bool = False) -> AsyncI
     last = after
     try:
         while True:
-            batch = await loop.run_in_executor(None, lambda: rt.bus.events_after(last, limit=REPLAY_BATCH))
+            batch = await loop.run_in_executor(None, lambda after_id=last: rt.bus.events_after(after_id, limit=REPLAY_BATCH))
             for e in batch:
                 last = e.id
                 yield {"id": str(e.id), "data": e.sse_data()}
@@ -61,6 +61,6 @@ async def event_stream(rt: Runtime, after: int, *, once: bool = False) -> AsyncI
 
 
 @router.get("/events")
-async def events(request: Request, after: int = Query(0, ge=0), once: bool = Query(False),
-                 rt: Runtime = Depends(get_rt)) -> EventSourceResponse:
+async def events(request: Request, after: Annotated[int, Query(ge=0)] = 0, once: bool = False,
+                 rt: Runtime = RT) -> EventSourceResponse:
     return EventSourceResponse(event_stream(rt, _after_id(request, after), once=once), ping=15)

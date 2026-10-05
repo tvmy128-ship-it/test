@@ -9,6 +9,7 @@ Geometry frame: the slab lies in the XY plane, the front faces +Z, the canvas of
 """
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -53,7 +54,7 @@ def alpha_mask(art: Image.Image, threshold: int = 128, min_speck: float = 0.0005
 def marching_squares(field_: np.ndarray, level: float = 0.5) -> list[np.ndarray]:
     """Closed iso-contours of a 2D float field as ``(n, 2)`` arrays of ``(x, y)`` (pixel units, y down). The field must be
     padded so that its border is below ``level`` (every contour then closes)."""
-    h, w = field_.shape
+    _h, _w = field_.shape
     inside = field_ >= level
     # crossing point on horizontal edges (y, x)-(y, x+1) and vertical edges (y, x)-(y+1, x)
     def pos(k):
@@ -134,7 +135,7 @@ def mask_to_polygons(mask: np.ndarray, work_px: int = 256, sigma: float = 0.8) -
     """
     h, w = mask.shape
     s = work_px / max(h, w)
-    nh, nw = max(4, int(round(h * s))), max(4, int(round(w * s)))
+    nh, nw = max(4, round(h * s)), max(4, round(w * s))
     im = Image.fromarray((mask * 255).astype(np.uint8)).resize((nw, nh), Image.Resampling.BOX)
     f = ndimage.gaussian_filter(np.asarray(im, np.float64) / 255.0, sigma)
     f = np.pad(f, 2, mode="constant")
@@ -317,7 +318,7 @@ def build_slab(art: Image.Image, *, size_studs: float, thickness: float = 0.1, b
             vv = (li / n_strips) if n_strips else 0.0
             uv = np.stack([ru0 + u_arc * (ru1 - ru0), np.full(k + 1, rv0 + vv * (rv1 - rv0))], axis=1)
             ring_ids.append(new_verts(xy, z, uv))
-        for a, b2 in zip(ring_ids[:-1], ring_ids[1:], strict=True):
+        for a, b2 in itertools.pairwise(ring_ids):
             faces.extend(_strip_faces(a, b2))
     # caps from the (inset) outlines
     cap_polys = insets if b_used > 0 else wpolys
@@ -407,10 +408,10 @@ def check_slab(mesh: MeshData, slab_meta: dict[str, Any], *, approved_views: dic
         if ratio < ratio_min:
             problems.append(f"smallest/largest extent {ratio:.3f} < {ratio_min}")
         # islands: back-cap faces (normal -Z) must not share UV area with the front-cap faces (+Z)
-        n, area = geo.face_normals_areas(mesh.vertices, mesh.faces)
+        n, _area = geo.face_normals_areas(mesh.vertices, mesh.faces)
         front = np.nonzero(n[:, 2] > 0.999)[0]
         backf = np.nonzero(n[:, 2] < -0.999)[0]
-        island_ok, mirrored_ok, same_art = True, True, slab_meta.get("back") == "same_art"
+        island_ok, same_art = True, slab_meta.get("back") == "same_art"
         if len(front) and len(backf) and mesh.uv is not None:
             fu, bu = mesh.uv[mesh.faces[front]].reshape(-1, 2), mesh.uv[mesh.faces[backf]].reshape(-1, 2)
             f_lo, f_hi, b_lo, b_hi = fu.min(0), fu.max(0), bu.min(0), bu.max(0)
@@ -440,14 +441,12 @@ def check_slab(mesh: MeshData, slab_meta: dict[str, Any], *, approved_views: dic
             share_mirror = strong_share(b_img, f_flip, f_mask_flip & b_mask)
             if same_art:
                 if share_same > 0.004 and not sym:
-                    mirrored_ok = False
                     problems.append(f"the back does not show the un-mirrored art ({share_same:.1%} of pixels differ from the front art, {share_mirror:.1%} from its mirror)")
             elif _is_plain(b_img, b_mask):
                 pass                                           # a plain colour back cannot be the mirrored art
             else:
                 d_mirror = col.hamming(col.phash(b_img), col.phash(f_flip))
                 if d_mirror <= lim and not sym:
-                    mirrored_ok = False
                     problems.append(f"the back looks like the mirrored front art (pHash distance {d_mirror} <= {lim})")
         # coplanar duplicate faces
         from duoskin.mesh.validate import coplanar_intersections

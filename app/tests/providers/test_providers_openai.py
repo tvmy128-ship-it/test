@@ -8,12 +8,13 @@ import numpy as np
 import pytest
 from PIL import Image
 from prov_helpers import (
+    FakeClock,
     Spy,
+    make_openai_client,
     noop_sleep,
     openai_error,
     openai_images_response,
     png_bytes,
-    make_openai_client,
 )
 
 from duoskin.providers import openai_images as O
@@ -25,9 +26,8 @@ CTX = CallCtx.null()
 
 
 def req(**kw) -> O.ImageRequest:
-    d = dict(model=MODEL, prompt="A tidy blocky character on a plain backdrop.", size="1024x1024", quality="low",
-             background="opaque", n=1)
-    d.update(kw)
+    d = {"model": MODEL, "prompt": "A tidy blocky character on a plain backdrop.", "size": "1024x1024", "quality": "low",
+         "background": "opaque", "n": 1, **kw}
     return O.ImageRequest(**d)
 
 
@@ -36,7 +36,8 @@ def img(w=1024, h=1024, color=(10, 20, 30, 255)) -> bytes:
 
 
 def make(spy: Spy, **kw) -> O.OpenAIImages:
-    kw.setdefault("limiter", RateLimiter(concurrent=2, ipm=100))
+    ft = FakeClock()
+    kw.setdefault("limiter", RateLimiter(concurrent=2, ipm=100, clock=ft.now, sleep=ft.sleep))
     kw.setdefault("sleep", noop_sleep)
     return O.OpenAIImages(client=make_openai_client(spy), **kw)
 
@@ -475,3 +476,25 @@ def test_probe_records_refusal_of_mask_plus_images():
 def test_estimate_call_scales_with_n():
     assert O.estimate_call(req(n=4, quality="high")) > 3.5 * O.estimate_call(req(n=1, quality="high"))
     assert json.dumps(O.estimate_call(req())) is not None
+
+
+def test_test_key_is_free_first_then_one_small_image_once():
+    models = httpx.Response(200, json={"object": "list", "data": [{"id": "gpt-image-2", "object": "model", "created": 1, "owned_by": "openai"}]})
+    spy = Spy(models, ok(), models, models)
+    a = make(spy)
+    r = a.test_key()
+    assert r["ok"] is True and "image model answered" in r["message"] and [q.url.path for q in spy.requests] == ["/v1/models", "/v1/images/generations"]
+    assert spy.bodies[1]["size"] == "1024x1024" and spy.bodies[1]["quality"] == "low" and spy.bodies[1]["model"] == MODEL
+    r2 = a.test_key()                                              # the paid probe runs once per key
+    assert r2["ok"] is True and len(spy.requests) == 3
+    assert make(Spy(models)).test_key(paid=False)["ok"] is True
+
+
+def test_test_key_reports_auth_and_org_verification_in_plain_english():
+    bad = make(Spy(openai_error(401, "Incorrect API key provided")))
+    r = bad.test_key()
+    assert r["ok"] is False and r["kind"] == "auth"
+    models = httpx.Response(200, json={"object": "list", "data": []})
+    org = make(Spy(models, openai_error(403, "Your organization must be verified to use the model `gpt-image-2.5-flare`.")))
+    r2 = org.test_key()
+    assert r2["ok"] is False and r2["kind"] == "permission" and "verified" in r2["message"].lower()

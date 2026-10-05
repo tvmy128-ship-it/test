@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import struct
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal, NamedTuple
@@ -613,16 +613,16 @@ def numbered_edge_texture(glyphs: bool = True) -> np.ndarray:
         for region, side in ((s.a, s.side_a), (s.b, s.side_b)):
             x0, y0, x1, y1 = REGIONS[region]
             text = f"{s.edge:02d}"
-            tw, th = 13, 10
+            tw, th = 14, 10
             cx, cy = (x0 + x1 + 1) // 2, (y0 + y1 + 1) // 2
             if side == "top":
                 gx, gy = cx - tw // 2, y0 + 2
             elif side == "bottom":
-                gx, gy = cx - tw // 2, y1 - th - 1
+                gx, gy = cx - tw // 2, y1 - th - 2
             elif side == "left":
                 gx, gy = x0 + 2, cy - th // 2
             else:
-                gx, gy = x1 - tw - 1, cy - th // 2
+                gx, gy = x1 - tw - 2, cy - th // 2
             draw_digits(img, text, gx, gy)
     return img
 
@@ -737,13 +737,14 @@ _MANNEQUIN: tuple[tuple[str, tuple[float, float, float], str], ...] = (
     ("rlimb", (-96.0, 0.0, 0.0), "arm"), ("llimb", (96.0, 0.0, 0.0), "arm"),
     ("rlimb", (-32.0, -128.0, 0.0), "leg"), ("llimb", (32.0, -128.0, 0.0), "leg"),
 )
+_MANNEQUIN_NAMES = ("torso", "rarm", "larm", "rleg", "lleg")
 _HEAD_BOX = ((0.0, 96.0, 0.0), (64.0, 64.0, 64.0))
 
 
 def _over(base: np.ndarray, top: np.ndarray) -> np.ndarray:
     """Straight-alpha 'over' of two RGBA uint8 images (top over base)."""
-    a_t = top[..., 3:4].astype(np.float64) / 255.0
-    a_b = base[..., 3:4].astype(np.float64) / 255.0
+    a_t = top[..., 3:4].astype(np.float32) / 255.0
+    a_b = base[..., 3:4].astype(np.float32) / 255.0
     a_o = a_t + a_b * (1.0 - a_t)
     rgb = np.where(a_o > 0, (top[..., :3] * a_t + base[..., :3] * a_b * (1.0 - a_t)) / np.maximum(a_o, 1e-9), 0.0)
     return np.dstack([np.rint(rgb), np.rint(a_o * 255.0)]).astype(np.uint8)
@@ -767,11 +768,12 @@ def render_box_preview(shirt: np.ndarray | None = None, pants: np.ndarray | None
                        pitch_deg: float = 18.0, size: tuple[int, int] = (320, 400), supersample: int = 2,
                        skin: tuple[int, int, int] = (214, 170, 140), head: tuple[int, int, int] | None = None,
                        background: tuple[int, int, int, int] = (238, 238, 238, 255),
-                       texture: np.ndarray | None = None) -> np.ndarray:
+                       texture: np.ndarray | None = None, only: Sequence[str] | None = None) -> np.ndarray:
     """Software-rasterise the blocky mannequin (torso, two arms, two legs, a head box) with the template mapped through
     the same face frames the JSON defines (orthographic camera, z-buffer, back faces culled).
 
-    ``texture`` overrides the shirt/pants composite (the numbered-edge and letter goldens use it). Returns RGBA uint8
+    ``texture`` overrides the shirt/pants composite (the numbered-edge and letter goldens use it). ``only`` limits the figure to
+    some of ``torso, rarm, larm, rleg, lleg, head`` (the orientation goldens render the torso alone). Returns RGBA uint8
     of ``size`` = (width, height). Character faces +Z; ``yaw_deg`` > 0 turns the character's left side to the camera."""
     ss = max(1, int(supersample))
     W, H = size[0] * ss, size[1] * ss
@@ -840,9 +842,11 @@ def render_box_preview(shirt: np.ndarray | None = None, pants: np.ndarray | None
         tex_torso = composite_clothing(shirt, pants, skin)
         tex_arms = composite_clothing(shirt, None, skin)
         tex_legs = composite_clothing(None, pants, skin)
-    for part, centre, t in _MANNEQUIN:
+    for (part, part_centre, t), name in zip(_MANNEQUIN, _MANNEQUIN_NAMES):
+        if only is not None and name not in only:
+            continue
         dims = np.array(PART_DIMS_PX[part], dtype=float)
-        ctr = np.array(centre, dtype=float)
+        ctr = np.array(part_centre, dtype=float)
         for region in PARTS[part]:
             fr = region_frame(region)
             n, r, d = (np.array(v, dtype=float) for v in fr)
@@ -854,7 +858,7 @@ def render_box_preview(shirt: np.ndarray | None = None, pants: np.ndarray | None
             draw_face(origin, r, d, wf, hf, tex_sampler(region, {"torso": tex_torso, "arm": tex_arms, "leg": tex_legs}[t]))
     hc, hd = np.array(_HEAD_BOX[0]), np.array(_HEAD_BOX[1])
     hcol = head if head is not None else skin
-    for fname, fr in FRAMES.items():
+    for fname, fr in (FRAMES.items() if (only is None or "head" in only) else ()):
         n, r, d = (np.array(v, dtype=float) for v in fr)
         if (rot @ n) @ view <= 1e-9:
             continue

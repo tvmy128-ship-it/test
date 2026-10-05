@@ -71,8 +71,11 @@ def referenced_shas(rt: Runtime, *, step_cutoff_iso: str) -> set[str]:
     conn = rt.db.conn()
     refs: set[str] = set()
     for table in _JSON_TABLES:
-        for row in conn.execute(f"SELECT json FROM {table}"):   # noqa: S608 - fixed table names
+        for row in conn.execute(f"SELECT json FROM {table}"):
             refs |= shas_in(row[0])
+    for table, column in (("registry_face", "asset_sha"), ("registry_print", "asset_sha"), ("inbox", "sha256")):
+        for row in conn.execute(f"SELECT {column} FROM {table} WHERE {column} IS NOT NULL"):
+            refs.add(row[0])
     for row in conn.execute(
             f"SELECT asset_sha FROM asset_links WHERE status IN ({','.join('?' for _ in PROTECTED_LINK_STATUSES)})",
             PROTECTED_LINK_STATUSES):

@@ -61,6 +61,10 @@ def register_job_factory(kind: JobKind | str, fn: JobFactory) -> None:
     _factories[JobKind(kind).value] = fn
 
 
+def has_job_factory(kind: JobKind | str) -> bool:
+    return JobKind(kind).value in _factories
+
+
 def poll_delay_s(polls: int) -> float:
     """5 s before the first poll, then 3 s growing x1.4 up to 15 s (§8.3)."""
     if polls <= 0:
@@ -93,7 +97,7 @@ class WorkerPool:
                 return
             try:
                 item()
-            except Exception:   # noqa: BLE001
+            except Exception:
                 log.exception("worker crashed in pool %s", self.name)
             finally:
                 with self._lock:
@@ -106,6 +110,15 @@ class WorkerPool:
 
     def has_capacity(self) -> bool:
         return not self._closed and self.inflight < self.size
+
+    def wait_idle(self, timeout: float) -> bool:
+        """Wait until no work item is running or queued. Returns False on timeout."""
+        deadline = time.monotonic() + timeout
+        while self.inflight > 0:
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.01)
+        return True
 
     def submit(self, fn: Callable[[], None]) -> None:
         with self._lock:
@@ -131,8 +144,8 @@ class Scheduler:
         self.rt = rt
         self.tick_interval_s = tick_interval_s
         cpu = cpu_threads if cpu_threads is not None else max(1, min(4, (os.cpu_count() or 2) - 1))
-        self.pools: dict[str, WorkerPool] = {"api": WorkerPool("api", api_threads), "cpu": WorkerPool("cpu", cpu),
-                                             "proc": WorkerPool("proc", proc_threads)}
+        self._sizes = {"api": api_threads, "cpu": cpu, "proc": proc_threads}
+        self.pools: dict[str, WorkerPool] = self._make_pools()
         self.stopping = False
         self._wake = threading.Condition()
         self._thread: threading.Thread | None = None
@@ -147,9 +160,14 @@ class Scheduler:
         self.claimed_total = 0
 
     # ------------------------------------------------------------------------------------------------ lifecycle
+    def _make_pools(self) -> dict[str, WorkerPool]:
+        return {name: WorkerPool(name, size) for name, size in self._sizes.items()}
+
     def start(self) -> None:
         if self._thread is not None and self._thread.is_alive():
             return
+        if any(pool._closed for pool in self.pools.values()):   # restarted after stop()
+            self.pools = self._make_pools()
         self.stopping = False
         self._thread = threading.Thread(target=self._loop, name="duoskin-scheduler", daemon=True)
         self._thread.start()
@@ -166,6 +184,9 @@ class Scheduler:
         if t is not None and t is not threading.current_thread():
             t.join(timeout=timeout)
         self._thread = None
+        deadline = time.monotonic() + max(timeout, 0.0)
+        for pool in self.pools.values():
+            pool.wait_idle(max(deadline - time.monotonic(), 0.0))   # cancelled steps usually finish within milliseconds
         for pool in self.pools.values():
             pool.shutdown()
         if self._awake:
@@ -184,7 +205,7 @@ class Scheduler:
         while not self.stopping:
             try:
                 self.tick()
-            except Exception:   # noqa: BLE001 - the scheduler must outlive any single failure
+            except Exception:
                 log.exception("scheduler tick failed")
             with self._wake:
                 if self.stopping:
@@ -239,11 +260,10 @@ class Scheduler:
             prov = handler.provider
             if prov is None:
                 continue
-            if prov in self.paused_providers:
-                excluded.append(kind)
-            elif inflight.get(prov, 0) >= settings.providers.concurrency_for(prov):
-                excluded.append(kind)
-            elif handler.paid and blocked_reason and settings.mode_of(prov).value == "real":
+            paused = prov in self.paused_providers
+            saturated = inflight.get(prov, 0) >= settings.providers.concurrency_for(prov)
+            held_back = bool(handler.paid and blocked_reason and settings.mode_of(prov).value == "real")
+            if paused or saturated or held_back:
                 excluded.append(kind)
         return excluded
 
@@ -283,7 +303,7 @@ class Scheduler:
         def run() -> None:
             try:
                 self._execute(step, polling)
-            except Exception:   # noqa: BLE001
+            except Exception:
                 log.exception("step %s crashed the worker", step.id)
             finally:
                 with self._lock:
@@ -326,15 +346,15 @@ class Scheduler:
                     step = self._store_key(step, key)
                 if handler.paid:
                     est = float(handler.estimate(params))
-                    check = rt.budget.check(step.project_id, est, budget_ok=step.budget_ok, provider=handler.provider)
+                    check, _reservation = rt.budget.check_and_reserve(
+                        step.project_id, Estimate(usd=est, provider=handler.provider or "mock", operation="reserve"),   # type: ignore[arg-type]
+                        step_id=step.id, attempt=step.attempt, budget_ok=step.budget_ok)
                     if not check.ok:
                         self._open_budget_gate(step, est, check)
                         return
-                    rt.budget.reserve(step.project_id, Estimate(usd=est, provider=handler.provider or "mock",   # type: ignore[arg-type]
-                                                                operation="reserve"), step_id=step.id, attempt=step.attempt)
                 out = handler.run(ctx, params, inputs)
             self._finish(step, handler, ctx, out, key, polling)
-        except BaseException as exc:   # noqa: BLE001 - everything a handler raises is classified below
+        except BaseException as exc:
             if isinstance(exc, (KeyboardInterrupt, SystemExit)):
                 raise
             self._handle_exception(step, handler, ctx, exc)
@@ -482,7 +502,7 @@ class Scheduler:
                         self.pause_queue(f"{provider or 'a provider'} reported a billing problem")
                     if decision.pause_provider:
                         self.pause_provider(decision.pause_provider, err.user_hint or "the key was rejected")
-        except Exception:   # noqa: BLE001 - the step stays RUNNING; recovery handles it
+        except Exception:
             log.exception("could not record the outcome of step %s", step.id)
         self.notify()
 

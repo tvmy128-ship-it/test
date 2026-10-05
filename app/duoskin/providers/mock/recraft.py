@@ -63,12 +63,12 @@ def make_svg(w: int, h: int, bg: tuple[int, int, int], colors: list[tuple[int, i
     cx, cy = w / 2, h / 2
     r = min(w, h) * 0.28
     c = [colors[i % len(colors)] for i in range(4)]
-    j = lambda v: round(v * rng.uniform(0.9, 1.1), 1)  # noqa: E731 - tiny local jitter helper
+    j = lambda v: round(v * rng.uniform(0.9, 1.1), 1)
     parts = [
         f'<rect x="0" y="0" width="{w}" height="{h}" fill="{_hex(bg)}"/>',
         f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" rx="{j(r * 1.25)}" ry="{j(r)}" fill="{_hex(c[0])}"/>',
-        f'<path d="M {cx - r:.1f} {cy:.1f} C {cx - r:.1f} {cy - j(r * 1.1)} {cx + r:.1f} {cy - j(r * 1.1)} {cx + r:.1f} {cy:.1f} '
-        f'C {cx + r:.1f} {cy + j(r * 0.5)} {cx - r:.1f} {cy + j(r * 0.5)} {cx - r:.1f} {cy:.1f} Z" fill="{_hex(c[1])}"/>',
+        (f'<path d="M {cx - r:.1f} {cy:.1f} C {cx - r:.1f} {cy - j(r * 1.1)} {cx + r:.1f} {cy - j(r * 1.1)} {cx + r:.1f} {cy:.1f} '
+         f'C {cx + r:.1f} {cy + j(r * 0.5)} {cx - r:.1f} {cy + j(r * 0.5)} {cx - r:.1f} {cy:.1f} Z" fill="{_hex(c[1])}"/>'),
         f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{j(r * 0.45)}" fill="{_hex(c[2])}"/>',
         f'<polygon points="{cx:.1f},{cy - r * 0.2:.1f} {cx + r * 0.2:.1f},{cy + r * 0.2:.1f} {cx - r * 0.2:.1f},{cy + r * 0.2:.1f}" fill="{_hex(c[3])}"/>',
         f'<rect x="{cx - r * 0.5:.1f}" y="{cy + r * 0.7:.1f}" width="{r:.1f}" height="{r * 0.18:.1f}" rx="{r * 0.09:.1f}" fill="{_hex(c[2])}"/>',

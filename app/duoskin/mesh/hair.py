@@ -69,8 +69,8 @@ def bbox_from_guide_mask(mask: np.ndarray, *, px_per_stud: float = GUIDE_PX_PER_
     if len(ys) == 0:
         raise MeshError("empty_mask", "the hair-only mask is empty")
     x0, x1 = (xs.min() - head_cx_px) / px_per_stud, (xs.max() + 1 - head_cx_px) / px_per_stud
-    top = (head_top_px - ys.min()) / px_per_stud - head_studs / 2          # above the head centre
-    bottom = (head_top_px - (ys.max() + 1)) / px_per_stud - head_studs / 2
+    top = (head_top_px - ys.min()) / px_per_stud + head_studs / 2          # above the head centre (the head top is half a head up)
+    bottom = (head_top_px - (ys.max() + 1)) / px_per_stud + head_studs / 2
     return (float(x0), float(bottom), 0.0), (float(x1), float(top), 0.0)
 
 
@@ -143,7 +143,7 @@ def find_head_cube(mesh: MeshData, opts: HairRegisterOptions) -> dict[str, Any] 
     y_bottom = float(pts[:, 1].min())
     lo = np.array([cx - width / 2, y_bottom, z_front - width])
     hi = np.array([cx + width / 2, y_bottom + width, z_front])
-    return {"lo": lo, "hi": hi, "width": width, "grey_faces": int(len(cl)), "grey_area_frac": best_area / total, "front_faces": int(len(front))}
+    return {"lo": lo, "hi": hi, "width": width, "grey_faces": len(cl), "grey_area_frac": best_area / total, "front_faces": len(front)}
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -269,6 +269,26 @@ def guide_texel_share(mesh: MeshData, guide_rgb: tuple[tuple[int, int, int], ...
     return float((g & cov).sum() / cov.sum())
 
 
+def guide_surface_share(mesh: MeshData, guide_rgb: tuple[tuple[int, int, int], ...], tol_de: float, samples: int = 4000) -> float:
+    """Share of the SURFACE (area weighted samples, UV interpolated) whose texel is guide-coloured. Unlike the texel share it also
+    sees meshes whose UV triangles are degenerate."""
+    tex = _texture_rgb(mesh)
+    if tex is None or mesh.uv is None or mesh.n_tris == 0:
+        return 0.0
+    rng = np.random.default_rng(23)
+    _, area = geo.face_normals_areas(mesh.vertices, mesh.faces)
+    if area.sum() <= 0:
+        return 0.0
+    idx = rng.choice(mesh.n_tris, size=samples, p=area / area.sum())
+    r1, r2 = rng.random(samples), rng.random(samples)
+    s_ = np.sqrt(r1)
+    b = np.stack([1 - s_, s_ * (1 - r2), s_ * r2], axis=1)
+    uv = np.einsum("sk,skj->sj", b, mesh.uv[mesh.faces[idx]])
+    h, w = tex.shape[:2]
+    texmask = guide_mask_texels(tex, guide_rgb, tol_de)
+    return float(texmask[np.clip((uv[:, 1] * h).astype(int), 0, h - 1), np.clip((uv[:, 0] * w).astype(int), 0, w - 1)].mean())
+
+
 def front_face_visibility(mesh: MeshData, mannequin: avatar.Mannequin, attachment: str, size: int = 256) -> float:
     """Share of the head's front face still visible (not covered by hair) in the front render (ID pass)."""
     head = mannequin.head
@@ -285,13 +305,14 @@ def front_face_visibility(mesh: MeshData, mannequin: avatar.Mannequin, attachmen
 
 def check_registered(mesh: MeshData, meta: dict[str, Any], *, approved_views: dict[str, Any] | None = None,
                      mannequin: avatar.Mannequin | None = None) -> list[CheckResult]:
-    """CHK-M21 (HARD): guide-colour texel share <= 0.5% and >= 80% of the head's front face visible in the front render."""
+    """CHK-M21 (HARD): guide-colour share <= 0.5% (the larger of the UV texel share and the surface-sample share) and >= 80% of the
+    head's front face visible in the front render."""
     fm = ["HAIR-12", "HAIR-02"]
     try:
         mq = mannequin or avatar.default_mannequin()
         guide = tuple(tuple(g) for g in meta.get("guide_rgb", [GUIDE_GREY])) or (GUIDE_GREY,)
         tol = float(meta.get("guide_tol_de", 14.0))
-        share = guide_texel_share(mesh, guide, tol)
+        share = max(guide_texel_share(mesh, guide, tol), guide_surface_share(mesh, guide, tol))
         att = meta.get("attachment") or mesh.meta.get("attachment") or "HairAttachment"
         vis = front_face_visibility(mesh, mq, att)
         s_max, v_min = float(limits.threshold("hair.guide_texel_share_max")), float(limits.threshold("hair.front_face_visible_min"))

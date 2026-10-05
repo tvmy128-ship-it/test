@@ -33,9 +33,11 @@ CREATE TABLE gates       (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, job_id 
 CREATE TABLE decisions   (id TEXT PRIMARY KEY, gate_id TEXT NOT NULL REFERENCES gates(id), tile_id TEXT NOT NULL,
                           action TEXT NOT NULL, client_decision_id TEXT NOT NULL UNIQUE, json TEXT NOT NULL,
                           decided_at TEXT NOT NULL) STRICT;
-CREATE TABLE approvals   (project_id TEXT NOT NULL, part_id TEXT NOT NULL, approval_hash TEXT NOT NULL,
+CREATE TABLE approvals   (project_id TEXT NOT NULL, part_id TEXT NOT NULL,
+                          stamp TEXT NOT NULL CHECK (stamp IN ('approval', 'build')),     -- two stamps (APP_SPEC 9.7)
+                          stamp_hash TEXT NOT NULL,
                           decision_id TEXT NOT NULL, valid INTEGER NOT NULL, json TEXT NOT NULL, created_at TEXT NOT NULL,
-                          PRIMARY KEY (project_id, part_id, approval_hash)) STRICT;
+                          PRIMARY KEY (project_id, part_id, stamp, stamp_hash)) STRICT;
 CREATE TABLE changes     (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, status TEXT NOT NULL, json TEXT NOT NULL,
                           created_at TEXT NOT NULL) STRICT;
 CREATE TABLE cost_ledger (id TEXT PRIMARY KEY, project_id TEXT, step_id TEXT, attempt INTEGER NOT NULL DEFAULT 0,
@@ -44,10 +46,10 @@ CREATE TABLE cost_ledger (id TEXT PRIMARY KEY, project_id TEXT, step_id TEXT, at
 CREATE UNIQUE INDEX cost_once ON cost_ledger(step_id, attempt, operation) WHERE step_id IS NOT NULL;   -- ENG-03
 CREATE TABLE events      (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, project_id TEXT, type TEXT NOT NULL,
                           payload TEXT NOT NULL) STRICT;
-CREATE TABLE registry_face  (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, asset_sha TEXT NOT NULL, pixel_sha TEXT NOT NULL,
+CREATE TABLE registry_face  (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, part_role TEXT NOT NULL, asset_sha TEXT NOT NULL, pixel_sha TEXT NOT NULL,
                              phash TEXT NOT NULL, embedding BLOB, json TEXT NOT NULL, duo_seq INTEGER NOT NULL,
                              listed INTEGER NOT NULL DEFAULT 0, registered_at TEXT NOT NULL) STRICT;
-CREATE TABLE registry_print (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, asset_sha TEXT NOT NULL, pixel_sha TEXT NOT NULL,
+CREATE TABLE registry_print (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, part_role TEXT NOT NULL, asset_sha TEXT NOT NULL, pixel_sha TEXT NOT NULL,
                              phash TEXT NOT NULL, embedding BLOB, json TEXT NOT NULL, duo_seq INTEGER NOT NULL,
                              listed INTEGER NOT NULL DEFAULT 0, registered_at TEXT NOT NULL) STRICT;
 CREATE TABLE duo_memory  (project_id TEXT PRIMARY KEY, embedding BLOB, json TEXT NOT NULL, approved_at TEXT NOT NULL) STRICT;

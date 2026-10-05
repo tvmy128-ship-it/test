@@ -54,7 +54,7 @@ class OcrResult:
 
     @property
     def found_text(self) -> bool:
-        return bool(self.boxes) or (self.glyph_score is not None and self.glyph_score >= float(TH.get("img.glyph_score_max")))
+        return bool(self.boxes) or (self.glyph_score is not None and self.glyph_score >= float(TH.get("ocr.glyph_score_max")))
 
 
 # ------------------------------------------------------------------ engine management
@@ -196,7 +196,7 @@ def detect_text(im: Image.Image, *, engine: Literal["auto", "rapidocr", "glyph"]
         rep = G.glyph_score(im)
     except Exception as e:
         raise CheckUnavailable(f"neither OCR nor the glyph detector could run: {type(e).__name__}: {e}") from e
-    boxes = [TextBox(*b, text="", score=rep.score) for b in rep.boxes()] if rep.score >= float(TH.get("img.glyph_score_max")) else []
+    boxes = [TextBox(*b, text="", score=rep.score) for b in rep.boxes()] if rep.score >= float(TH.get("ocr.glyph_score_max")) else []
     return OcrResult("glyph_fallback", boxes=boxes, degraded=True, glyph_score=rep.score, note=note + "using the glyph-shape detector")
 
 

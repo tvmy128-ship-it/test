@@ -41,7 +41,7 @@ class Heartbeat:
         while not self._stop.wait(self.interval_s):
             try:
                 self.beat()
-            except Exception:   # noqa: BLE001 - a failed beat must not kill the thread; the next one retries
+            except Exception:
                 log.exception("heartbeat failed")
 
     def stop(self) -> None:

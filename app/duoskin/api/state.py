@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from duoskin import __version__
-from duoskin.api import get_rt
+from duoskin.api import RT
 from duoskin.engine.runtime import Runtime
 from duoskin.models.job import TERMINAL_JOB_STATES, JobView
 from duoskin.models.project import ProjectSummary
@@ -34,7 +34,7 @@ def job_view(rt: Runtime, job_id: str, *, with_steps: bool = False) -> JobView:
 
 
 @router.get("/state")
-def state(rt: Runtime = Depends(get_rt)) -> dict[str, Any]:
+def state(rt: Runtime = RT) -> dict[str, Any]:
     max_event_id = rt.bus.max_event_id()
     jobs = [job_view(rt, j.id) for j in rt.repo.list_jobs(limit=60)]
     active = [j for j in jobs if j.job.state not in TERMINAL_JOB_STATES]

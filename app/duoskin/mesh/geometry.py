@@ -111,7 +111,7 @@ def topology_stats(f: np.ndarray) -> dict[str, int | bool]:
         consistent = bool(np.all((fwd[two] == 1) & (bwd[two] == 1)))
         if nonman:
             consistent = False
-    return {"edges": int(len(edges)), "boundary_edges": boundary, "nonmanifold_edges": nonman,
+    return {"edges": len(edges), "boundary_edges": boundary, "nonmanifold_edges": nonman,
             "winding_consistent": consistent, "watertight": bool(boundary == 0 and nonman == 0 and len(f) > 0)}
 
 
@@ -125,7 +125,7 @@ def shell_labels(f: np.ndarray, n_vertices: int) -> tuple[np.ndarray, int]:
     _, vl = csgraph.connected_components(g, directed=False)
     fl = vl[f[:, 0]]
     uniq, inv = np.unique(fl, return_inverse=True)
-    return inv.astype(np.int64), int(len(uniq))
+    return inv.astype(np.int64), len(uniq)
 
 
 def shell_info(v: np.ndarray, f: np.ndarray, labels: np.ndarray, count: int) -> list[dict]:
@@ -137,7 +137,7 @@ def shell_info(v: np.ndarray, f: np.ndarray, labels: np.ndarray, count: int) -> 
         st = topology_stats(sub)
         pts = v[np.unique(sub)]
         out.append({
-            "label": k, "faces": idx, "n_faces": int(len(idx)), "area": surface_area(v, sub),
+            "label": k, "faces": idx, "n_faces": len(idx), "area": surface_area(v, sub),
             "closed": bool(st["watertight"]), "bbox": np.stack([pts.min(axis=0), pts.max(axis=0)]),
             "volume": signed_volume(v, sub),
         })
@@ -198,7 +198,7 @@ def ray_nearest(origins: np.ndarray, dirs: np.ndarray, v: np.ndarray, f: np.ndar
 
 def sample_surface(v: np.ndarray, f: np.ndarray, count: int, seed: int = 0) -> tuple[np.ndarray, np.ndarray]:
     """Deterministic area-weighted surface samples: ``(points, face index)``."""
-    normals, areas = face_normals_areas(v, f)
+    _normals, areas = face_normals_areas(v, f)
     total = areas.sum()
     if len(f) == 0 or total <= 0:
         return np.zeros((0, 3)), np.zeros(0, np.int64)
@@ -273,7 +273,7 @@ def fix_winding(f: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     flipped = np.zeros(m, bool)
     if m == 0:
         return f.copy(), flipped
-    edges, counts, inverse = edge_table(f)
+    _edges, counts, inverse = edge_table(f)
     he_face = np.repeat(np.arange(m), 3)
     he = np.stack([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]], axis=1).reshape(-1, 2)
     forward = he[:, 0] < he[:, 1]

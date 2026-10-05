@@ -5,10 +5,10 @@ import logging
 import threading
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from duoskin.api import get_rt
+from duoskin.api import RT
 from duoskin.api.doctor_checks import run_doctor
 from duoskin.engine.diagnostics import export_diagnostics
 from duoskin.engine.runtime import Runtime
@@ -33,7 +33,7 @@ def run_in_background(rt: Runtime, *, quick: bool = False, setup: bool = False) 
             rt.bus.emit("doctor.result", {"summary": report["summary"], "exit_code": report["exit_code"],
                                           "blocks_paid_features": report["blocks_paid_features"]})
             rt.scheduler.notify()
-        except Exception:   # noqa: BLE001
+        except Exception:
             log.exception("doctor run failed")
         finally:
             rt.doctor_running = False
@@ -43,19 +43,19 @@ def run_in_background(rt: Runtime, *, quick: bool = False, setup: bool = False) 
 
 
 @router.get("/doctor")
-def get_doctor(rt: Runtime = Depends(get_rt)) -> dict[str, Any]:
+def get_doctor(rt: Runtime = RT) -> dict[str, Any]:
     if rt.doctor_report is None:
         return {"ran": False, "running": rt.doctor_running}
     return {"ran": True, "running": rt.doctor_running, **rt.doctor_report}
 
 
 @router.post("/doctor/run", status_code=202)
-def run_doctor_route(quick: bool = Query(False), rt: Runtime = Depends(get_rt)) -> JSONResponse:
+def run_doctor_route(quick: bool = False, rt: Runtime = RT) -> JSONResponse:
     started = run_in_background(rt, quick=quick)
     return JSONResponse({"started": started, "running": True}, status_code=202)
 
 
 @router.post("/diagnostics")
-def diagnostics(rt: Runtime = Depends(get_rt)) -> dict[str, str]:
+def diagnostics(rt: Runtime = RT) -> dict[str, str]:
     """Build the redacted diagnostics zip under ``EXPORTS\\Diagnostics`` and return its path."""
     return {"path": str(export_diagnostics(rt))}

@@ -30,6 +30,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from duoskin import __version__, config, security, winplat
 from duoskin.api import include_routers
@@ -48,7 +49,7 @@ def _jsonable(obj: Any) -> Any:
 
     try:
         return jsonable_encoder(obj)
-    except Exception:   # noqa: BLE001
+    except Exception:  # noqa: BLE001
         return None
 
 
@@ -63,14 +64,14 @@ def load_plugins(rt: Runtime) -> list[str]:
                 continue
             log.exception("plug-in %s failed to import", name)
             continue
-        except Exception:   # noqa: BLE001 - a half-built plug-in must not stop the app from starting
+        except Exception:
             log.exception("plug-in %s failed to import", name)
             continue
         hook = getattr(module, "register", None)
         if callable(hook):
             try:
                 hook(rt)
-            except Exception:   # noqa: BLE001
+            except Exception:
                 log.exception("plug-in %s register() failed", name)
                 continue
         loaded.append(name)
@@ -88,7 +89,7 @@ def create_app(home: Path | str | None = None, providers_mode: str | None = None
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         rt.shutting_down = False
-        rt.db._closed = False   # noqa: SLF001 - the app may be started again after a stop (tests)
+        rt.db._closed = False
         rt.startup(recover=recover, start_threads=start_threads, backup=backup)
         if run_doctor_on_start:
             from duoskin.api.doctor import run_in_background
@@ -147,6 +148,13 @@ def _install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(GateError)
     async def _gate_error(_request: Request, exc: GateError) -> JSONResponse:
         return JSONResponse({"error": exc.code, "message": str(exc)}, status_code=exc.status)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        """One error shape everywhere: ``{"error": code, "message": text}`` (routes raise ``HTTPException(detail={...})``)."""
+        detail = exc.detail
+        body = detail if isinstance(detail, dict) and "error" in detail else {"error": f"http_{exc.status_code}", "message": str(detail)}
+        return JSONResponse(body, status_code=exc.status_code, headers=getattr(exc, "headers", None))
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_request: Request, exc: RequestValidationError) -> JSONResponse:

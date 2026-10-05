@@ -5,7 +5,7 @@ import base64
 import json
 
 import pytest
-from prov_helpers import Spy, json_response, noop_sleep, png_bytes
+from prov_helpers import FakeClock, Spy, json_response, noop_sleep, png_bytes
 
 from duoskin.providers import gemini as G
 from duoskin.providers._http import httpx
@@ -19,7 +19,8 @@ JPEG_MAGIC = b"\xff\xd8\xff\xe0" + b"\x00" * 20
 
 
 def provider(spy: Spy, **kw) -> G.GeminiProvider:
-    kw.setdefault("limiter", RateLimiter(concurrent=2))
+    ft = FakeClock()
+    kw.setdefault("limiter", RateLimiter(concurrent=2, clock=ft.now, sleep=ft.sleep))
     kw.setdefault("sleep", noop_sleep)
     return G.GeminiProvider("AIzaSyTESTKEY0000000000000000000", transport=spy.transport, **kw)
 
@@ -264,3 +265,12 @@ def test_fal_is_a_stub():
             call()
         assert ei.value.code == "not_implemented" and ei.value.billed == "no"
     assert FalProvider().status()["key_stored"] is False
+
+
+def test_test_key_gets_the_model_for_free():
+    spy = Spy(json_response({"name": "models/gemini-3.8-flash"}))
+    r = provider(spy).test_key()
+    assert r["ok"] is True and spy.requests[0].method == "GET" and str(spy.requests[0].url).endswith("/v1beta/models/gemini-3.8-flash")
+    bad = provider(Spy(gerr(400, "API key not valid", "INVALID_ARGUMENT"))).test_key()
+    assert bad["ok"] is False and bad["kind"] == "auth"
+    assert provider(Spy(httpx.ReadTimeout("t"))).test_key()["kind"] == "timeout"

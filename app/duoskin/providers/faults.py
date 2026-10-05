@@ -33,8 +33,8 @@ ENV_VAR = "DUOSKIN_MOCK_FAULTS"
 
 # Faults that raise an error (the mock raises ``raise_for(...)``) ...
 ERROR_FAULTS: dict[str, frozenset[str]] = {
-    "anthropic": frozenset({"refusal", "truncated", "context_exceeded", "rate_limit", "429", "overloaded", "529", "auth", "401", "billing", "402",
-                            "schema_too_complex", "timeout", "server", "500"}),
+    "anthropic": frozenset({"rate_limit", "429", "overloaded", "529", "auth", "401", "billing", "402", "schema_too_complex", "timeout",
+                            "server", "500"}),
     "openai": frozenset({"moderation_blocked", "timeout", "rate_limit", "429", "billing", "insufficient_quota", "org_unverified", "permission", "403",
                          "unknown_parameter", "server", "500", "auth", "401", "network"}),
     "recraft": frozenset({"429", "rate_limit", "500", "server", "401", "auth", "402", "billing", "moderation", "style_required", "timeout"}),
@@ -43,7 +43,9 @@ ERROR_FAULTS: dict[str, frozenset[str]] = {
 }
 # ... and faults that change what the mock returns or does.
 BEHAVIOUR_FAULTS: dict[str, frozenset[str]] = {
-    "anthropic": frozenset({"schema_invalid", "validation", "no_text", "fail_rule"}),
+    # refusal / truncated / context_exceeded change the stop_reason, so the mock runs them through the real ``finish_call`` (the
+    # error then carries the call's cost, as the real one does).
+    "anthropic": frozenset({"refusal", "truncated", "context_exceeded", "schema_invalid", "validation", "no_text", "fail_rule"}),
     "openai": frozenset({"size_drift", "usage_none", "opaque_alpha"}),
     "recraft": frozenset({"hostile_svg", "png_instead_of_svg"}),
     "tripo": frozenset({"read_timeout_after_send", "task_failed", "moderation", "queue_expired", "slow"}),
@@ -177,13 +179,7 @@ def raise_for(provider: str, fault: str, *, tag: str = "", request_id: str | Non
     """Raise the ``ProviderError`` for an error fault; return ``None`` for a behavioural fault (the mock acts on it)."""
     rid = request_id or f"mock-{provider}-fault"
     if provider == "anthropic":
-        from duoskin.providers import anthropic_llm as A
-        if fault == "refusal":
-            raise A.refusal_error({"category": "mock_refusal", "explanation": "injected fault"}, rid)
-        if fault == "truncated":
-            raise A.truncated_error("max_tokens", rid)
-        if fault == "context_exceeded":
-            raise A.truncated_error("model_context_window_exceeded", rid)
+        # refusal / truncated / context_exceeded are behaviours: the mock runs them through ``finish_call`` (error + cost).
         if fault in ("rate_limit", "429"):
             raise _http_error(provider, 429, "injected rate limit", retry_after=2.0, request_id=rid)
         if fault in ("overloaded", "529"):

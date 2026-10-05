@@ -85,7 +85,7 @@ class EventBus:
         self._progress_last: dict[str, float] = {}
 
     # ------------------------------------------------------------------------------------------------ emit
-    def emit(self, type: str, payload: dict[str, Any] | None = None, project_id: str | None = None) -> int:   # noqa: A002
+    def emit(self, type: str, payload: dict[str, Any] | None = None, project_id: str | None = None) -> int:
         """Insert the event and push it to subscribers after commit. Returns the event id."""
         if type not in EVENT_TYPES:
             raise ValueError(f"unknown event type '{type}'")

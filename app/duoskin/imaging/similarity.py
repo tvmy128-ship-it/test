@@ -12,7 +12,7 @@ row of the same kind (forever), or - for the assembled ``face_canvas`` and the w
 from __future__ import annotations
 
 import importlib.util
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -24,6 +24,7 @@ from PIL import Image
 from duoskin.checks import thresholds as TH
 from duoskin.checks.model import CheckResult
 from duoskin.checks.runner import CheckUnavailable, build_result, fail_closed
+from duoskin.imaging import checks as C
 from duoskin.imaging import files as F
 from duoskin.imaging import palette as P
 
@@ -37,20 +38,27 @@ def _flat_rgb(im: Image.Image, crop_to_subject: bool = False) -> Image.Image:
     rgba = im.convert("RGBA")
     if crop_to_subject:
         a = np.asarray(rgba)[..., 3]
-        ys, xs = np.nonzero(a >= 128)
+        ys, xs = np.nonzero(C.visible(a))
         if len(ys):
             rgba = rgba.crop((int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1))
     return F.flatten(rgba, (255, 255, 255))
 
 
+def _bits_to_int(h: imagehash.ImageHash) -> int:
+    value = 0
+    for bit in h.hash.flatten():
+        value = (value << 1) | int(bit)
+    return value
+
+
 def phash(im: Image.Image, *, crop_to_subject: bool = False) -> int:
     """64-bit perceptual hash (DCT) of the image composited on white, as an int."""
-    return int(str(imagehash.phash(_flat_rgb(im, crop_to_subject), hash_size=8)), 16)
+    return _bits_to_int(imagehash.phash(_flat_rgb(im, crop_to_subject), hash_size=int(TH.get("sim.hash_size"))))
 
 
 def dhash(im: Image.Image, *, crop_to_subject: bool = False) -> int:
     """64-bit difference hash as an int."""
-    return int(str(imagehash.dhash(_flat_rgb(im, crop_to_subject), hash_size=8)), 16)
+    return _bits_to_int(imagehash.dhash(_flat_rgb(im, crop_to_subject), hash_size=int(TH.get("sim.hash_size"))))
 
 
 def hamming(a: int, b: int) -> int:
@@ -73,8 +81,6 @@ class DreamSimModel:
     one embedding output; the distance is ``1 - cosine``). The input is ``(1, 3, 224, 224)`` float32 in ``[0, 1]``.
     The export itself is made once off the user's PC (FAILURE_MODES X19); ``verify_fixture`` is the CHK-S14 probe.
     """
-
-    SIZE = 224
 
     def __init__(self, session: Any):
         self._s = session
@@ -99,7 +105,8 @@ class DreamSimModel:
         return cls(sess)
 
     def _prep(self, im: Image.Image) -> np.ndarray:
-        rgb = _flat_rgb(im).resize((self.SIZE, self.SIZE), Image.Resampling.BICUBIC)
+        side = int(TH.get("sim.dreamsim_input_px"))
+        rgb = _flat_rgb(im).resize((side, side), Image.Resampling.BICUBIC)
         return (np.asarray(rgb, dtype=np.float32) / 255.0).transpose(2, 0, 1)[None, ...]
 
     def embed(self, im: Image.Image) -> np.ndarray:
@@ -221,7 +228,10 @@ def registry_check(kind: str, candidate: Image.Image, rows: Iterable[RegistryRow
     """
     if rows is None:
         return fail_closed("A_REGISTRY", "the registry rows were not provided", subject_sha)
-    hits, mode = find_registry_hits(kind, candidate, rows, current_duo_seq=current_duo_seq, window=window, model=model)
+    try:
+        hits, mode = find_registry_hits(kind, candidate, rows, current_duo_seq=current_duo_seq, window=window, model=model)
+    except CheckUnavailable as e:
+        return fail_closed("A_REGISTRY", f"unavailable: {e}", subject_sha)
     exact = [h for h in hits if h.reason == "exact"]
     near = [h for h in hits if h.reason == "near"]
     thr = (f"exact sha forever; near: phash <= {TH.get('face.registry_phash_max')} or dreamsim < {TH.get('face.registry_dreamsim_min')} "
@@ -287,7 +297,7 @@ def check_reference_leakage(outputs: Sequence[Image.Image], references: Mapping[
                 worst = (key, d_h, d_s)
     thr = f"phash > {ph_max} and dreamsim >= {ds_min} (img.styleref_*, DES); mode={mode}"
     if worst:
-        ev = f"output matches reference '{worst[0]}': phash distance {worst[1]}" + (f", dreamsim {worst[2]:.3f}" if worst[2] is not None else "")
+        ev = f"output matches reference '{worst[0]}': phash distance {worst[1]}" + (f", dreamsim {worst[2]:.3f}" if worst[2] is not None else "") + f"; mode={mode}"
         return build_result("A_REFLEAK", passed=False, subject_sha=subject_sha, metric="phash_distance", value=float(worst[1]), threshold=thr,
                             evidence=ev, fix_hint="regenerate")
     return build_result("A_REFLEAK", passed=True, subject_sha=subject_sha, metric="phash_distance", threshold=thr,
@@ -343,24 +353,26 @@ class CloneBandResult:
     label: str = ""                                       # "clone check degraded" when the degraded rules ran
 
 
-_STAGE_KEY = {"concept": "clone.concept_lower_edge", "gate2": "clone.gate2_lower_edge", "duo": "clone.lower_edge"}
+DEGRADED_METRICS = ("phash", "palette_overlap", "spec_distance")
+_STAGE_KEY = {"concept": "con.clone_proxy_dreamsim_min", "duo": "duo.dreamsim_clone_min"}
 
 
 def _palette_for(im: Image.Image, bg_hex: str | None) -> list[P.ColourCluster]:
-    return P.extract_palette(im, k=6, exclude_hex=[bg_hex] if bg_hex else (), merge_de=4.0)
+    return P.extract_palette(im, k=int(TH.get("sim.palette_k")), exclude_hex=[bg_hex] if bg_hex else (), merge_de=float(TH.get("sim.palette_merge_de")))
 
 
 def clone_band_metrics(a_views: Mapping[str, Image.Image], b_views: Mapping[str, Image.Image], *, model: DreamSimModel | None = None,
                        spec_distance_value: float | None = None, bg_hex: str | None = None,
-                       stage: Literal["concept", "gate2", "duo"] = "duo") -> CloneBandResult:
-    """Clone band lower edge between character A and B (HARD, FAILURE_MODES DUO-01), over the sides present in both view sets.
+                       stage: Literal["concept", "duo"] = "duo") -> CloneBandResult:
+    """Clone band between character A and B over the sides present in both view sets (FAILURE_MODES DUO-01, CON-09).
 
-    **DreamSim mode**: mean A-vs-B distance over the sides must be at least the stage's lower edge (``clone.lower_edge`` 0.30 for the
-    duo stage; ``clone.concept_lower_edge`` / ``clone.gate2_lower_edge`` earlier).
+    **DreamSim mode**: the mean A-vs-B distance over the sides must be at least the stage's edge: ``duo.dreamsim_clone_min`` (0.30,
+    **HARD** lower edge on the 4-side renders) at the duo stage, ``con.clone_proxy_dreamsim_min`` (a **SOFT** warning on the concept
+    figure crops) at the concept stage. There is no Gate 2 stage.
 
-    **Degraded mode** (no model): three metrics on the same views - (a) mean pHash Hamming distance per side <=
+    **Degraded mode** (no model, duo stage): three metrics on the same views - (a) mean pHash Hamming distance per side <=
     ``duo.degraded_phash_clone_max``, (b) palette overlap > ``duo.degraded_palette_overlap_max``, (c) spec distance <
-    ``duo.degraded_spec_dist_min``. The pair is a degraded clone, and the check fails, **only when all three trip**; one or two trips
+    ``duo.degraded_spec_dist_min``. The pair is a degraded clone, and the lower edge fails, **only when all three trip**; one or two trips
     are warnings. The result is always labelled ``clone check degraded``.
     """
     sides = [s for s in SIDES if s in a_views and s in b_views] or sorted(set(a_views) & set(b_views))
@@ -373,41 +385,49 @@ def clone_band_metrics(a_views: Mapping[str, Image.Image], b_views: Mapping[str,
         return CloneBandResult("dreamsim", mean >= edge, {"dreamsim_mean": mean, "lower_edge": edge}, per)
     ph = {s: float(hamming(phash(a_views[s], crop_to_subject=True), phash(b_views[s], crop_to_subject=True))) for s in sides}
     ph_mean = float(np.mean(list(ph.values())))
-    overlaps = [P.palette_overlap(_palette_for(a_views[s], bg_hex), _palette_for(b_views[s], bg_hex)) for s in sides]
+    overlap_de = float(TH.get("sim.palette_overlap_de"))
+    overlaps = [P.palette_overlap(_palette_for(a_views[s], bg_hex), _palette_for(b_views[s], bg_hex), overlap_de) for s in sides]
     ov = float(np.mean(overlaps))
     trips: list[str] = []
     if ph_mean <= float(TH.get("duo.degraded_phash_clone_max")):
-        trips.append("phash")
+        trips.append(DEGRADED_METRICS[0])
     if ov > float(TH.get("duo.degraded_palette_overlap_max")):
-        trips.append("palette_overlap")
+        trips.append(DEGRADED_METRICS[1])
     metrics = {"phash_mean": ph_mean, "palette_overlap": ov}
-    if spec_distance_value is not None:
-        metrics["spec_distance"] = float(spec_distance_value)
-        if spec_distance_value < float(TH.get("duo.degraded_spec_dist_min")):
-            trips.append("spec_distance")
-    else:
+    if spec_distance_value is None:
         raise CheckUnavailable("degraded clone check needs the A-vs-B spec distance")
-    clone = len(trips) == 3
+    metrics["spec_distance"] = float(spec_distance_value)
+    if spec_distance_value < float(TH.get("duo.degraded_spec_dist_min")):
+        trips.append(DEGRADED_METRICS[2])
+    clone = len(trips) == len(DEGRADED_METRICS)
     warns = [f"degraded clone metric tripped: {t}" for t in trips] if trips and not clone else []
     return CloneBandResult("degraded", not clone, metrics, ph, trips, warns, "clone check degraded")
 
 
+_STAGE_CHECK_ID = {"concept": "CHK-G1-11", "duo": "CHK-D02"}
+
+
 def check_clone_band(a_views: Mapping[str, Image.Image], b_views: Mapping[str, Image.Image], *, model: DreamSimModel | None = None,
                      spec_distance_value: float | None = None, bg_hex: str | None = None,
-                     stage: Literal["concept", "gate2", "duo"] = "duo", check_id: str = "A_CLONE", subject_sha: str = "") -> CheckResult:
-    """A_CLONE / CHK-D02 (HARD, class clone_lower_edge). The evidence carries the mode and its metrics; a degraded run is labelled."""
+                     stage: Literal["concept", "duo"] = "duo", check_id: str | None = None, subject_sha: str = "") -> CheckResult:
+    """The clone band as a ``CheckResult``: ``CHK-D02`` at the duo stage (HARD, class clone_lower_edge) and ``CHK-G1-11`` at the concept
+    stage (SOFT warning, only shown while DreamSim exists). The evidence carries the mode and its metrics; a degraded run is labelled
+    ``clone check degraded`` and may block only when all three metrics trip (APP_SPEC S33)."""
+    cid = check_id or _STAGE_CHECK_ID[stage]
+    if stage == "concept" and model is None:
+        return build_result(cid, passed=True, subject_sha=subject_sha, metric="dreamsim_present", evidence="not shown while DreamSim is absent")
     try:
         r = clone_band_metrics(a_views, b_views, model=model, spec_distance_value=spec_distance_value, bg_hex=bg_hex, stage=stage)
     except CheckUnavailable as e:
-        return fail_closed(check_id, str(e), subject_sha)
+        return fail_closed(cid, str(e), subject_sha)
     metrics = ", ".join(f"{k}={v:.3f}" for k, v in r.metrics.items())
     if r.mode == "dreamsim":
         edge = r.metrics["lower_edge"]
-        return build_result(check_id, passed=r.passed, subject_sha=subject_sha, metric="dreamsim_mean", value=r.metrics["dreamsim_mean"],
+        return build_result(cid, passed=r.passed, subject_sha=subject_sha, metric="dreamsim_mean", value=r.metrics["dreamsim_mean"],
                             threshold=f">= {edge} ({_STAGE_KEY[stage]}, DES)", evidence=f"mode=dreamsim; {metrics}", fix_hint="revise_plan")
     ev = f"mode=degraded ({r.label}); {metrics}; tripped: {','.join(r.trips) or 'none'}" + (f"; {'; '.join(r.warnings)}" if r.warnings else "")
-    return build_result(check_id, passed=r.passed, subject_sha=subject_sha, metric="degraded_trips", value=float(len(r.trips)),
-                        threshold="fails only when all 3 trip (duo.degraded_*, UNV)", evidence=ev, fix_hint="revise_plan")
+    return build_result(cid, passed=r.passed, subject_sha=subject_sha, metric="degraded_trips", value=float(len(r.trips)),
+                        threshold=f"fails only when all {len(DEGRADED_METRICS)} trip (duo.degraded_*, DES)", evidence=ev, fix_hint="revise_plan")
 
 
 # ------------------------------------------------------------------ cross-duo memory (DUO-10)
@@ -430,7 +450,7 @@ def memory_distance(a: Mapping[str, Any], b: Mapping[str, Any]) -> float | None:
     if a["mode"] == "dreamsim":
         return float(np.mean([DreamSimModel.cosine_distance(np.asarray(a["emb"][a["sides"].index(s)]), np.asarray(b["emb"][b["sides"].index(s)]))
                               for s in common]))
-    return float(np.mean([hamming(a["phash"][a["sides"].index(s)], b["phash"][b["sides"].index(s)]) / 64.0 for s in common]))
+    return float(np.mean([hamming(a["phash"][a["sides"].index(s)], b["phash"][b["sides"].index(s)]) / float(TH.get("sim.hash_bits")) for s in common]))
 
 
 def nearest_past(current: Mapping[str, Any], past: Iterable[tuple[str, Mapping[str, Any]]]) -> tuple[str, float] | None:
@@ -443,4 +463,3 @@ def nearest_past(current: Mapping[str, Any], past: Iterable[tuple[str, Mapping[s
     return best
 
 
-Distance = Callable[[Image.Image, Image.Image], float]

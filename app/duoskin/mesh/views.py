@@ -41,7 +41,7 @@ def load_view_image(src: Any) -> Image.Image:
 
 def mask_from_image(img: Image.Image, *, bg_de: float = 14.0) -> np.ndarray:
     """Foreground mask of an approved view: the alpha channel when it carries transparency, else everything that differs
-    from the border colour (views are flattened on #FFFFFF or #D9D9D9)."""
+    from the border colour (views are flattened on #FFFFFF or #D9D9D9); small enclosed background-coloured regions are filled."""
     rgba = np.asarray(img.convert("RGBA"))
     alpha = rgba[..., 3]
     if alpha.min() < 250 and (alpha < 250).mean() > 0.01:
@@ -51,7 +51,19 @@ def mask_from_image(img: Image.Image, *, bg_de: float = 14.0) -> np.ndarray:
     bg = np.median(ring, axis=0)
     diff = np.abs(rgb - bg).max(axis=2)
     mask = diff > bg_de
-    return ndimage.binary_fill_holes(mask) if mask.any() else mask
+    if not mask.any():
+        return mask
+    # enclosed regions that happen to match the background (white eyes on a white sheet) are filled; real holes (a ring) stay
+    filled = ndimage.binary_fill_holes(mask)
+    holes = filled & ~mask
+    lab, n = ndimage.label(holes)
+    ys, xs = np.nonzero(mask)
+    bbox_area = (ys.max() - ys.min() + 1) * (xs.max() - xs.min() + 1)
+    for k in range(1, n + 1):
+        region = lab == k
+        if region.sum() <= 0.03 * bbox_area:
+            mask = mask | region
+    return mask
 
 
 def normalise_mask(mask: np.ndarray, size: int = NORM, pad: float = 0.04) -> np.ndarray:
@@ -61,9 +73,9 @@ def normalise_mask(mask: np.ndarray, size: int = NORM, pad: float = 0.04) -> np.
         return np.zeros((size, size), bool)
     crop = mask[ys.min(): ys.max() + 1, xs.min(): xs.max() + 1]
     h, w = crop.shape
-    inner = max(2, int(round(size * (1 - 2 * pad))))
+    inner = max(2, round(size * (1 - 2 * pad)))
     s = inner / max(h, w)
-    nh, nw = max(1, int(round(h * s))), max(1, int(round(w * s)))
+    nh, nw = max(1, round(h * s)), max(1, round(w * s))
     im = Image.fromarray((crop * 255).astype(np.uint8)).resize((nw, nh), Image.Resampling.BILINEAR)
     out = np.zeros((size, size), bool)
     y0, x0 = (size - nh) // 2, (size - nw) // 2
@@ -106,7 +118,7 @@ def thin_mask(mask: np.ndarray, radius_frac: float = 0.025) -> np.ndarray:
     if len(ys) == 0:
         return np.zeros_like(mask)
     side = max(ys.max() - ys.min() + 1, xs.max() - xs.min() + 1)
-    r = max(1, int(round(side * radius_frac)))
+    r = max(1, round(side * radius_frac))
     yy, xx = np.mgrid[-r:r + 1, -r:r + 1]
     disc = (xx ** 2 + yy ** 2) <= r * r
     opened = ndimage.binary_opening(mask, structure=disc)

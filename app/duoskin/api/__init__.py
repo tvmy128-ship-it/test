@@ -13,7 +13,7 @@ import importlib
 import logging
 from typing import TYPE_CHECKING, Any
 
-from fastapi import Request
+from fastapi import Depends, Request
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -30,6 +30,9 @@ OPTIONAL_ROUTERS = ("specs", "uploads", "imports", "library", "calibration", "le
 def get_rt(request: Request) -> Runtime:
     """FastAPI dependency: the ``Runtime`` of this app."""
     return request.app.state.rt
+
+
+RT = Depends(get_rt)   # use as ``rt: Runtime = RT`` (a shared dependency object keeps the signatures free of calls)
 
 
 def not_implemented(feature: str, track: str) -> dict[str, Any]:
@@ -51,7 +54,7 @@ def include_routers(app: FastAPI) -> list[str]:
                 continue
             log.exception("optional router %s failed to import", name)
             continue
-        except Exception:   # noqa: BLE001 - a half-written router must not stop the app
+        except Exception:
             log.exception("optional router %s failed to import", name)
             continue
         router = getattr(module, "router", None)

@@ -12,8 +12,8 @@ No text is drawn on any sheet.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -134,7 +134,7 @@ def mesh_judge_sheet(views: dict[str, Image.Image], *, order: Sequence[str] = JU
 # --------------------------------------------------------------------------------------------------------------------
 def scale_render(mannequin: avatar.Mannequin | None, asset_type: str, attachment: str | None, *, target_studs: tuple[float, float, float],
                  mesh: MeshData | None = None, accessory_rgba: Image.Image | None = None, view: str = "front", size: int = 1024,
-                 margin_studs: float = 0.8, manifest: RenderManifest | None = None) -> Image.Image:
+                 margin_studs: float = 0.8, manifest: RenderManifest | None = None, hair_front_rgba: Image.Image | None = None) -> Image.Image:
     """The character outline at a fixed stud scale with the Classic box and the accessory at its planned size and attachment.
 
     ``mesh`` (Handle space) is drawn through the real mannequin attachment; otherwise ``accessory_rgba`` (a transparent front
@@ -174,6 +174,17 @@ def scale_render(mannequin: avatar.Mannequin | None, asset_type: str, attachment
     ax_, ay_ = to_px(att)
     d.line([ax_ - 8, ay_, ax_ + 8, ay_], fill=(220, 38, 38), width=2)
     d.line([ax_, ay_ - 8, ax_, ay_ + 8], fill=(220, 38, 38), width=2)
+    if hair_front_rgba is not None and not side:
+        from duoskin.mesh.hair import GUIDE_HEAD_CX_PX, GUIDE_HEAD_TOP_PX, GUIDE_PX_PER_STUD
+
+        k = px / GUIDE_PX_PER_STUD
+        hair = hair_front_rgba.convert("RGBA")
+        hair = hair.resize((max(1, round(hair.width * k)), max(1, round(hair.height * k))), Image.Resampling.LANCZOS)
+        hx, hy = to_px(np.array([0.0, mq.head.hi[1], 0.0]))
+        layer = img.convert("RGBA")
+        layer.alpha_composite(hair, (round(hx - GUIDE_HEAD_CX_PX * k), round(hy - GUIDE_HEAD_TOP_PX * k)))
+        img = layer.convert("RGB")
+        d = ImageDraw.Draw(img)
     img_arr = np.asarray(img).copy()
     if mesh is not None:
         rm = avatar.place_mesh(mq, mesh, box.attachment, name="acc.0")
@@ -184,7 +195,7 @@ def scale_render(mannequin: avatar.Mannequin | None, asset_type: str, attachment
     elif accessory_rgba is not None:
         w, h, dep = target_studs
         wide = dep if side else w
-        pw, ph = int(round(wide * px)), int(round(h * px))
+        pw, ph = round(wide * px), round(h * px)
         art = accessory_rgba.convert("RGBA")
         bb = art.getbbox()
         if bb:
@@ -198,7 +209,7 @@ def scale_render(mannequin: avatar.Mannequin | None, asset_type: str, attachment
             target_c[1] = att[1] - h / 2
         cx, cy = to_px(target_c)
         img = img.convert("RGBA")
-        img.alpha_composite(art, (int(round(cx - art.width / 2)), int(round(cy - art.height / 2))))
+        img.alpha_composite(art, (round(cx - art.width / 2), round(cy - art.height / 2)))
         img = img.convert("RGB")
         d = ImageDraw.Draw(img)
         d.rectangle([cx - pw / 2, cy - ph / 2, cx + pw / 2, cy + ph / 2], outline=(22, 163, 74), width=1)
@@ -237,7 +248,7 @@ def phone_strip(images: Sequence[Image.Image], *, target_h: int = 150, gutter: i
     """Images area-downscaled to ``target_h`` pixels high, laid out in one row and shown at ``scale`` x with nearest sampling."""
     small = []
     for im in images:
-        w = max(1, int(round(im.width * target_h / im.height)))
+        w = max(1, round(im.width * target_h / im.height))
         small.append(im.convert("RGB").resize((w, target_h), Image.Resampling.BOX))
     width = sum(s.width for s in small) + gutter * (len(small) + 1)
     strip = Image.new("RGB", (width, target_h + 2 * gutter), SHEET_BG)

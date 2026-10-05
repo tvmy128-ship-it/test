@@ -141,9 +141,9 @@ def load_settings(home: str | os.PathLike[str] | None = None) -> Settings:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
-            raise ValueError("settings.json is not a JSON object")
+            raise TypeError("settings.json is not a JSON object")
         return Settings.model_validate(_migrate(raw))
-    except (ValueError, OSError) as exc:   # JSONDecodeError and pydantic's ValidationError are ValueErrors
+    except (ValueError, TypeError, OSError) as exc:   # JSONDecodeError and pydantic's ValidationError are ValueErrors
         aside = path.with_name(f"settings.corrupt-{int(time.time())}.json")
         try:
             winplat.replace_with_retry(path, aside)

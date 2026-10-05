@@ -24,6 +24,9 @@ PartId = Annotated[
 CharKey = Literal["a", "b"]
 Provider = Literal["anthropic", "openai", "recraft", "tripo", "gemini", "fal"]
 ProviderMode = Literal["real", "mock", "disabled"]
+# ONE licence enum for Part, Provenance, provenance.json and the pack asset.json (APP_SPEC §6.1; added by the foundation track)
+License = Literal["n/a", "tripo_api_private_commercial", "tripo_paid_private_commercial",
+                  "tripo_free_public_ccby_noncommercial", "user_made", "unknown"]
 
 
 def canonical_json(obj: Any) -> bytes:
@@ -70,4 +73,4 @@ def iso_utc(dt: datetime) -> str:
 
 
 def parse_iso(text: str) -> datetime:
-    return _to_utc(datetime.fromisoformat(text.replace("Z", "+00:00")))
+    return _to_utc(datetime.fromisoformat(text))

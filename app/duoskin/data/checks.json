@@ -31,7 +31,7 @@
    "policy_class": "buildability",
    "stage": "gate2",
    "threshold_keys": [
-    "img.slab_solidity_min"
+    "acc.slab_convexity_min"
    ],
    "fm_ids": [
     "ACC-18"
@@ -46,16 +46,17 @@
    "check_id": "A_CLONE",
    "kind": "hard",
    "policy_class": "clone_lower_edge",
-   "stage": "always",
+   "stage": "gate3",
    "threshold_keys": [
-    "clone.lower_edge",
-    "clone.concept_lower_edge",
-    "clone.gate2_lower_edge"
+    "duo.dreamsim_clone_min",
+    "duo.degraded_phash_clone_max",
+    "duo.degraded_palette_overlap_max",
+    "duo.degraded_spec_dist_min"
    ],
    "fm_ids": [
     "DUO-01"
    ],
-   "title": "Clone band lower edge",
+   "title": "Clone band lower edge (duo stage; the concept stage is the soft CHK-G1-11)",
    "warn_text": "The two characters look too alike.",
    "contract_ids": [
     "CHK-D02"
@@ -85,7 +86,7 @@
   {
    "check_id": "A_DRIFT",
    "kind": "hard",
-   "policy_class": "consistency",
+   "policy_class": "integrity",
    "stage": "gate1",
    "threshold_keys": [
     "img.final_iou_min",
@@ -100,7 +101,7 @@
     "CHK-A10"
    ],
    "requires": [],
-   "demotable": true
+   "demotable": false
   },
   {
    "check_id": "A_GLYPH",
@@ -108,7 +109,7 @@
    "policy_class": "stray_text",
    "stage": "always",
    "threshold_keys": [
-    "img.glyph_score_max"
+    "ocr.glyph_score_max"
    ],
    "fm_ids": [
     "POL-04"
@@ -196,7 +197,7 @@
   {
    "check_id": "A_LEAK",
    "kind": "hard",
-   "policy_class": "consistency",
+   "policy_class": "buildability",
    "stage": "gate1",
    "threshold_keys": [
     "con.leak_area_max",
@@ -270,7 +271,7 @@
   {
    "check_id": "A_PALETTE",
    "kind": "hard",
-   "policy_class": "consistency",
+   "policy_class": "buildability",
    "stage": "gate2",
    "threshold_keys": [
     "img.palette_de_max",
@@ -512,7 +513,7 @@
    "title": "Style profile",
    "warn_text": "The line weight or shading differs from this duo's style.",
    "contract_ids": [
-    "CHK-A08-STYLE"
+    "CHK-A16"
    ],
    "requires": [],
    "demotable": false
@@ -546,11 +547,14 @@
     "con.swatch_de_warn"
    ],
    "fm_ids": [
+    "CON-01",
     "CON-05"
    ],
    "title": "Zone colours versus the planned colours",
    "warn_text": "Some zone colours differ from the plan; the palette is re-extracted after Gate 1.",
-   "contract_ids": [],
+   "contract_ids": [
+    "CHK-G1-10"
+   ],
    "requires": [],
    "demotable": false
   },
@@ -695,7 +699,7 @@
   {
    "check_id": "CHK-A05",
    "kind": "hard",
-   "policy_class": "consistency",
+   "policy_class": "buildability",
    "stage": "gate2",
    "threshold_keys": [
     "img.palette_de_max",
@@ -721,7 +725,7 @@
    "threshold_keys": [
     "ocr.rec_score_min",
     "ocr.min_box_px",
-    "img.glyph_score_max"
+    "ocr.glyph_score_max"
    ],
    "fm_ids": [
     "POL-04"
@@ -779,28 +783,6 @@
    "demotable": false
   },
   {
-   "check_id": "CHK-A08-STYLE",
-   "kind": "soft",
-   "policy_class": "taste",
-   "stage": "gate2",
-   "threshold_keys": [
-    "img.stroke_ratio_band",
-    "img.shading_steps_max",
-    "img.specular_share_max",
-    "img.hf_energy_ratio_max"
-   ],
-   "fm_ids": [
-    "IMG-09"
-   ],
-   "title": "Style profile: line weight band, shading steps, specular share, high-frequency energy",
-   "warn_text": "The line weight or shading differs from this duo's style.",
-   "contract_ids": [
-    "A_STYLE"
-   ],
-   "requires": [],
-   "demotable": false
-  },
-  {
    "check_id": "CHK-A09",
    "kind": "hard",
    "policy_class": "integrity",
@@ -823,7 +805,7 @@
   {
    "check_id": "CHK-A10",
    "kind": "hard",
-   "policy_class": "consistency",
+   "policy_class": "integrity",
    "stage": "gate2",
    "threshold_keys": [
     "img.final_iou_min",
@@ -839,7 +821,7 @@
     "A_DRIFT"
    ],
    "requires": [],
-   "demotable": true
+   "demotable": false
   },
   {
    "check_id": "CHK-A11",
@@ -886,20 +868,21 @@
   },
   {
    "check_id": "CHK-A13",
-   "kind": "hard",
+   "kind": "soft",
    "policy_class": "consistency",
    "stage": "gate2",
    "threshold_keys": [
-    "img.palette_de_max"
+    "img.palette_de_max",
+    "hair.concept_iou_min"
    ],
    "fm_ids": [
     "DUO-07"
    ],
-   "title": "Palette consistency with the concept crop",
-   "warn_text": "Palette consistency with the concept crop did not pass.",
+   "title": "Part consistency with its reference: current spec palette, hair silhouette, same design",
+   "warn_text": "The part differs from the approved picture or the current spec.",
    "contract_ids": [],
    "requires": [],
-   "demotable": true
+   "demotable": false
   },
   {
    "check_id": "CHK-A14",
@@ -939,6 +922,58 @@
     "A_REFLEAK"
    ],
    "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-A16",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.stroke_ratio_band",
+    "img.shading_steps_max",
+    "img.specular_share_max",
+    "img.hf_energy_ratio_max"
+   ],
+   "fm_ids": [
+    "IMG-09"
+   ],
+   "title": "Style profile: line weight band, shading steps, specular share, high-frequency energy (ranking inputs only)",
+   "warn_text": "The line weight or shading differs from this duo's style.",
+   "contract_ids": [
+    "A_STYLE"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-A17",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.zone_inside_min",
+    "face.lid_cover_min",
+    "face.skin_alpha_zero_min",
+    "face.mouth_inner_min_alpha"
+   ],
+   "fm_ids": [
+    "FACE-02",
+    "FACE-03",
+    "FACE-12",
+    "FACE-14"
+   ],
+   "title": "2D face profile (runs only without a head base): zones, closed lid, transparent skin, mouth interior",
+   "warn_text": "The 2D face does not satisfy the zone, closed-lid, skin or mouth rules.",
+   "contract_ids": [
+    "F_ZONES",
+    "F_LID_COVERS",
+    "F_SKIN_TRANSPARENT",
+    "F_MOUTH_INTERIOR"
+   ],
+   "requires": [
+    "!head_base_present"
+   ],
    "demotable": false
   },
   {
@@ -1105,7 +1140,7 @@
     "F_NECK_SEAM"
    ],
    "requires": [
-    "head_base"
+    "head_base_present"
    ],
    "demotable": false
   },
@@ -1124,7 +1159,7 @@
    "warn_text": "Body bundle: modesty zones, budgets, names did not pass.",
    "contract_ids": [],
    "requires": [
-    "body_base"
+    "body_base_present"
    ],
    "demotable": false
   },
@@ -1218,7 +1253,7 @@
   },
   {
    "check_id": "CHK-D05",
-   "kind": "hard",
+   "kind": "soft",
    "policy_class": "consistency",
    "stage": "gate3",
    "threshold_keys": [
@@ -1227,11 +1262,11 @@
    "fm_ids": [
     "DUO-07"
    ],
-   "title": "Each part against its concept crop",
-   "warn_text": "Each part against its concept crop did not pass.",
+   "title": "Each part against its consistency reference (current spec palette)",
+   "warn_text": "A part differs from the current spec palette.",
    "contract_ids": [],
    "requires": [],
-   "demotable": true
+   "demotable": false
   },
   {
    "check_id": "CHK-D06",
@@ -1274,8 +1309,8 @@
    "policy_class": "taste",
    "stage": "gate3",
    "threshold_keys": [
-    "taste.silhouette_iou_warn",
-    "duo.nearest_very_close"
+    "duo.silhouette_iou_cold",
+    "duo.nearest_duo_dreamsim_max"
    ],
    "fm_ids": [
     "DUO-03",
@@ -1611,23 +1646,6 @@
   },
   {
    "check_id": "CHK-G0-10",
-   "kind": "hard",
-   "policy_class": "buildability",
-   "stage": "G0",
-   "threshold_keys": [
-    "pln.acc_per_char_warn_hard"
-   ],
-   "fm_ids": [
-    "PLN-14"
-   ],
-   "title": "Accessories per character: HARD at 4 or more",
-   "warn_text": "Accessories per character: HARD at 4 or more did not pass.",
-   "contract_ids": [],
-   "requires": [],
-   "demotable": true
-  },
-  {
-   "check_id": "CHK-G0-10-SOFT",
    "kind": "soft",
    "policy_class": "restraint",
    "stage": "G0",
@@ -1637,7 +1655,7 @@
    "fm_ids": [
     "PLN-14"
    ],
-   "title": "Restraint: 3 accessories, many prints or many main colours",
+   "title": "Restraint: 3 accessories warn, 4 or more warn again (overridable by detail_level maximal); prints and main colours soft too",
    "warn_text": "This design carries a lot of separate details.",
    "contract_ids": [],
    "requires": [],
@@ -1682,6 +1700,43 @@
    "title": "Kit-hair pair IoU, adjacent-area contrast, nearest past plan",
    "warn_text": "The two hairstyles have similar outlines, or a neighbouring area has low contrast.",
    "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G0-13",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "G0",
+   "threshold_keys": [
+    "pln.dna_char_diff_min"
+   ],
+   "fm_ids": [
+    "PLN-DNA-01"
+   ],
+   "title": "A and B differ in at least 2 CHARACTER DNA fields",
+   "warn_text": "A and B differ in at least 2 CHARACTER DNA fields did not pass.",
+   "contract_ids": [
+    "PLN-DNA-01"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G0-14",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "G0",
+   "threshold_keys": [],
+   "fm_ids": [
+    "PLN-STR-01",
+    "PLN-09"
+   ],
+   "title": "Structure request and must-include lines",
+   "warn_text": "Structure request and must-include lines did not pass.",
+   "contract_ids": [
+    "PLN-STR-01"
+   ],
    "requires": [],
    "demotable": false
   },
@@ -1739,7 +1794,7 @@
   {
    "check_id": "CHK-G1-04",
    "kind": "hard",
-   "policy_class": "consistency",
+   "policy_class": "buildability",
    "stage": "gate1",
    "threshold_keys": [
     "con.leak_area_max",
@@ -1755,23 +1810,6 @@
    ],
    "requires": [],
    "demotable": true
-  },
-  {
-   "check_id": "CHK-G1-04-ADHERE",
-   "kind": "soft",
-   "policy_class": "colour_distance",
-   "stage": "gate1",
-   "threshold_keys": [
-    "img.palette_de_max"
-   ],
-   "fm_ids": [
-    "CON-01"
-   ],
-   "title": "Figure colours stay near the planned colours",
-   "warn_text": "A figure uses colours that are not close to the plan.",
-   "contract_ids": [],
-   "requires": [],
-   "demotable": false
   },
   {
    "check_id": "CHK-G1-05",
@@ -1826,7 +1864,7 @@
   {
    "check_id": "CHK-G1-08",
    "kind": "hard",
-   "policy_class": "consistency",
+   "policy_class": "integrity",
    "stage": "gate1",
    "threshold_keys": [
     "img.final_iou_min",
@@ -1841,7 +1879,7 @@
    "warn_text": "Finalize drift and palette snap-or-confirm did not pass.",
    "contract_ids": [],
    "requires": [],
-   "demotable": true
+   "demotable": false
   },
   {
    "check_id": "CHK-G1-09",
@@ -1857,6 +1895,59 @@
    ],
    "title": "Not-buildable panel and warnings",
    "warn_text": "Some details of the drawing may not be buildable as drawn.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G1-10",
+   "kind": "soft",
+   "policy_class": "colour_distance",
+   "stage": "gate1",
+   "threshold_keys": [
+    "con.swatch_de_warn"
+   ],
+   "fm_ids": [
+    "CON-01"
+   ],
+   "title": "Own-palette adherence (A_SWATCH)",
+   "warn_text": "A figure uses colours that are not close to the plan.",
+   "contract_ids": [
+    "A_SWATCH"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G1-11",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate1",
+   "threshold_keys": [
+    "con.clone_proxy_dreamsim_min"
+   ],
+   "fm_ids": [
+    "CON-09"
+   ],
+   "title": "Concept-level clone warning",
+   "warn_text": "The two concept figures already look alike.",
+   "contract_ids": [
+    "A_CLONE"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G1-12",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [
+    "CON-10"
+   ],
+   "title": "Gate 1 change edits the chosen draft (I1e), never a fresh I1",
+   "warn_text": "Gate 1 change edits the chosen draft (I1e), never a fresh I1 did not pass.",
    "contract_ids": [],
    "requires": [],
    "demotable": false
@@ -2562,17 +2653,19 @@
   },
   {
    "check_id": "CHK-S09",
-   "kind": "hard",
+   "kind": "soft",
    "policy_class": "integrity",
    "stage": "startup",
    "threshold_keys": [],
    "fm_ids": [
     "SYS-11"
    ],
-   "title": "Blender version and colour chart",
-   "warn_text": "Blender version and colour chart did not pass.",
+   "title": "Blender version and colour chart (warn only; N/A while no Blender is configured)",
+   "warn_text": "Blender did not pass its self-test, so the no-Blender mode runs (no FBX).",
    "contract_ids": [],
-   "requires": [],
+   "requires": [
+    "blender_present"
+   ],
    "demotable": false
   },
   {
@@ -2807,7 +2900,7 @@
    "policy_class": "taste",
    "stage": "gate3",
    "threshold_keys": [
-    "taste.silhouette_iou_warn",
+    "duo.silhouette_iou_cold",
     "taste.acc_min_px"
    ],
    "fm_ids": [
@@ -2825,7 +2918,8 @@
    "policy_class": "novelty",
    "stage": "gate3",
    "threshold_keys": [
-    "duo.nearest_very_close"
+    "duo.nearest_duo_dreamsim_max",
+    "duo.nearest_duo_phash_max"
    ],
    "fm_ids": [
     "DUO-10"
@@ -2883,7 +2977,7 @@
    "warn_text": "Iris shows through when the eyes close.",
    "contract_ids": [],
    "requires": [
-    "head_base"
+    "head_base_present"
    ],
    "demotable": false
   },
@@ -2918,23 +3012,6 @@
    ],
    "title": "Catchlights sit on the same side in both eyes",
    "warn_text": "Catchlights sit on the same side in both eyes did not pass.",
-   "contract_ids": [],
-   "requires": [],
-   "demotable": false
-  },
-  {
-   "check_id": "F_FACE_2D",
-   "kind": "hard",
-   "policy_class": "buildability",
-   "stage": "gate2",
-   "threshold_keys": [],
-   "fm_ids": [
-    "FACE-01",
-    "FACE-02",
-    "FACE-03"
-   ],
-   "title": "2D face canvas profile (no head base)",
-   "warn_text": "2D face canvas profile (no head base) did not pass.",
    "contract_ids": [],
    "requires": [],
    "demotable": false
@@ -3026,7 +3103,7 @@
    "warn_text": "The UV warp LUT is keyed by the head-mesh hash did not pass.",
    "contract_ids": [],
    "requires": [
-    "head_base"
+    "head_base_present"
    ],
    "demotable": false
   },
@@ -3064,7 +3141,7 @@
     "CHK-B09"
    ],
    "requires": [
-    "head_base"
+    "head_base_present"
    ],
    "demotable": false
   },
@@ -3153,7 +3230,7 @@
    "warn_text": "Features do not smear under face poses did not pass.",
    "contract_ids": [],
    "requires": [
-    "head_base"
+    "head_base_present"
    ],
    "demotable": true
   },
@@ -3172,7 +3249,7 @@
    "warn_text": "Warped face matches the canvas did not pass.",
    "contract_ids": [],
    "requires": [
-    "head_base"
+    "head_base_present"
    ],
    "demotable": true
   },
@@ -3200,7 +3277,7 @@
    "stage": "G0",
    "threshold_keys": [
     "pln.kit_hair_iou_warn",
-    "taste.silhouette_iou_warn"
+    "duo.silhouette_iou_cold"
    ],
    "fm_ids": [
     "PLN-15"
@@ -3267,7 +3344,7 @@
     "taste.layout_ari_warn"
    ],
    "fm_ids": [
-    "DUO-04"
+    "DUO-11"
    ],
    "title": "Garment layout similarity A vs B",
    "warn_text": "The two garments have a very similar colour-block layout.",
@@ -3280,9 +3357,7 @@
    "kind": "soft",
    "policy_class": "taste",
    "stage": "build",
-   "threshold_keys": [
-    "taste.plan_ratio_share_off"
-   ],
+   "threshold_keys": [],
    "fm_ids": [
     "DUO-03"
    ],
@@ -3321,7 +3396,7 @@
   {
    "check_id": "ac_matches_concept",
    "kind": "soft",
-   "policy_class": "taste",
+   "policy_class": "consistency",
    "stage": "gate2",
    "threshold_keys": [],
    "fm_ids": [],
@@ -3490,7 +3565,7 @@
   {
    "check_id": "dj_no_leak",
    "kind": "hard",
-   "policy_class": "consistency",
+   "policy_class": "buildability",
    "stage": "gate1",
    "threshold_keys": [],
    "fm_ids": [],
@@ -3594,7 +3669,7 @@
   {
    "check_id": "fh_matches_concept",
    "kind": "soft",
-   "policy_class": "taste",
+   "policy_class": "consistency",
    "stage": "gate2",
    "threshold_keys": [],
    "fm_ids": [],
@@ -3737,7 +3812,7 @@
   {
    "check_id": "gm_matches_concept",
    "kind": "soft",
-   "policy_class": "taste",
+   "policy_class": "consistency",
    "stage": "gate3",
    "threshold_keys": [],
    "fm_ids": [],
@@ -3841,7 +3916,7 @@
   {
    "check_id": "hr_matches_concept",
    "kind": "soft",
-   "policy_class": "taste",
+   "policy_class": "consistency",
    "stage": "gate2",
    "threshold_keys": [],
    "fm_ids": [],
@@ -4049,7 +4124,7 @@
   {
    "check_id": "pr_matches_concept",
    "kind": "soft",
-   "policy_class": "taste",
+   "policy_class": "consistency",
    "stage": "gate2",
    "threshold_keys": [],
    "fm_ids": [],

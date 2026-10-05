@@ -37,7 +37,7 @@ def build_badge(art: Image.Image, *, border_px: int, border_hex: str, min_island
     clean, rep = C.cleanup_alpha_asset(art, None, binarize=True, fill_holes=True, min_island_frac=min_island_frac)
     arr = np.array(clean, dtype=np.uint8)
     art_mask = arr[..., 3] >= 128
-    if border_px > 0:
+    if border_px > 0 and art_mask.any():
         dist = ndi.distance_transform_edt(~art_mask)
         sil = dist <= border_px
     else:

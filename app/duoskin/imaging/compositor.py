@@ -32,7 +32,7 @@ from duoskin.imaging import folds as FOLD
 from duoskin.imaging import print_place as PP
 from duoskin.imaging import recipes as RCP
 from duoskin.imaging import shoes_painted as KIT
-from duoskin.imaging.palette import hex_to_rgb, lab_to_srgb, deltaE2000, srgb_to_lab
+from duoskin.imaging.palette import deltaE2000, hex_to_rgb, lab_to_srgb, srgb_to_lab
 from duoskin.imaging.print_place import Placement, PrintSpec
 from duoskin.models.common import canonical_json, sha256_of
 from duoskin.roblox import template as T
@@ -527,8 +527,11 @@ def assert_stage_order(stack: list[dict[str, Any]]) -> None:
 # --------------------------------------------------------------------------------------------------------------------
 # compose
 # --------------------------------------------------------------------------------------------------------------------
-def compose(req: GarmentRequest, *, with_layers: bool = False, run_checks: bool = True) -> ComposeResult:
-    """Compose one classic template (Shirt or Pants). Pure: no clock, no randomness, no I/O besides reading the kit JSON."""
+def compose(req: GarmentRequest, *, with_layers: bool = False, run_checks: bool = True, previews: bool = True) -> ComposeResult:
+    """Compose one classic template (Shirt or Pants). Pure: no clock, no randomness, no I/O besides reading the kit JSON.
+
+    ``with_layers``: also return the per-stage 4x PNGs (debug). ``run_checks``: run ``validate_template`` on the output. ``previews``:
+    render the flat front/back tiles and the 3D box preview (``b""`` when False; they never influence the file)."""
     recipe = req.recipe
     if recipe.template != req.kind:
         raise ComposeError(f"recipe {recipe.recipe_id} is a {recipe.template} recipe, not {req.kind}")
@@ -607,10 +610,13 @@ def compose(req: GarmentRequest, *, with_layers: bool = False, run_checks: bool 
             "hem_rows": hem_rows(env), "colours": {k: list(v) for k, v in sorted(book._c.items())}}
     if folds.origin == "procedural":
         warnings.append("procedural folds")
-    front, back = T.render_flat_preview(png if req.kind == "shirt" else None, png if req.kind == "pants" else None, skin=req.skin)
-    box = T.render_box_preview(img if req.kind == "shirt" else None, img if req.kind == "pants" else None, skin=req.skin)
+    front = back = box_png = b""
+    if previews:
+        front, back = T.render_flat_preview(png if req.kind == "shirt" else None, png if req.kind == "pants" else None, skin=req.skin)
+        box = T.render_box_preview(img if req.kind == "shirt" else None, img if req.kind == "pants" else None, skin=req.skin)
+        box_png = T.encode_png_rgba8(box)
     res = ComposeResult(png=png, label_map=labels, layers=layers_png, placements=plan.placements, flat_front=front,
-                        flat_back=back, preview_boxes=T.encode_png_rgba8(box), stack=stack, layer_stack_hash=stack_hash,
+                        flat_back=back, preview_boxes=box_png, stack=stack, layer_stack_hash=stack_hash,
                         output_sha=hashlib.sha256(png).hexdigest(), base_layer_png=base_layer, meta=meta, warnings=warnings)
     if run_checks:
         from duoskin.roblox import validators as V

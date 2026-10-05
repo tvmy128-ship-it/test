@@ -2,21 +2,29 @@
 from __future__ import annotations
 
 import io
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 
-from duoskin.api import get_rt, not_implemented
+from duoskin.api import RT, not_implemented
 from duoskin.api.state import project_summaries
 from duoskin.db.errors import ConflictError
 from duoskin.engine import deps
 from duoskin.engine.cas import CasError, make_prov
 from duoskin.engine.runtime import Runtime
-from duoskin.engine.scheduler import _factories
+from duoskin.engine.scheduler import has_job_factory
 from duoskin.models.common import new_id, utcnow
 from duoskin.models.job import Job, JobKind
-from duoskin.models.project import Project, ProjectCreate, ProjectPatch, ProjectSettings, ProjectSummary, ReferenceImage, Stage
+from duoskin.models.project import (
+    Project,
+    ProjectCreate,
+    ProjectPatch,
+    ProjectSettings,
+    ProjectSummary,
+    ReferenceImage,
+    Stage,
+)
 
 router = APIRouter(prefix="/api")
 
@@ -34,12 +42,12 @@ def _defaults(rt: Runtime) -> dict[str, Any]:
 
 
 @router.get("/projects")
-def list_projects(include_archived: bool = False, rt: Runtime = Depends(get_rt)) -> list[ProjectSummary]:
+def list_projects(include_archived: bool = False, rt: Runtime = RT) -> list[ProjectSummary]:
     return project_summaries(rt, include_archived)
 
 
 @router.post("/projects", status_code=201)
-def create_project(body: ProjectCreate, rt: Runtime = Depends(get_rt)) -> Project:
+def create_project(body: ProjectCreate, rt: Runtime = RT) -> Project:
     try:
         settings = ProjectSettings.model_validate({**_defaults(rt), **body.settings})
     except ValidationError as exc:
@@ -56,7 +64,7 @@ def create_project(body: ProjectCreate, rt: Runtime = Depends(get_rt)) -> Projec
 
 
 @router.get("/projects/{project_id}")
-def get_project(project_id: str, rt: Runtime = Depends(get_rt)) -> dict[str, Any]:
+def get_project(project_id: str, rt: Runtime = RT) -> dict[str, Any]:
     project = rt.repo.get_project(project_id)
     spec = dna = None
     spec_id = project.current_spec_id or project.approved_spec_id
@@ -71,7 +79,7 @@ def get_project(project_id: str, rt: Runtime = Depends(get_rt)) -> dict[str, Any
 
 
 @router.patch("/projects/{project_id}")
-def patch_project(project_id: str, body: ProjectPatch, rt: Runtime = Depends(get_rt)) -> Project:
+def patch_project(project_id: str, body: ProjectPatch, rt: Runtime = RT) -> Project:
     project = rt.repo.get_project(project_id)
     if project.version != body.expected_version:
         raise ConflictError("the project changed since you loaded it", project)
@@ -88,8 +96,9 @@ def patch_project(project_id: str, body: ProjectPatch, rt: Runtime = Depends(get
 
 
 @router.post("/projects/{project_id}/references")
-def add_reference(project_id: str, file: UploadFile = File(...), role: str = Form("reference"), note: str = Form(""),
-                  rt: Runtime = Depends(get_rt)) -> ReferenceImage:
+def add_reference(project_id: str, file: Annotated[UploadFile, File()], role: Annotated[str, Form()] = "reference",
+                  note: Annotated[str, Form()] = "",
+                  rt: Runtime = RT) -> ReferenceImage:
     """Upload a reference image (<= 50 MB; the type is sniffed from the content, never from the file name)."""
     if role not in ("reference", "favourite"):
         raise HTTPException(status_code=422, detail={"error": "bad_role", "message": "role must be reference or favourite"})
@@ -133,10 +142,10 @@ def _sniff_image(data: bytes) -> str:
 
 
 @router.post("/projects/{project_id}/plan")
-def start_plan(project_id: str, rt: Runtime = Depends(get_rt)):
+def start_plan(project_id: str, rt: Runtime = RT):
     """Start the PLAN job. The steps come from the pipeline's registered job factory (``register_job_factory``)."""
     project = rt.repo.get_project(project_id)
-    if JobKind.PLAN.value not in _factories:
+    if not has_job_factory(JobKind.PLAN):
         from fastapi.responses import JSONResponse
 
         return JSONResponse(not_implemented("The plan loop", "pipeline"), status_code=501)
@@ -153,28 +162,28 @@ def start_plan(project_id: str, rt: Runtime = Depends(get_rt)):
 
 
 @router.post("/projects/{project_id}/pause")
-def pause_project(project_id: str, rt: Runtime = Depends(get_rt)) -> Project:
+def pause_project(project_id: str, rt: Runtime = RT) -> Project:
     rt.repo.get_project(project_id)
     rt.scheduler.pause(project_id)
     return rt.repo.get_project(project_id)
 
 
 @router.post("/projects/{project_id}/resume")
-def resume_project(project_id: str, rt: Runtime = Depends(get_rt)) -> Project:
+def resume_project(project_id: str, rt: Runtime = RT) -> Project:
     rt.repo.get_project(project_id)
     rt.scheduler.resume(project_id)
     return rt.repo.get_project(project_id)
 
 
 @router.post("/projects/{project_id}/archive")
-def archive_project(project_id: str, rt: Runtime = Depends(get_rt)) -> Project:
+def archive_project(project_id: str, rt: Runtime = RT) -> Project:
     """Hide the project. Never deletes approved or exported assets."""
     rt.repo.get_project(project_id)
     return rt.repo.mutate_project(project_id, lambda p: setattr(p, "archived", True))
 
 
 @router.get("/projects/{project_id}/specs")
-def list_specs(project_id: str, rt: Runtime = Depends(get_rt)) -> list[dict[str, Any]]:
+def list_specs(project_id: str, rt: Runtime = RT) -> list[dict[str, Any]]:
     rt.repo.get_project(project_id)
     out = []
     for rec in rt.repo.list_specs(project_id):
@@ -183,7 +192,7 @@ def list_specs(project_id: str, rt: Runtime = Depends(get_rt)) -> list[dict[str,
 
 
 @router.get("/specs/{spec_id}/diff/{other_id}")
-def diff_specs(spec_id: str, other_id: str, rt: Runtime = Depends(get_rt)) -> dict[str, Any]:
+def diff_specs(spec_id: str, other_id: str, rt: Runtime = RT) -> dict[str, Any]:
     """Changed JSON pointers between two specs (``old`` = ``spec_id``, ``new`` = ``other_id``) with both values, plus the DNA-card diff."""
     old, new = rt.repo.get_spec(spec_id), rt.repo.get_spec(other_id)
     changes = [{"path": p, "old": deps.resolve(old.spec, p), "new": deps.resolve(new.spec, p)}

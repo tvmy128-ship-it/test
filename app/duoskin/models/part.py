@@ -14,7 +14,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from duoskin.models.common import PartId, Sha256, Strict, UtcDatetime
+from duoskin.models.common import License, PartId, Sha256, Strict, UtcDatetime
 
 
 class PartKind(StrEnum):
@@ -73,11 +73,17 @@ class ApprovalRecord(Strict):
     pins_sha: Sha256
     approved_at: UtcDatetime
     decision_id: str
-    # second stamp (additive): written when the part reaches BUILT, confirmed by the Gate 3 pick
-    build_hash: Sha256 | None = None
-    build_stamped_at: UtcDatetime | None = None
-    build_confirmed_at: UtcDatetime | None = None
-    build_confirmed_decision_id: str | None = None
+
+
+class BuildStamp(Strict):
+    """Stamp 2: written when the part reaches BUILT, confirmed by the Gate 3 pick (APP_SPEC §6.6, §9.7)."""
+
+    part_id: PartId
+    build_hash: Sha256                # the approval_hash it was built under + the build assets + the BUILD step versions
+    approval_hash: Sha256
+    build_asset_shas: list[Sha256] = Field(default_factory=list)
+    built_at: UtcDatetime
+    confirmed_decision_id: str | None = None      # set by the Gate 3 pick; None = "rebuilt since you last looked"
 
 
 class Part(Strict):
@@ -94,9 +100,9 @@ class Part(Strict):
     alternatives: list[dict[str, Sha256]] = Field(default_factory=list)
     build_assets: dict[str, Sha256] = Field(default_factory=dict)   # role -> final files
     approval: ApprovalRecord | None = None
+    build_stamp: BuildStamp | None = None
     ladder: LadderState = Field(default_factory=LadderState)
     open_warnings: list[str] = Field(default_factory=list)     # SOFT CheckResult ids (<= 2 shown, after first choice)
-    license: Literal["n/a", "tripo_api_private_commercial", "tripo_paid_private_commercial",
-                     "tripo_free_public_ccby_noncommercial", "unknown"] = "n/a"
+    license: License = "n/a"          # the shared enum of models/common.py (incl. "user_made" for the import wizard)
     flags: list[str] = Field(default_factory=list)             # "views_from_gpt", "procedural_folds", ...
     version: int = 0                  # optimistic lock for gate decisions

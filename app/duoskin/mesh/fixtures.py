@@ -175,3 +175,38 @@ def tilt(mesh: MeshData, degrees: float, axis: int = 2) -> MeshData:
     i, j = [(1, 2), (0, 2), (0, 1)][axis]
     m[i, i], m[i, j], m[j, i], m[j, j] = c, -s, s, c
     return rotate_mesh(mesh, m)
+
+
+def chiral_solid(scale: float = 1.0) -> MeshData:
+    """Three boxes arranged so that no proper rotation equals its mirror image (every axis is asymmetric): the fixture for the
+    orientation and mirroring tests, where a plain extruded letter would be mirror-symmetric through its depth."""
+    parts = [box_mesh([-1, -0.5, -0.5], [1, 0.5, 0.5], uv=(0.25, 0.25)),
+             box_mesh([-1, 0.4, -0.5], [-0.4, 1.2, 0.2], uv=(0.75, 0.25)),
+             box_mesh([0.5, -0.5, 0.4], [1.0, 0.1, 1.2], uv=(0.25, 0.75))]
+    m = union_all(parts)
+    tex = np.zeros((64, 64, 3), np.uint8)
+    tex[:32, :32] = (230, 60, 60)
+    tex[:32, 32:] = (60, 60, 230)
+    tex[32:, :32] = (60, 200, 60)
+    tex[32:, 32:] = (240, 220, 60)
+    m.texture = Image.fromarray(tex, "RGB")
+    m.vertices = m.vertices * scale
+    m.meta["fixture"] = "chiral"
+    return m
+
+
+def save_approved_views(mesh: MeshData, folder, names=("front", "left", "back", "right"), size: int = 384) -> dict[str, str]:
+    """Approved-view PNGs of ``mesh`` (unlit, white background, one scale): ``{view: path}`` for orientation and judging tests."""
+    from pathlib import Path
+
+    from duoskin.render import sheets
+
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    views = sheets.render_mesh_views(mesh, views=names, size=size, bg=(255, 255, 255), unlit=True)
+    out = {}
+    for k, im in views.items():
+        p = folder / f"{k}.png"
+        im.save(p)
+        out[k] = str(p)
+    return out

@@ -130,8 +130,8 @@ class BudgetService:
         """Would a paid step with this estimate need the BUDGET gate? ``budget_ok`` = the user already said continue."""
         b = self.budget(project_id)
         credits = b.tripo_available_credits if provider == "tripo" else None
-        base = dict(est_usd=est_usd, remaining=b.remaining, cap=b.cap_usd, ask_above=b.ask_above_usd,
-                    spent=b.spent_usd, credits_available=credits)
+        base = {"est_usd": est_usd, "remaining": b.remaining, "cap": b.cap_usd, "ask_above": b.ask_above_usd,
+                "spent": b.spent_usd, "credits_available": credits}
         if budget_ok:
             return BudgetCheck(True, None, **base)
         if est_usd > b.remaining + 1e-9:
@@ -143,6 +143,16 @@ class BudgetService:
         return BudgetCheck(True, None, **base)
 
     # ------------------------------------------------------------------------------------------------ reservations
+    def check_and_reserve(self, project_id: str | None, est: Estimate, *, step_id: str | None = None, attempt: int = 0,
+                          budget_ok: bool = False) -> tuple[BudgetCheck, Reservation | None]:
+        """``check`` and ``reserve`` as one atomic step (``BEGIN IMMEDIATE``). Without this two steps could both see room
+        for the last dollar and together cross the cap. Returns the check and, when it is OK, the reservation."""
+        with self.db.tx():
+            chk = self.check(project_id, est.usd, budget_ok=budget_ok, provider=est.provider)
+            if not chk.ok:
+                return chk, None
+            return chk, self.reserve(project_id, est, step_id=step_id, attempt=attempt)
+
     def reserve(self, project_id: str | None, est: Estimate | float, *, step_id: str | None = None, attempt: int = 0) -> Reservation:
         if not isinstance(est, Estimate):
             est = Estimate(usd=float(est))

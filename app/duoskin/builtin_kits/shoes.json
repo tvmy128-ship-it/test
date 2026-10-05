@@ -1,6 +1,6 @@
 {
  "version": 1,
- "_notes": "Painted shoes (bible \u00a76.2 shared kit pieces): rows 446-482 at most (low shoes 460-482) plus the D sole. Colour roles: shoe_base, shoe_sole, shoe_accent. assert_rule shoe_top: the top painted row must lie in rows 446-465 (CLO-07). Same layer schema as recipes (imaging/recipes.py).",
+ "_notes": "Painted shoes (bible \u00a76.2 shared kit pieces): rows 446-482 at most (low shoes 460-482) plus the D sole. Colour roles: shoe_base, shoe_sole, shoe_accent. assert_rule shoe_top: the top painted row must lie in rows 446-465 (CLO-07). Details stay off rows 466-468 (the R15 ankle split 467). Same layer schema as recipes (imaging/recipes.py).",
  "styles": {
   "sneaker_low": {
    "title": "Low sneaker",
@@ -112,8 +112,8 @@
       {
        "stripes": {
         "axis": "y",
-        "from": 465,
-        "to": 471,
+        "from": 470,
+        "to": 476,
         "step": 3,
         "w": 1,
         "span": [
@@ -139,9 +139,9 @@
       {
        "rect": [
         8,
-        468,
+        471,
         55,
-        472
+        475
        ]
       }
      ],
@@ -302,7 +302,7 @@
      "frame": "local_x"
     },
     {
-     "id": "laces",
+     "id": "laces_upper",
      "stage": "kit",
      "op": "paint",
      "coverage": "within",
@@ -315,7 +315,37 @@
        "stripes": {
         "axis": "y",
         "from": 455,
-        "to": 473,
+        "to": 464,
+        "step": 3,
+        "w": 1,
+        "span": [
+         22,
+         41
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "rlimb_f",
+      "llimb_f"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "laces_lower",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": {
+      "role": "shoe_base",
+      "dL": 24
+     },
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "y",
+        "from": 470,
+        "to": 476,
         "step": 3,
         "w": 1,
         "span": [
@@ -341,7 +371,7 @@
       {
        "ellipse": [
         32,
-        460,
+        458,
         6,
         6
        ]
@@ -463,7 +493,7 @@
         0,
         453,
         584,
-        466
+        464
        ]
       }
      ],
@@ -685,9 +715,9 @@
       {
        "rect": [
         14,
-        468,
+        470,
         49,
-        470
+        472
        ]
       }
      ],
@@ -853,9 +883,9 @@
       {
        "rect": [
         8,
-        468,
+        470,
         55,
-        470
+        472
        ]
       }
      ],
@@ -997,9 +1027,9 @@
       {
        "rect": [
         0,
-        468,
+        470,
         584,
-        470
+        472
        ]
       }
      ],
@@ -1020,9 +1050,9 @@
       {
        "ellipse": [
         48,
-        469,
-        2.5,
-        2.5
+        473,
+        2.2,
+        2.2
        ]
       }
      ],

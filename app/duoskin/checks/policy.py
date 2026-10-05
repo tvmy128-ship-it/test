@@ -8,8 +8,8 @@ the threshold keys, the warning text and whether it may be demoted. This module 
 Rules enforced here (and by ``tests/checks/test_chk_policy.py``):
 
 * only the classes in ``HARD_CLASSES`` may be hard or assert;
-* every ``taste``, ``colour_distance``, ``restraint`` and ``novelty`` check is soft, and a soft check can never be
-  turned hard by an override;
+* every ``taste``, ``colour_distance``, ``restraint``, ``novelty`` and ``consistency`` check is soft (``consistency`` = part vs the
+  CURRENT spec palette, CHK-A13 / CHK-D05, APP_SPEC S24), and a soft check can never be turned hard by an override;
 * checks in the classes ``roblox``, ``ip``, ``stray_text``, ``security`` and ``integrity`` are never demotable;
 * an override (``settings.check_overrides``) can only demote a demotable hard check to soft.
 """
@@ -18,8 +18,9 @@ from __future__ import annotations
 import contextlib
 import contextvars
 import json
+import re
 from collections.abc import Iterator, Mapping
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 from typing import Literal
 
@@ -28,15 +29,17 @@ from pydantic import Field, model_validator
 from duoskin.checks.model import CheckResult
 from duoskin.models.common import Strict
 
-HARD_CLASSES = {"roblox", "buildability", "ip", "stray_text", "registry", "clone_lower_edge", "integrity", "security",
-                "consistency"}   # consistency = part-vs-concept palette (CHK-A13/D05) and finalize drift; FM marks them HARD
-SOFT_CLASSES = {"taste", "colour_distance", "restraint", "novelty"}
+HARD_CLASSES = {"roblox", "buildability", "ip", "stray_text", "registry", "clone_lower_edge", "integrity", "security"}
+# integrity = finalize drift (A_DRIFT, CHK-A10) and the approval_hash / build_hash stamps (CHK-D09, CHK-E02): APP_SPEC S24, S30.
+# CHK-A13/D05 (part vs the CURRENT spec palette) have class "consistency" and are SOFT. "user_requirement" joins this set only if the
+# user records a hard rule in APP_SPEC §2 (S32).
+SOFT_CLASSES = {"taste", "colour_distance", "restraint", "novelty", "consistency"}
 NEVER_DEMOTABLE = {"roblox", "ip", "stray_text", "security", "integrity"}
 UNREGISTERED_CLASS = "unregistered"
 
 Kind = Literal["hard", "soft", "assert"]
 Stage = Literal["startup", "call", "G0", "gate1", "gate2", "build", "gate3", "export", "always"]
-Requires = Literal["head_base", "body_base"]
+_FLAG = re.compile(r"^!?[a-z0-9_]+$")
 
 
 class CheckMeta(Strict):
@@ -51,13 +54,16 @@ class CheckMeta(Strict):
     title: str = ""
     fm_ids: list[str] = Field(default_factory=list)              # FAILURE_MODES ids this check covers
     contract_ids: list[str] = Field(default_factory=list)        # the other id of the same check (A_* <-> CHK-A*)
-    requires: list[Requires] = Field(default_factory=list)       # kit that must be present, else the check is not_applicable
+    requires: list[str] = Field(default_factory=list)  # manifest flags the check needs, e.g. ["head_base_present"]; "!flag" = flag must be False
     registered: bool = True
 
     @model_validator(mode="after")
     def _policy_rules(self) -> CheckMeta:
         if not self.registered:
             return self
+        for flag in self.requires:
+            if not _FLAG.match(flag):
+                raise ValueError(f"{self.check_id}: bad manifest flag {flag!r}")
         if self.policy_class in SOFT_CLASSES and self.kind != "soft":
             raise ValueError(f"{self.check_id}: class {self.policy_class} must be soft")
         if self.kind in ("hard", "assert") and self.policy_class not in HARD_CLASSES:
@@ -72,7 +78,7 @@ _OVERRIDES: contextvars.ContextVar[Mapping[str, str] | None] = contextvars.Conte
                                                                                         default=None)
 
 
-@lru_cache(maxsize=4)
+@cache
 def _load(path: str) -> dict[str, CheckMeta]:
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
     out: dict[str, CheckMeta] = {}

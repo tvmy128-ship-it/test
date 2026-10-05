@@ -95,14 +95,20 @@ def box_for(asset_type: str, attachment: str | None = None) -> AccessoryBox:
                         tuple(map(float, entry["offset_roblox"])))
 
 
-def threshold(name: str) -> Any:
-    """Current value of a mesh threshold: the registry first, then ``extra_thresholds`` in ``limits.json``."""
+def _registry():
+    """The central threshold registry module, or None when it cannot be imported."""
     try:
         from duoskin.checks import thresholds as th
+    except ImportError:
+        return None
+    return th
 
+
+def threshold(name: str) -> Any:
+    """Current value of a mesh threshold: the registry first, then ``extra_thresholds`` in ``limits.json``."""
+    th = _registry()
+    if th is not None and name in th.T:
         return th.get(name)
-    except Exception:  # noqa: BLE001  (UnknownThreshold, or the registry being unavailable)
-        pass
     extra = load_limits()["extra_thresholds"]
     if name in extra:
         return extra[name][0]
@@ -111,12 +117,9 @@ def threshold(name: str) -> Any:
 
 def describe(name: str, op: str = "") -> str:
     """Text for ``CheckResult.threshold`` such as ``"<= 3800 (mesh.tris_max, DES)"``."""
-    try:
-        from duoskin.checks import thresholds as th
-
+    th = _registry()
+    if th is not None and name in th.T:
         return th.describe(name, op)
-    except Exception:  # noqa: BLE001
-        pass
     extra = load_limits()["extra_thresholds"]
     if name in extra:
         value, status, _ = extra[name]
@@ -125,11 +128,9 @@ def describe(name: str, op: str = "") -> str:
 
 
 def fm_ids(name: str) -> list[str]:
-    try:
-        from duoskin.checks import thresholds as th
-
+    """Failure-mode ids a threshold covers (registry first, then the local extras)."""
+    th = _registry()
+    if th is not None and name in th.T:
         return th.fm_ids_of(name)
-    except Exception:  # noqa: BLE001
-        pass
     extra = load_limits()["extra_thresholds"]
     return list(extra[name][2]) if name in extra else []

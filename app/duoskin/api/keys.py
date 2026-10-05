@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict
 
-from duoskin.api import get_rt
+from duoskin.api import RT
 from duoskin.engine.runtime import Runtime
 from duoskin.keystore import PROVIDERS, KeyRejected, KeyStatus
 
@@ -37,12 +37,12 @@ def _status(rt: Runtime, provider: str) -> dict[str, Any]:
 
 
 @router.get("/keys")
-def list_keys(rt: Runtime = Depends(get_rt)) -> dict[str, Any]:
+def list_keys(rt: Runtime = RT) -> dict[str, Any]:
     return {p: _status(rt, p) for p in PROVIDERS}
 
 
 @router.put("/keys/{provider}")
-def put_key(provider: str, body: KeyIn, rt: Runtime = Depends(get_rt)) -> dict[str, Any]:
+def put_key(provider: str, body: KeyIn, rt: Runtime = RT) -> dict[str, Any]:
     _provider(provider)
     try:
         rt.keys.set_key(provider, body.value)
@@ -53,14 +53,14 @@ def put_key(provider: str, body: KeyIn, rt: Runtime = Depends(get_rt)) -> dict[s
 
 
 @router.delete("/keys/{provider}")
-def delete_key(provider: str, rt: Runtime = Depends(get_rt)) -> dict[str, Any]:
+def delete_key(provider: str, rt: Runtime = RT) -> dict[str, Any]:
     _provider(provider)
     rt.keys.delete_key(provider)
     return _status(rt, provider)
 
 
 @router.post("/keys/{provider}/test")
-def test_key(provider: str, rt: Runtime = Depends(get_rt)) -> dict[str, Any]:
+def test_key(provider: str, rt: Runtime = RT) -> dict[str, Any]:
     """Probe the provider with the stored key. Mock mode makes no call. The adapter's ``test_key()`` (provider layer)
     returns ``{"ok": bool, "message": str}``; without it (provider layer missing) the result is ``ok: null``."""
     _provider(provider)
@@ -85,7 +85,7 @@ def test_key(provider: str, rt: Runtime = Depends(get_rt)) -> dict[str, Any]:
                 result = raw if isinstance(raw, dict) else {"ok": bool(raw), "message": ""}
         except ImportError:
             result = {"ok": None, "message": "The provider layer is not installed in this build."}
-        except Exception as exc:   # noqa: BLE001 - report any failure to the user without echoing the key
+        except Exception as exc:  # noqa: BLE001
             from duoskin.logsetup import redact
 
             result = {"ok": False, "message": redact(f"{type(exc).__name__}: {exc}")[:300]}

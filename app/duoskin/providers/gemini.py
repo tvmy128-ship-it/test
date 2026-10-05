@@ -232,6 +232,20 @@ class GeminiProvider:
     def _privacy(self, private: bool) -> None:
         check_privacy(private, self.key_billed)
 
+    def test_key(self) -> dict[str, Any]:
+        """Settings "Test key": ``GET /models/{judge model}`` (free)."""
+        try:
+            with self.limiter.acquire():
+                resp = self._client.get(f"{self.base_url}/models/{self.judge_model}")
+        except httpx.TimeoutException:
+            return {"ok": False, "message": "Gemini took too long to answer.", "kind": "timeout"}
+        except httpx.TransportError:
+            return {"ok": False, "message": "Could not reach Gemini.", "kind": "network"}
+        if resp.status_code >= 400:
+            err = self._map_error(resp, None)
+            return {"ok": False, "message": err.user_message, "kind": err.kind}
+        return {"ok": True, "message": f"The Gemini key works ({self.judge_model})."}
+
     # ----- G1: judge ----------------------------------------------------------------------------------------
     def judge(self, png: bytes, rules: list[RuleSpec], *, thinking_level: Literal["LOW", "MEDIUM"], ctx: CallCtx,
               private: bool = False) -> list[RuleVerdict]:

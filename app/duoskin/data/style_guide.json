@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "light": {"direction": "front, 30 deg above, centred", "for_3d_inputs": "frontal, symmetric, soft"},
+  "shading": {"bands": 1, "shadow_dL": [-18, -10], "shadow_hue_shift_deg": [-15, 0], "highlight": "optional, small, +8 L*"},
+  "outline": {
+    "prints_badges_accessories": "fill colour darkened by 30-40 L*, never pure black unless fill is near-black",
+    "stroke_px_at_placed_size": {"min": 2},
+    "badge_outline_frac_of_width": 0.03
+  },
+  "face": {"min_line_px_after_warp": 2, "line_colours": "single per feature", "blush_max_L": 45, "blush_max_alpha": 0.35},
+  "clothing": {
+    "stitch_px_at_template": 1,
+    "stitch_dL": -20,
+    "detail_inset_px": 5,
+    "seam_keepout_rows": [170, 418, 419, 467],
+    "keepout_px": 2,
+    "fabric_amplitude_max_dL": 6
+  },
+  "saturation": {"large_area_max_chroma": 80, "neon_only_as_accent": true},
+  "adjacent_regions_min_de2000": 10,
+  "detail_density": {"minimal": [1, 2], "standard": [2, 3], "maximal": [4, 5]},
+  "forbidden_looks": ["smooth airbrush gradients", "glossy highlights", "photoreal texture", "noise or grain", "lens effects"],
+  "thumbnail_px": 150,
+  "blocks": {
+    "HOUSE_STYLE_2D": "Clean cel-shaded cartoon game art with a 2D anime-style look: crisp even outlines in a darker shade of each fill colour, flat base colours with one soft shadow step and at most one small highlight, light from the front and slightly above, matte surfaces, bold simple shapes that stay readable at small size.",
+    "HOUSE_STYLE_3D_INPUT": "Stylized matte toy-like 3D render with a cel-shaded look: clear rounded volumes, flat base colours with one soft shadow step, soft even light from the front and slightly above, symmetric left to right, no reflections, no rim light, thin or no outer outline."
+  }
+}

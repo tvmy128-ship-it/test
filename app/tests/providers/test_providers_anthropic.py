@@ -16,7 +16,7 @@ from prov_helpers import (
 from pydantic import BaseModel
 
 from duoskin.providers import anthropic_llm as A
-from duoskin.providers.base import CallCtx, CapabilityFlags, Cancelled, ProviderError, RateLimiter
+from duoskin.providers.base import CallCtx, Cancelled, CapabilityFlags, ProviderError, RateLimiter
 
 
 class Plan(BaseModel):
@@ -434,3 +434,24 @@ def test_smoke_test_passes_and_fails_closed():
 def test_repr_never_contains_the_key():
     p = provider(Spy())
     assert "sk-ant" not in repr(p)
+
+
+# ----- key test and startup probe -------------------------------------------------------------------------------------
+
+def test_test_key_and_startup_probe_are_free_calls():
+    info = {"id": "claude-opus-5", "type": "model", "display_name": "Opus 5", "created_at": "2026-01-01T00:00:00Z", "max_input_tokens": 1000000,
+            "max_tokens": 128000, "capabilities": None}
+    spy = Spy(json_response(info))
+    r = provider(spy).test_key()
+    assert r["ok"] is True and "claude-opus-5" in r["message"] and spy.requests[0].url.path == "/v1/models/claude-opus-5"
+    bad = Spy(anthropic_error(401, "invalid x-api-key", "authentication_error"))
+    r2 = provider(bad).test_key()
+    assert r2["ok"] is False and r2["kind"] == "auth" and "key" in r2["message"].lower()
+    spy3 = Spy(json_response(info), json_response({**info, "id": "claude-sonnet-5"}), json_response({**info, "allowed_fallback_models": ["claude-opus-4-8"]}),
+               json_response({**info, "id": "claude-sonnet-5", "allowed_fallback_models": []}))
+    probe = provider(spy3).startup_probe()
+    assert probe["ok"] is True and set(probe["allowed_fallbacks"]) == {"claude-opus-5", "claude-sonnet-5"}
+    spy4 = Spy(anthropic_error(404, "model: claude-opus-5", "not_found_error"), json_response({**info, "id": "claude-sonnet-5"}), anthropic_error(404, "x", "not_found_error"),
+               anthropic_error(404, "x", "not_found_error"))
+    p4 = provider(spy4).startup_probe()
+    assert p4["ok"] is False and "not_found" in p4["message"]

@@ -10,8 +10,9 @@ without touching the geometry; ``attach_loop`` unions a keychain loop onto any w
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 from PIL import Image
@@ -292,7 +293,7 @@ def assemble(parts: list[Part], palette: dict[str, RGB], texture_px: int = 1024)
     if not parts:
         raise MeshError("no_parts", "nothing to build")
     cols = 1 if len(parts) == 1 else 2
-    rows = int(math.ceil(len(parts) / cols))
+    rows = math.ceil(len(parts) / cols)
     atlas = Atlas(texture_px, cols, rows)
     verts, faces, uvs, off = [], [], [], 0
     layout = []
@@ -301,7 +302,7 @@ def assemble(parts: list[Part], palette: dict[str, RGB], texture_px: int = 1024)
         verts.append(p.vertices)
         faces.append(p.faces + off)
         uvs.append(atlas.map_uv(p.uv, cell))
-        layout.append({"part": p.name, "slot": p.slot, "cell": cell})
+        layout.append({"part": p.name, "slot": p.slot, "cell": cell, "faces": len(p.faces)})
         off += len(p.vertices)
     mesh = MeshData(np.vstack(verts), np.vstack(faces), np.vstack(uvs), atlas.paint(palette))
     mesh.meta.update({"primitive": True, "palette": {k: list(v) for k, v in palette.items()},

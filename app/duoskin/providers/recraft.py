@@ -399,6 +399,16 @@ class RecraftProvider:
         self._record(recraft_cost("remove_background", operation="images.removeBackground", request_id=data.get("_rid")))
         return raw
 
+    def test_key(self) -> dict[str, Any]:
+        """Settings "Test key": ``GET /users/me`` (free) reports the API units left."""
+        try:
+            resp = self._request("GET", "/users/me", CallCtx.null())
+            data = self._json(resp)
+        except ProviderError as err:
+            return {"ok": False, "message": err.user_message, "kind": err.kind}
+        credits = data.get("credits")
+        return {"ok": True, "message": "The Recraft key works" + (f"; {credits} API units left." if isinstance(credits, (int, float)) else ".")}
+
     def _record(self, cost: dict[str, Any]) -> None:
         if self.cost_sink is not None:
             try:

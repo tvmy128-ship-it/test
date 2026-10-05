@@ -1382,14 +1382,17 @@ def check_mouth_interior(comp: FaceComposite, tones: Sequence[CN.SkinTone] | Non
 
 
 def check_skin_transparent(comp: FaceComposite, *, subject_sha: str = "") -> CheckResult:
-    """F_SKIN_TRANSPARENT (FACE-12, HARD): >= 95% of the skin zone (everything outside the features) of the texture has alpha 0."""
-    tex = np.asarray(comp.texture("neutral"))
-    feat = P.dilate(tex[..., 3] >= 250, 3)
-    skin_zone = ~feat
-    share = float((tex[..., 3][skin_zone] == 0).mean())
+    """F_SKIN_TRANSPARENT (FACE-12, HARD): >= 95% of the canvas skin zone (everything outside the landmark zones) is alpha 0 in every
+    expression state, so skin is never baked into the head texture."""
+    zone = P.dilate(comp.canvas.zone_mask(comp.spec.eye_shape), 1)
+    painted = np.zeros(zone.shape, bool)
+    for st in EXPRESSIONS:
+        painted |= comp.feature_alpha(st) > 0
+    skin_zone = ~zone
+    share = float((~painted[skin_zone]).mean())
     return build_result("F_SKIN_TRANSPARENT", passed=share >= float(TH.get("face.skin_alpha_zero_min")), subject_sha=subject_sha,
                         metric="skin_alpha0_share", value=share, threshold=TH.describe("face.skin_alpha_zero_min", ">="),
-                        evidence=f"{share:.3f} of the skin zone is transparent")
+                        evidence=f"{share:.3f} of the skin zone is transparent", fix_hint="code_alpha_cleanup")
 
 
 def _between_allowed(lab: np.ndarray, allowed_lab: np.ndarray, tol: float) -> np.ndarray:
@@ -1473,6 +1476,16 @@ def check_neck_seam(head_rgb: Sequence[float], torso_rgb: Sequence[float], *, su
                         threshold=TH.describe("face.neck_seam_de_max", "<="), evidence=f"seam dE {de:.2f}", fix_hint="human")
 
 
+def check_face_2d_profile(comp: FaceComposite, *, subject_sha: str = "") -> CheckResult:
+    """CHK-A17 (HARD): the 2D face profile that runs only without a head base (APP_SPEC §10.6): every feature pixel inside its canvas
+    zone, the closed-lid layer covers the sclera polygon (0 iris pixels in the blink preview), the open-mouth layer is painted, and
+    the skin zone is transparent. Aggregates ``F_ZONES``, ``F_LID_COVERS``, ``F_MOUTH_INTERIOR`` and ``F_SKIN_TRANSPARENT``."""
+    parts = [check_zones(comp), check_lid_covers(comp), check_mouth_interior(comp), check_skin_transparent(comp)]
+    bad = [f"{r.check_id}: {r.evidence}" for r in parts if not r.passed]
+    return build_result("CHK-A17", passed=not bad, subject_sha=subject_sha, metric="face_2d_problems", value=float(len(bad)),
+                        evidence="; ".join(bad) or "2D face profile holds", fix_hint="code_recrop")
+
+
 # ------------------------------------------------------------------ the suite
 def face_check_suite(comp: FaceComposite, *, hair_hexes: Sequence[str] = (), tones: Sequence[CN.SkinTone] | None = None,
                      head_base_present: bool = False, head_base_inputs: Mapping[str, Any] | None = None,
@@ -1480,7 +1493,8 @@ def face_check_suite(comp: FaceComposite, *, hair_hexes: Sequence[str] = (), ton
     """Every face-tile check, each run through ``checks.runner.run_check`` (fail-closed).
 
     Without a head base the head-base checks (``F_BLINK_IRIS``, ``F_WARP_IOU``, ``F_STRETCH``, ``F_NECK_SEAM``, CHK-B09) are
-    ``not_applicable`` with the reason ``no_head_base`` and the 2D equivalents run instead. With a head base, ``head_base_inputs`` supplies
+    ``not_applicable`` with the reason ``no_head_base`` (set by the runner from the registry's ``requires`` flags) and the 2D equivalents
+    run instead (``CHK-A17`` is the 2D profile and is itself N/A when a head base exists). With a head base, ``head_base_inputs`` supplies
     the renders: ``blink_renders``, ``iris_hexes``, ``eye_zone``, ``canvas_alpha``, ``render_alpha``, ``stretch_by_pose``,
     ``feature_mask_by_pose``, ``head_rgb``, ``torso_rgb``; a missing input fails closed.
     """
@@ -1502,6 +1516,7 @@ def face_check_suite(comp: FaceComposite, *, hair_hexes: Sequence[str] = (), ton
         run_check("F_MOUTH_INTERIOR", subject_sha, lambda: check_mouth_interior(comp, ts)),
         run_check("F_SKIN_TRANSPARENT", subject_sha, lambda: check_skin_transparent(comp)),
         run_check("F_LASH_LID_SPLIT", subject_sha, lambda: check_lash_lid_split(comp)),
+        run_check("CHK-A17", subject_sha, lambda: check_face_2d_profile(comp), head_base_present=head_base_present),
     ]
     if other_face is not None:
         res.append(run_check("F_AB_FACE_DIFF", subject_sha, lambda: check_ab_face_difference(comp.spec, other_face)))

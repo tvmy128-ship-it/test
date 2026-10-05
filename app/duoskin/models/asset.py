@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from duoskin.models.common import PartId, Sha256, Strict, UtcDatetime
+from duoskin.models.common import License, PartId, Sha256, Strict, UtcDatetime
 
 AssetKind = Literal["png", "jpeg", "webp", "svg", "glb", "gltf", "bin", "fbx", "obj_zip", "blend", "json", "txt",
                     "luau", "zip", "npz", "html"]
@@ -35,7 +35,7 @@ class Provenance(Strict):
     cost_basis: Literal["estimate", "usage", "credits"] | None = None
     raw_sha256: Sha256 | None = None               # untouched provider bytes (C2PA / SynthID kept)
     check_ids: list[str] = Field(default_factory=list)
-    license: str = "n/a"
+    license: License = "n/a"
     notes: list[str] = Field(default_factory=list)
     created_at: UtcDatetime
 
