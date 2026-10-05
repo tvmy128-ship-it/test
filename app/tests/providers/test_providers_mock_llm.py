@@ -140,7 +140,7 @@ def test_register_role_by_route_and_by_schema_class_name():
     assert call(L.MockLLM(), route="L6_reviser").parsed.title != "From builder"          # only the registered route
     L.register_role("Inner", lambda c: {"name": "by class", "count": 3, "ratio": 0.4, "flag": False, "kind": "beta"})
     assert call(L.MockLLM(), route="L7_change", out=Inner).parsed.name == "by class"
-    assert L.registered_roles() == ["Inner", "L3_planner"]
+    assert {"Inner", "L3_planner"} <= set(L.registered_roles())
     L.unregister_role("L3_planner")
     assert call(L.MockLLM()).parsed.title != "From builder"
 
@@ -426,6 +426,7 @@ def test_planner_picks_garment_attributes_the_recipe_can_draw():
             for attr in ("sleeve", "hem", "neckline", "front", "block_layout"):
                 allowed = r.cut.get(attr)
                 assert not allowed or getattr(ch.top, attr) in allowed, (ch.top.recipe_id, attr)
+            assert (ch.top.front == "closed") == (ch.top.inner_recipe_id == "none")
             rb = inv.recipe(ch.bottom.recipe_id)
             assert not rb.cut.get("leg") or ch.bottom.leg in rb.cut["leg"]
 
@@ -439,7 +440,8 @@ def test_planner_is_deterministic_and_reads_must_include_lines():
     assert plan("a different duo").model_dump() != a.model_dump()
 
 
-def test_the_planner_builder_is_registered_lazily_for_route_and_schema():
+def test_the_planner_builder_is_registered_lazily_for_the_schema_not_the_route():
     _llm_io()
     L.reload_roles()
-    assert {"L3_planner", "PlanSet"} <= set(L.registered_roles())
+    assert "PlanSet" in L.registered_roles() and "L3_planner" not in L.registered_roles()
+    assert call(L.MockLLM()).parsed                              # the L3 route with another schema still gets the generic answer

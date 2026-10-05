@@ -12,6 +12,7 @@ must_lines: 4
 style_block: HOUSE_STYLE_2D
 priming: []
 bootstrap: false
+budget: {max_chars_excl_style: 2400, max_chars_total: 2750}
 size: 3072x1024
 images:
 - {id: guide_concept_joint, text: 'layout guide: four flat-coloured blocky figures from left to right: character one from the front,

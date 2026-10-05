@@ -46,6 +46,6 @@ MUST:
 4. Bold simple shapes with even outlines.
 5. Straight-on flat artwork with flat fills and no perspective.
 STYLE: {style_block}
-KEEP: {keep_list}
+KEEP: {keep_list?}
 OUTPUT: The graphic alone on a fully transparent background with clean hard alpha edges. Preserve the transparent background.
 EXCLUDE: lettering, numbers, logos, garment, mockup, rectangle backdrop, drop shadow, gradients, watermark.

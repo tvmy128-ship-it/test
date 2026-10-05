@@ -823,7 +823,7 @@ def render_box_preview(shirt: np.ndarray | None = None, pants: np.ndarray | None
         canvas[y_lo:y_hi + 1, x_lo:x_hi + 1][take] = col
 
     def tex_sampler(region: str, tex: np.ndarray) -> Callable[[np.ndarray, np.ndarray], np.ndarray]:
-        x0, y0, x1, y1 = REGIONS[region]
+        x0, y0, _x1, _y1 = REGIONS[region]
         w, h = SIZE[region]
 
         def sample(u: np.ndarray, v: np.ndarray) -> np.ndarray:
@@ -942,7 +942,7 @@ def bands_of(region: str) -> tuple[tuple[int, int], ...]:
     """Row bands of ``region`` in which a print, trim or code-placed piece must lie entirely: torso faces 74-168 and
     172-201 (>= 2 px off row 170), limb side faces 355-416, 421-465 and 469-482 (off 418/419 and 467); cap faces have a
     single band covering the whole region."""
-    x0, y0, x1, y1 = REGIONS[region]
+    _x0, y0, _x1, y1 = REGIONS[region]
     if FACE_OF[region] in ("u", "d"):
         return ((y0, y1),)
     return TORSO_BANDS if PART_OF[region] == "torso" else LIMB_BANDS

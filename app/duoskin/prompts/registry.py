@@ -86,6 +86,7 @@ class TemplateMeta(BaseModel):
     flat: bool = False
     bootstrap: bool = False                        # the template has an ``@s0`` variant
     schema_name: str = Field(default="", alias="schema")
+    budget: dict[str, int] = Field(default_factory=dict)      # per-template override of max_chars_excl_style / max_chars_total
     cache: dict[str, Any] = Field(default_factory=dict)
     notes: str = ""
 

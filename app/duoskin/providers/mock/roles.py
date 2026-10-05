@@ -46,8 +46,7 @@ def register_mock_roles(register) -> None:
         from duoskin.models import kitenums, spec  # noqa: F401
     except ImportError:
         return
-    register("L3_planner", planner_builder)
-    register("PlanSet", planner_builder)
+    register("PlanSet", planner_builder)         # by schema class: any route that asks for a PlanSet gets plans
 
 
 # --------------------------------------------------------------------------------------------------------------
@@ -139,6 +138,9 @@ def _character(inv: Any, k: int, plan: int, who: str, pal: dict[str, str], combo
     layout = _cut(inv, top_id, "block_layout", ("solid", "contrast_sleeves", "horizontal_band", "vertical_split"), plan + k)
     neckline = _cut(inv, top_id, "neckline", ("crew", "v_neck", "collar", "square", "hood"), k + plan)
     leg = _cut(inv, bottom_id, "leg", ("full", "knee", "above_knee", "mini", "midi"), k)
+    front = _cut(inv, top_id, "front", ("closed", "open", "layered"), 0)
+    inners = [i for i in inv.ids("InnerTopKit") if i not in ("none", top_id) and inv.recipe(i).family not in ("crop_top",)]
+    inner = (inners[0] if inners else "none") if front != "closed" else "none"
     acc = ACCESSORY_SETS[(plan + 2 * k) % len(ACCESSORY_SETS)]
     dna_shapes = ("round_soft", "sharp_angular", "boxy_sturdy", "flowing_curved", "spiky_energetic", "geometric_clean")
     plans = ("ratio_60_30_10", "ratio_70_20_10", "block_50_50", "mono_accent", "allover_pattern")
@@ -174,7 +176,7 @@ def _character(inv: Any, k: int, plan: int, who: str, pal: dict[str, str], combo
                  "colour_ref": hair_ref, "shadow_ref": pal["neutral_dark"], "highlight_ref": pal["accent"] if k == 1 else "none"},
         "top": {"recipe_id": top_id, "sleeve": sleeve,
                 "hem": _cut(inv, top_id, "hem", ("hip_untucked", "waist_tucked", "crop"), k), "neckline": neckline,
-                "front": "closed", "block_layout": layout, "inner_recipe_id": "none", "fabric_id": fabrics[(plan + 2 * k) % len(fabrics)],
+                "front": front, "block_layout": layout, "inner_recipe_id": inner, "fabric_id": fabrics[(plan + 2 * k) % len(fabrics)],
                 "base_ref": main, "second_ref": second, "trim_ref": pal["accent"],
                 "prints": [{"motif": f"{_words(theme_obj, 4)} cluster", "region": "torso_f", "scale": "medium", "colour_refs": [pal["accent"], pal["neutral_light"]]}],
                 "arm_extras": ["bracelet_char_right"] if k == 1 else []},
@@ -248,7 +250,7 @@ def planner_builder(call: Any) -> dict[str, Any]:
     wildcard = rng.randrange(3)
     brief_colors = D.colors_from_text(brief, 3)
     specs = [_spec(inv, i, structures[i], families[i], i == wildcard, combo, brief, brief_colors if i != wildcard else [], rng) for i in range(3)]
-    must = re.search(r"<must_include>(.*?)</must_include>", call.content_text, re.S)
+    must = re.search(r"<must_include>(.*?)</must_include>", call.content_text, re.DOTALL)
     lines = [ln.strip(" -*\t") for ln in (must.group(1) if must else "").splitlines() if ln.strip(" -*\t")]
     constraints = [{"text": _words(ln, 12), "spec_paths": ["/a/accessories/0"]} for ln in lines]
     out = {"specs": specs, "brief_constraints": constraints,

@@ -49,5 +49,5 @@ MUST:
 4. Straight-on front view, level, no perspective.
 5. {fringe_line}
 STYLE: {style_block}
-KEEP: {keep_list}
+KEEP: {keep_list?}
 EXCLUDE: facial features, hat, hair accessories, body, text, watermark.

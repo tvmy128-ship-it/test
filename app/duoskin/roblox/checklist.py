@@ -265,8 +265,8 @@ def render_html(cl: Checklist) -> str:
     """A small self-contained ``CHECKLIST.html`` (all text escaped; tick boxes are disabled when the step is locked)."""
     e = html.escape
     parts = ["<!doctype html><meta charset='utf-8'><title>DuoSkin upload checklist</title>",
-             "<style>body{font:15px/1.5 sans-serif;max-width:52rem;margin:2rem auto;padding:0 1rem}li.locked{opacity:.55}"
-             ".banner{background:#fff4d6;border:1px solid #e0b84c;padding:.5rem 1rem;margin:.5rem 0}h2{margin-top:2rem}</style>",
+             ("<style>body{font:15px/1.5 sans-serif;max-width:52rem;margin:2rem auto;padding:0 1rem}li.locked{opacity:.55}"
+             ".banner{background:#fff4d6;border:1px solid #e0b84c;padding:.5rem 1rem;margin:.5rem 0}h2{margin-top:2rem}</style>"),
              "<h1>Upload checklist</h1>"]
     for b in cl.banners:
         parts.append(f"<div class='banner'>{e(b)}</div>")

@@ -154,7 +154,8 @@ def print_clause(a: BuildArgs, prints: list, part: str) -> str:
         place = table.get(p.region, "")
         if not place:
             continue
-        return a.phr.get("print", "template").format(size=a.phr.get("print", "size_word", p.scale), motif=motif, placement=place)
+        size = a.phr.get("print", "size_word", p.scale)
+        return a.phr.get("print", "template").format(sized_motif=f"{size} {motif}" if size else motif, placement=place)
     return ""
 
 
@@ -176,10 +177,23 @@ def hair_phrase(a: BuildArgs, c: Character, path: str, cap: int) -> str:
     if style is not None:
         if not style.prompt_phrase.strip():
             raise PromptBuildError(f"hair style {style.id!r} has no prompt_phrase")
-        return fit_clauses([(0, style.prompt_phrase.strip()), (1, desc)], cap)
+        return fit_clauses(_dedupe([(0, style.prompt_phrase.strip()), (1, desc)]), cap)
     parting = a.phr.get("hair", "parting_phrase", c.hair.parting)
     fringe = a.phr.get("hair", "fringe_phrase", "present" if fringe_present(a, c) else "absent")
     return fit_clauses([(0, desc), (2, parting), (1, fringe)], cap)
+
+
+def _dedupe(clauses: list[tuple[int, str]]) -> list[tuple[int, str]]:
+    """Drop a clause whose words already sit inside another (a kit phrase repeated by the description)."""
+    norm_ = [" ".join(re.findall(r"[a-z0-9]+", t.lower())) for _, t in clauses]
+    keep = []
+    for i, (p, t) in enumerate(clauses):
+        if not t.strip():
+            continue
+        if any(j != i and norm_[i] and norm_[i] in norm_[j] and (norm_[i] != norm_[j] or j < i) for j in range(len(clauses))):
+            continue
+        keep.append((p, t))
+    return keep
 
 
 def top_phrase(a: BuildArgs, c: Character, path: str, cap: int) -> str:
@@ -580,4 +594,3 @@ BUILDERS: dict[str, tuple[Builder, int]] = {
     "edit": (build_edit, 0),
 }
 
-_ = re  # (re is used by callers that import this module's helpers)

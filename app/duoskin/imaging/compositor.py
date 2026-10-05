@@ -104,7 +104,7 @@ def _shift_lightness(rgb: RGB, dL: float) -> RGB:
     lab = srgb_to_lab(np.array(rgb, dtype=np.float64))
     lab = np.array([min(100.0, max(0.0, lab[0] + dL)), lab[1], lab[2]])
     out = lab_to_srgb(lab)
-    return tuple(int(round(v)) for v in out)  # type: ignore[return-value]
+    return tuple(round(v) for v in out)  # type: ignore[return-value]
 
 
 class ColourBook:
@@ -632,9 +632,9 @@ def hem_rows(env: Mapping[str, float]) -> list[int]:
     rows = []
     for k in ("torso_end", "sleeve_end", "leg_hem"):
         if k in env:
-            rows.append(int(round(env[k])))
+            rows.append(round(env[k]))
     if "waist_top" in env:                                   # the pants waist edge is the boundary waist_top-1 | waist_top
-        rows.append(int(round(env["waist_top"])) - 1)
+        rows.append(round(env["waist_top"]) - 1)
     return sorted(set(rows))
 
 

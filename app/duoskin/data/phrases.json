@@ -42,7 +42,7 @@
     "plush": "soft plush toy with a velvety matte surface and stitched seams",
     "vinyl": "smooth matte vinyl toy",
     "rubber": "soft matte rubber charm",
-    "knit": "chunky hand-knit texture",
+    "knit": "chunky knitted texture",
     "canvas": "stiff matte canvas with visible stitching",
     "enamel_flat": "flat enamel-like surface with a raised rim",
     "wood": "smooth painted wood"
@@ -81,9 +81,8 @@
     "bottom.legwear": {"bare": "", "socks_ankle": "ankle socks", "socks_crew": "crew socks", "socks_knee": "knee socks", "tights": "tights"}
   },
   "print": {
-    "template": "with a {size} {motif} print {placement}",
-    "template_no_placement": "with a {size} {motif} print",
-    "size_word": {"small": "small", "medium": "medium", "large": "large"},
+    "template": "with a {sized_motif} print {placement}",
+    "size_word": {"small": "small", "medium": "", "large": "large"},
     "placement_top": {
       "torso_f": "on the chest", "torso_b": "on the back",
       "rlimb_f": "on the sleeve", "rlimb_b": "on the sleeve", "rlimb_r": "on the sleeve",

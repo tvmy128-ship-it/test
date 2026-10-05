@@ -55,7 +55,7 @@ def test_every_layer_uses_known_colour_roles_and_regions():
 def test_kit_layers_selection_per_template():
     assert K.kit_layers("shirt", arm_extras=[]) == [] and K.kit_layers("pants") == []
     pants = K.kit_layers("pants", shoe_style="boot", legwear="socks_crew")
-    assert [lay.id.split(".")[0] for lay in pants][0] == "legwear" and pants[-1].id.startswith("shoes.boot")        # legwear first, shoes last
+    assert next(lay.id.split(".")[0] for lay in pants) == "legwear" and pants[-1].id.startswith("shoes.boot")        # legwear first, shoes last
     shirt = K.kit_layers("shirt", arm_extras=["bracelet_char_left", "gloves", "bracelet_char_left"])
     assert len({lay.id for lay in shirt}) == len(shirt)
     assert K.kit_layers("pants", shoe_style="none", legwear="bare") == [] and K.legwear_piece("bare") is None

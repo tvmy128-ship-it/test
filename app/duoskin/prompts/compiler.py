@@ -174,7 +174,7 @@ def compile(template_id: str, spec: DuoSpec | dict, character: CharKey | None, s
         raise S.PromptBuildError(f"{meta.id}: part {part!r} is not one of {sorted(tpl.parts)}")
     builder, max_level = S.BUILDERS[meta.builder]
     style_block = ctx.style_block(meta.style_block)
-    budget = thr("prm.max_chars_excl_style")
+    budget = meta.budget.get("max_chars_excl_style", thr("prm.max_chars_excl_style"))
     result: tuple[str, list[str], list[str], dict[str, Any], S.Built] | None = None
     for level in range(max_level + 1):
         built = builder(S.BuildArgs(spec=spec, char=character, ctx=ctx, inputs=inputs, level=level, meta=meta))
@@ -306,13 +306,18 @@ def lint_prompt(cp: CompiledPrompt, ctx: LintCtx, banned: Any = None) -> list[Ch
     s = split_flat(cp.text) if flat else split_sections(cp.text)
     positive = norm(" ".join(s.get(k, "") for k in POSITIVE))
     core = norm(" ".join(s.get(k, "") for k in CORE))
+    bud = meta.budget if meta else {}
     must_n = count_must(cp.text, flat)
     n_excl_style = len(cp.text) - len(s.get("STYLE", ""))            # the verbatim STYLE block is not counted
     excl = [x for x in s.get("EXCLUDE", "").rstrip(".").split(",") if x.strip()]
     roles = len(re.findall(r"Image \d+ =", s.get("IMAGES", "")))
     add("PRM-01", must_n <= thr("prm.must_max"), "must_lines", must_n, "<= prm.must_max")
-    add("PRM-01", n_excl_style <= thr("prm.max_chars_excl_style"), "chars_excl_style", n_excl_style, "<= prm.max_chars_excl_style")
-    add("PRM-01", len(cp.text) <= thr("prm.max_chars_total"), "chars_total", len(cp.text), "<= prm.max_chars_total")
+    lim_excl = bud.get("max_chars_excl_style", thr("prm.max_chars_excl_style"))
+    lim_total = bud.get("max_chars_total", thr("prm.max_chars_total"))
+    add("PRM-01", n_excl_style <= lim_excl, "chars_excl_style", n_excl_style,
+        f"<= {lim_excl}" + ("" if "max_chars_excl_style" in bud else " (prm.max_chars_excl_style)"))
+    add("PRM-01", len(cp.text) <= lim_total, "chars_total", len(cp.text),
+        f"<= {lim_total}" + ("" if "max_chars_total" in bud else " (prm.max_chars_total)"))
     add("PRM-01", len(excl) <= thr("prm.exclude_nouns_max"), "exclude_nouns", len(excl), "<= prm.exclude_nouns_max")
     add("PRM-01", len(re.findall(r"^KEEP:", cp.text, re.M)) <= 1 and len(re.findall(r"^EXCLUDE:", cp.text, re.M)) <= 1,
         "keep_exclude_one_line")

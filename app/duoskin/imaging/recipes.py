@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import ast
 import fnmatch
+import itertools
 import json
 import math
 import re
@@ -43,7 +44,7 @@ from typing import Any
 
 import numpy as np
 from PIL import Image, ImageDraw
-from pydantic import ConfigDict, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from duoskin.models.common import Strict, sha256_of
 from duoskin.roblox import template as T
@@ -136,7 +137,7 @@ class PrintSlot(Strict):
     region: str
     role: str                      # hero | small | back | sleeve | ...
     box: list[int]                 # absolute template px (x0, y0, x1, y1), inclusive
-    avoid_rows: list[list[int]] = []   # extra row ranges to keep clear (inclusive)
+    avoid_rows: list[list[int]] = Field(default_factory=list)   # extra row ranges to keep clear (inclusive)
 
     @field_validator("region")
     @classmethod
@@ -170,12 +171,12 @@ class Layer(Strict):
     coverage: str = "add"
     colour: Any = None
     label: int | None = None
-    shapes: list[dict[str, Any]] = []
-    minus: list[dict[str, Any]] = []
-    regions: list[str] = []
+    shapes: list[dict[str, Any]] = Field(default_factory=list)
+    minus: list[dict[str, Any]] = Field(default_factory=list)
+    regions: list[str] = Field(default_factory=list)
     frame: str = "abs"
-    when: dict[str, Any] = {}
-    unless: dict[str, Any] = {}
+    when: dict[str, Any] = Field(default_factory=dict)
+    unless: dict[str, Any] = Field(default_factory=dict)
     fabric: bool = True
     dL: Any = 0.0                        # shade: lightness shift (number or expression)
     ramp: dict[str, Any] | None = None    # shade: {"axis": "y", "from": a, "to": b, "profile": "bell"}
@@ -238,14 +239,14 @@ class Recipe(Strict):
     title: str = ""
     version: int = 1
     fold_set: str = "default"
-    cut: dict[str, list[str]] = {}
-    defaults: dict[str, str] = {}
-    params: dict[str, float] = {}
-    vars: dict[str, Any] = {}
-    layers: list[Layer] = []
-    print_slots: list[PrintSlot] = []
-    requires_bottom: dict[str, list[str]] = {}
-    param_limits: dict[str, list[float]] = {}     # numeric params must lie in [lo, hi] (e.g. crop_hem 140-166: >= 2 px above row 170)
+    cut: dict[str, list[str]] = Field(default_factory=dict)
+    defaults: dict[str, str] = Field(default_factory=dict)
+    params: dict[str, float] = Field(default_factory=dict)
+    vars: dict[str, Any] = Field(default_factory=dict)
+    layers: list[Layer] = Field(default_factory=list)
+    print_slots: list[PrintSlot] = Field(default_factory=list)
+    requires_bottom: dict[str, list[str]] = Field(default_factory=dict)
+    param_limits: dict[str, list[float]] = Field(default_factory=dict)     # numeric params must lie in [lo, hi] (e.g. crop_hem 140-166: >= 2 px above row 170)
     notes: str = ""
 
     @field_validator("template")
@@ -487,7 +488,7 @@ def _dash_segments(pts: list[tuple[float, float]], on: float, off: float) -> lis
     segs: list[list[tuple[float, float]]] = []
     cur: list[tuple[float, float]] = []
     pos, drawing, left = 0.0, True, on
-    for (ax, ay), (bx, by) in zip(pts[:-1], pts[1:]):
+    for (ax, ay), (bx, by) in itertools.pairwise(pts):
         length = math.hypot(bx - ax, by - ay)
         if length == 0:
             continue
@@ -561,7 +562,7 @@ def _draw_shape(d: ImageDraw.ImageDraw, s: dict[str, Any], ox: float, oy: float)
         pts = np.vstack([outer, inner]) * k - np.array([ox, oy])
         d.polygon([tuple(p) for p in pts], fill=255)
     elif "line" in s:
-        w = max(1, int(round(float(s.get("w", 1.0)) * k)))
+        w = max(1, round(float(s.get("w", 1.0)) * k))
         # line points are PIXEL INDICES (the stroke runs through pixel centres), so a 1-px line at row 40 fills exactly row 40
         pts = [(float(x) + 0.5, float(y) + 0.5) for x, y in s["line"]]
         dash = s.get("dash")
@@ -630,10 +631,10 @@ def rasterize(shapes: tuple[dict[str, Any], ...] | list[dict[str, Any]], *, dx: 
     parts: list[Mask] = []
     if boxes:
         k = SCALE
-        x0 = max(0, int(math.floor(min(b[0] for b in boxes) * k)) - 2)
-        y0 = max(0, int(math.floor(min(b[1] for b in boxes) * k)) - 2)
-        x1 = min(CANVAS_W, int(math.ceil(max(b[2] for b in boxes) * k)) + 2)
-        y1 = min(CANVAS_H, int(math.ceil(max(b[3] for b in boxes) * k)) + 2)
+        x0 = max(0, math.floor(min(b[0] for b in boxes) * k) - 2)
+        y0 = max(0, math.floor(min(b[1] for b in boxes) * k) - 2)
+        x1 = min(CANVAS_W, math.ceil(max(b[2] for b in boxes) * k) + 2)
+        y1 = min(CANVAS_H, math.ceil(max(b[3] for b in boxes) * k) + 2)
         if x1 > x0 and y1 > y0:
             img = Image.new("L", (x1 - x0, y1 - y0), 0)
             dr = ImageDraw.Draw(img)

@@ -231,7 +231,7 @@ def _leather(n: int, seed: int, r: int) -> np.ndarray:
 
 
 def _corduroy(n: int, seed: int, r: int) -> np.ndarray:
-    u, v = _grid(n)
+    u, _v = _grid(n)
     wale = 0.5 + 0.5 * np.cos(2 * np.pi * r * u)
     return wale ** 1.5 + 0.08 * _periodic_noise(n, seed, 1.6, (0.6, 1.0))
 
@@ -450,7 +450,7 @@ def fabric_values(ft: FabricTile, region: str, scale: int = 4) -> np.ndarray:
     part = T.PART_OF[region]
     face = T.FACE_OF[region]
     w, h = T.SIZE[region]
-    x0, y0, _x1, _y1 = T.REGIONS[region]
+    _x0, y0, _x1, _y1 = T.REGIONS[region]
     s = _part_scale(ft, part)
     sig = ft.signed()
     offs, _length = strip_layout(part)
@@ -477,7 +477,7 @@ def fabric_values(ft: FabricTile, region: str, scale: int = 4) -> np.ndarray:
         tau = xl if side in ("top", "bottom") else yl
         dist = {"top": yl, "bottom": h - yl, "left": xl, "right": w - xl}[side]
         tau_n = (edge_len - tau) if reverse else tau
-        ox0, oy0, _ox1, oy1 = T.REGIONS[other]
+        _ox0, oy0, _ox1, oy1 = T.REGIONS[other]
         p = offs[other] + tau_n
         if face == "u":
             yy = oy0 - dist                       # continue upwards from the neighbour's top row

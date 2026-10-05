@@ -188,7 +188,7 @@ def test_b05_shoe_top_edge_gloves_bracelets_and_wrong_template(jeans, tee):
     lm = jeans.label_map.copy()
     assert V.check_b05("pants", lm).passed
     bad = lm.copy()
-    x0, y0, x1, y1 = T.REGIONS["rlimb_f"]
+    _x0, y0, _x1, _y1 = T.REGIONS["rlimb_f"]
     T.crop(bad, "rlimb_f")[440 - y0:446 - y0] = 6                                  # a shoe whose top edge is at row 440
     r = V.check_b05("pants", bad)
     assert not r.passed and "440" in r.evidence and r.kind == "assert"
@@ -207,14 +207,14 @@ def test_b05_shoe_top_edge_gloves_bracelets_and_wrong_template(jeans, tee):
     torso = np.zeros_like(lm)
     T.crop(torso, "torso_f")[10:20] = 6
     assert not V.check_b05("pants", torso).passed
-    with pytest.raises(Exception):
+    with pytest.raises(V.CheckUnavailable):
         V.check_b05("shirt", None)                                                    # needs the label map (fail closed through validate_template)
 
 
 def test_b05_soft_split_rows_hem_exemption_and_print_flags(tee, jeans):
     img = rgba(tee.png).copy()
     assert V.check_split_rows(img, tee.meta).passed
-    x0, y0, x1, y1 = T.REGIONS["torso_f"]
+    x0, _y0, x1, _y1 = T.REGIONS["torso_f"]
     bad = img.copy()
     bad[168 - 0:171, x0:x1 + 1, :3] = (250, 250, 0)                                  # a bright band across rows 168-170: edges within 2 px of 170
     r = V.check_split_rows(bad, tee.meta)
@@ -234,7 +234,7 @@ def test_b05_soft_split_rows_hem_exemption_and_print_flags(tee, jeans):
 
 def test_b05_soft_print_inset_and_hidden_rows(jeans, tee):
     lm = np.zeros((559, 585), np.uint8)
-    x0, y0, x1, y1 = T.REGIONS["rlimb_f"]
+    _x0, _y0, _x1, _y1 = T.REGIONS["rlimb_f"]
     T.crop(lm, "rlimb_f")[10:30, 1:10] = 3                                          # print pixels 1 px from the left edge, rows 365-384
     out = V.check_print_inset(rgba(jeans.png), lm, [], "pants")
     inset, hidden = out
@@ -304,7 +304,7 @@ def test_b07_stack_order_hash_placements_and_mirrors(tee):
     assert not V.check_b07(tee.stack, "0" * 64, None, None).passed
     unknown = [{"stage": "nonsense"}]
     assert not V.check_b07(unknown, None, None, None).passed
-    with pytest.raises(Exception):
+    with pytest.raises(V.CheckUnavailable):
         V.check_b07(None, None, None, None)
     # the hash in the evidence is the one the compositor reports
     from duoskin.models.common import sha256_of

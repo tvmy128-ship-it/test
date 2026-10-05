@@ -117,7 +117,7 @@ def test_side_strip_wrap_closes_exactly():
         b = F.fabric_values(ft, last, 4)[:, -1:]
         assert float(np.abs(a - b).mean()) < 0.35          # neighbouring sub-pixels of a periodic pattern
     # and the strip has the exact whole number of tiles
-    off, length = T.strip_layout("torso")
+    _off, length = T.strip_layout("torso")
     assert abs(F._part_scale(ft, "torso") * length / ft.size - round(length / ft.template_px)) < 1e-9
 
 

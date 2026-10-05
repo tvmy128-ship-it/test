@@ -47,6 +47,6 @@ MUST:
 4. Flat front view, even outlines.
 5. Large simple features.
 STYLE: {style_block}
-KEEP: {keep_list}
+KEEP: {keep_list?}
 OUTPUT: The artwork alone on a fully transparent background with clean hard alpha edges. Preserve the transparent background.
 EXCLUDE: lettering, logos, white border, drop shadow, backdrop, holes, thin spikes, separate pieces, watermark.

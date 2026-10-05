@@ -51,6 +51,6 @@ MUST:
 3. Cover the same shape exactly: same position, size and outline.
 4. Clean vector-like shapes, crisp edges, flat fills.
 5. {orientation_rule}
-KEEP: {keep_list}
+KEEP: {keep_list?}
 OUTPUT: The element alone on a fully transparent background with clean hard alpha edges. Preserve the transparent background.
 EXCLUDE: skin, head, second eye, eyeshadow, highlight dots, shadow, text, watermark.

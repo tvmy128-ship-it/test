@@ -122,7 +122,7 @@ def test_tee_default_geometry_and_labels():
     assert label_at(res, 248, 402) == 4 and label_at(res, 248, 380) == 1
     # arms and torso are authored for all four faces of both arms
     for region in ("rlimb_l", "rlimb_b", "rlimb_r", "rlimb_f", "llimb_f", "llimb_l", "llimb_b", "llimb_r"):
-        x0, y0, x1, y1 = T.REGIONS[region]
+        _x0, y0, _x1, _y1 = T.REGIONS[region]
         a = T.crop(A(res), region)[..., 3]
         assert a[:50].all()
         rows = np.nonzero(a.any(axis=1))[0] + y0
@@ -259,7 +259,7 @@ def test_painted_shoes_top_edge_sole_and_labels(style):
     res = compose("jeans_straight", shoe=style, run_checks=True)
     lm = res.label_map
     for region in ("rlimb_f", "rlimb_b", "rlimb_l", "rlimb_r", "llimb_f", "llimb_l"):
-        x0, y0, x1, y1 = T.REGIONS[region]
+        _x0, y0, _x1, _y1 = T.REGIONS[region]
         rows = np.nonzero((T.crop(lm, region) == 6).any(axis=1))[0] + y0
         assert 446 <= rows.min() <= 465 and rows.max() == 482, (style, region, rows.min())      # CLO-07 shoe top edge rule
     for region in ("rlimb_d", "llimb_d"):
@@ -329,14 +329,14 @@ def test_gap_fill_and_bleed_are_exact_in_the_output_clo03():
         if s.gap:
             ya, xa = T._outside_line(T.REGIONS[s.a], s.side_a, 1)
             assert np.array_equal(img[ya, xa], T.edge_pixels(img, s.a, s.side_a))
-    x0, y0, x1, y1 = T.REGIONS["rlimb_l"]
+    x0, y0, _x1, _y1 = T.REGIONS["rlimb_l"]
     assert (img[y0 + 5:y0 + 40, x0 - 2:x0, 3] == 255).all() and (img[y0 + 5:y0 + 40, x0 - 5, 3] == 0).all()   # open side: 3 px bleed
 
 
 def test_alpha_is_binary_and_colour_under_transparency_is_the_nearest_garment_colour():
     res = composed("tee")
     img = A(res)
-    x0, y0, x1, y1 = T.REGIONS["rlimb_f"]
+    _x0, _y0, _x1, _y1 = T.REGIONS["rlimb_f"]
     skin_px = img[430, 248]
     assert skin_px[3] == 0 and tuple(skin_px[:3]) != (0, 0, 0)               # alpha bleed keeps filtering clean
     assert (img[0:5, 0:5] == 0).all()                                         # nothing outside the regions

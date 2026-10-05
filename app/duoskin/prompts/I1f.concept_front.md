@@ -12,6 +12,7 @@ must_lines: 5
 style_block: HOUSE_STYLE_2D
 priming: []
 bootstrap: false
+budget: {max_chars_excl_style: 1880, max_chars_total: 2200}
 size: 768x1024
 images:
 - {id: guide_concept_front, text: 'layout guide: one flat-coloured blocky figure seen from the front, with colour swatches along the
@@ -40,7 +41,7 @@ slots:
     max_words: 36
     lint: [free_text]
   colour_names: {source: palette roles -> colour_names.json}
-  face_phrase: {source: face grammar phrase map, max_words: 12}
+  face_phrase: {source: face grammar phrase map, max_words: 16}
   shape_language_line: {source: dna.shape_language}
   motif_object:
     source: dna.motif_object

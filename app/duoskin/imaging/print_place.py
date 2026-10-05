@@ -159,10 +159,10 @@ def plan_prints(specs: list[PrintSpec], slots: list[Any], *, pants: bool = False
         ax, ay = spec.anchor
         cx = sx0 + sw / 2.0 + max(-1.0, min(1.0, ax)) * max(sw - tw, 0.0) / 2.0
         cy = sy0 + sh / 2.0 + max(-1.0, min(1.0, ay)) * max(sh - th, 0.0) / 2.0
-        w4, h4 = max(int(round(tw * SCALE)), SCALE), max(int(round(th * SCALE)), SCALE)
+        w4, h4 = max(round(tw * SCALE), SCALE), max(round(th * SCALE), SCALE)
         rgba4 = resize_premult(tr, w4, h4)
-        x4 = int(round((cx - w4 / SCALE / 2.0) * SCALE))
-        y4 = int(round((cy - h4 / SCALE / 2.0) * SCALE))
+        x4 = round((cx - w4 / SCALE / 2.0) * SCALE)
+        y4 = round((cy - h4 / SCALE / 2.0) * SCALE)
         rx0, ry0, rx1, ry1 = T.REGIONS[spec.region]
         if spec.wrap:
             _add_wrap(plan, spec, rgba4, x4, y4)
@@ -207,13 +207,13 @@ def _add_wrap(plan: PrintPlan, spec: PrintSpec, rgba4: np.ndarray, x4: int, y4: 
     p_lo = edge - width / 2.0
     p_hi = p_lo + width
     for region, lo, hi, src in _strip_pieces(part, p_lo, p_hi):
-        c0 = int(round(src * SCALE))
-        c1 = min(w4, c0 + int(round((hi - lo) * SCALE)))
+        c0 = round(src * SCALE)
+        c1 = min(w4, c0 + round((hi - lo) * SCALE))
         if c1 <= c0:
             continue
         piece = rgba4[:, c0:c1]
-        rx0, ry0, rx1, ry1 = T.REGIONS[region]
-        lx4 = int(round(lo * SCALE))
+        rx0, ry0, _rx1, ry1 = T.REGIONS[region]
+        lx4 = round(lo * SCALE)
         ly4 = y4 - ry0 * SCALE
         if ly4 < 0 or ly4 + h4 > (ry1 - ry0 + 1) * SCALE:
             raise AssertionError(f"wrap print {spec.part_id} leaves the rows of {region}")

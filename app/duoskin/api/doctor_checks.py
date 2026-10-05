@@ -1,19 +1,21 @@
-"""``duoskin doctor``: the startup checks CHK-S01..S14 (FAILURE_MODES §7.0, with the issue-file fixes).
+"""``duoskin doctor``: the startup checks CHK-S01..S15 (FAILURE_MODES §7.0, APP_SPEC §15.3 and §4.4).
 
 Each check returns an ``Outcome``; the runner turns it into a ``CheckResult`` (fail closed: an exception or a missing
 dependency gives ``ran=False, passed=False``) and a human-readable ``DoctorItem``. The report says plainly what is wrong and
 what to do, and decides three things:
 
-* ``blocks_paid_features``: a HARD or ASSERT check failed. Real-provider paid steps then do not run (mock steps still do).
+* ``blocks_paid_features``: a HARD or ASSERT check failed or did not run (``passed=False``, which includes ``not_run``).
+  Real-provider paid steps then do not run (mock steps still do). SOFT and ``not_applicable`` results never block.
 * ``broken_install`` (exit code 3): the interpreter, the data folder or the package itself is broken.
-* ``exit_code``: 0 all good, 2 warnings or failures that block paid features, 3 broken install.
+* ``exit_code``: **0** ok (warnings allowed), **2** a blocking check failed or did not run, **3** broken install.
 
-**A fresh install is never blocked.** CHK-S11 is split (issue file #2): only the kit manifest load, the kit enums and the
-colour-name dictionary are HARD. A missing house-style sheet (``CHK-S11b``), a missing head base (``CHK-S11c``) and a
-missing ``dreamsim.onnx`` (``CHK-S14``) only *warn* and route to the reduced modes (S0 bootstrap allowed with no sheet; the
-2D face canvas "no head base"; the degraded clone check).
+**A fresh install is never blocked** (APP_SPEC §2 S25). Blocking: S01-S08, S10, S12, S13 and the HARD part of S11 (the
+manifest loads, the kit enums build, the colour dictionary is clean). Warnings only: S09 (a missing or failing Blender
+switches on the no-Blender mode), S14 (a present-but-bad ``dreamsim.onnx`` is switched off and the clone check runs
+degraded) and S15 (kit and component availability: head base, body base, house-style sheet, hair kit, DreamSim, Blender).
 
-``quick=True`` skips the slow subprocess probes (native imports, OCR, TLS, Blender): used by tests and by the setup run.
+``quick=True`` skips the slow subprocess probes (native imports, OCR, TLS, Blender, the DreamSim load): used by tests and by
+the setup run.
 """
 from __future__ import annotations
 
@@ -71,6 +73,7 @@ class DoctorCtx:
     rt: Runtime | None
     quick: bool = False
     setup: bool = False
+    outcomes: dict[str, Outcome] = field(default_factory=dict)    # the outcomes of the checks that already ran (S15 reads S09/S14)
 
     def keys(self) -> Any:
         if self.rt is not None:
@@ -107,12 +110,15 @@ def check(check_id: str, title: str, *, kind: Literal["hard", "soft", "assert"],
     return deco
 
 
-def run_py(code: str, *, timeout: int = SUBPROCESS_TIMEOUT_S, args: list[str] | None = None) -> tuple[int, str, str]:
-    """Run ``python -c code`` in a child process (native imports never run in the server process)."""
+def run_py(code: str, *, timeout: int = SUBPROCESS_TIMEOUT_S, args: list[str] | None = None,
+           cwd: Path | None = None) -> tuple[int, str, str]:
+    """Run ``python -c code`` in a child process (native imports never run in the server process). ``cwd=APP_ROOT``
+    lets the child ``import duoskin``."""
     env = {**os.environ, "PYTHONUTF8": "1", "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"}
     try:
         proc = subprocess.run([sys.executable, "-X", "utf8", "-c", code, *(args or [])], check=False, capture_output=True,
-                              encoding="utf-8", errors="replace", timeout=timeout, env=env, stdin=subprocess.DEVNULL)
+                              encoding="utf-8", errors="replace", timeout=timeout, env=env, stdin=subprocess.DEVNULL,
+                              cwd=str(cwd) if cwd else None)
         return proc.returncode, proc.stdout or "", proc.stderr or ""
     except subprocess.TimeoutExpired:
         return 124, "", f"timed out after {timeout} s"
@@ -487,37 +493,52 @@ def detect_blender(settings: Any) -> Path | None:
     return None
 
 
-@check("CHK-S09", "Blender (optional) works the way the app needs", kind="hard", fm=["SYS-11"])
+NO_BLENDER_NOTE = "The app runs in its no-Blender mode: glTF files only, no FBX backup (APP_SPEC §10.9.1)."
+
+
+def _blender(present: bool, status: Status, message: str, fix: str = "", **detail: Any) -> Outcome:
+    return Outcome(status, message, fix, {"blender_present": present, **detail})
+
+
+@check("CHK-S09", "Blender (optional) works the way the app needs", kind="soft", fm=["SYS-11"])
 def chk_s09(c: DoctorCtx) -> Outcome:
+    """SOFT (APP_SPEC §15.4): no Blender configured is ``not_applicable`` (``no_blender``); a configured Blender that fails
+    is switched off (``blender_present`` False) and shown as a warning. It never blocks paid features."""
     exe = detect_blender(c.settings)
     if exe is None:
-        return not_applicable_outcome(
-            "Blender is not installed (optional). FBX export and hair polish packs are unavailable; the app uses glTF. "
-            "Install Blender 4.2+ (winget install BlenderFoundation.Blender) if you want them.")
+        out = not_applicable_outcome(
+            "Blender is not installed (optional). " + NO_BLENDER_NOTE + " Install Blender 4.2+ "
+            "(winget install BlenderFoundation.Blender) if you want FBX files and hair polish packs.")
+        out.detail["blender_present"] = False
+        return out
     if c.quick:
-        return not_applicable_outcome(f"Blender found at {exe}; version checks skipped in quick mode")
+        out = not_applicable_outcome(f"Blender found at {exe}; version checks skipped in quick mode")
+        out.detail["blender_present"] = True
+        return out
+    off = "Blender is switched off. " + NO_BLENDER_NOTE
     try:
         proc = subprocess.run([str(exe), "--version"], check=False, capture_output=True, encoding="utf-8", errors="replace", timeout=60,
                               stdin=subprocess.DEVNULL)
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return Outcome("fail", f"Blender at {exe} did not run: {exc}", "Reinstall Blender or clear the Blender path in Settings.")
+        return _blender(False, "warn", f"Blender at {exe} did not run: {exc}. {off}",
+                        "Reinstall Blender or clear the Blender path in Settings.", path=str(exe))
     m = re.search(r"Blender\s+(\d+)\.(\d+)", proc.stdout or "")
     version = f"{m.group(1)}.{m.group(2)}" if m else "unknown"
     tested = c.settings.three_d.blender_tested_versions
     if version not in tested:
-        return Outcome("fail", f"Blender {version} is not in the tested set ({', '.join(tested)}).",
-                       "Install a tested Blender (4.2 LTS or newer) or leave Blender unset.", {"path": str(exe)})
+        return _blender(False, "warn", f"Blender {version} is not in the tested set ({', '.join(tested)}). {off}",
+                        "Install a tested Blender (4.2 LTS or newer) or leave Blender unset.", path=str(exe), version=version)
     try:
         bad = subprocess.run([str(exe), "--background", "--factory-startup", "--disable-autoexec", "--python-exit-code", "3",
                               "--python-expr", "raise RuntimeError('doctor')"], check=False, capture_output=True, timeout=120,
                              stdin=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return Outcome("fail", f"Blender could not run a script: {exc}", "Reinstall Blender.")
+        return _blender(False, "warn", f"Blender could not run a script: {exc}. {off}", "Reinstall Blender.", path=str(exe))
     if bad.returncode != 3:
-        return Outcome("fail", f"Blender exited {bad.returncode} when its script failed (expected 3).",
-                       "Use blender.exe (not blender-launcher.exe) in Settings.", {"path": str(exe)})
-    return Outcome("pass", f"Blender {version} runs scripts and reports failures. (Colour-chart check is done by the 3D track.)",
-                   detail={"path": str(exe), "version": version})
+        return _blender(False, "warn", f"Blender exited {bad.returncode} when its script failed (expected 3). {off}",
+                        "Use blender.exe (not blender-launcher.exe) in Settings.", path=str(exe), version=version)
+    return _blender(True, "pass", f"Blender {version} runs scripts and reports failures. (The colour-chart check is run by the 3D track.)",
+                    path=str(exe), version=version)
 
 
 # ------------------------------------------------------------------------------------------------------- S10
@@ -656,24 +677,6 @@ def chk_s11(c: DoctorCtx) -> Outcome:
     if not ran_any:
         return not_applicable_outcome("no kits yet and the kit/colour data modules are not part of this build; built-in kits apply")
     return Outcome("pass", "; ".join(notes).capitalize() + ".")
-
-
-@check("CHK-S11b", "House style sheet (needed for the best results; optional to start)", kind="soft", fm=["PRM-06"])
-def chk_s11b(c: DoctorCtx) -> Outcome:
-    flags = kit_flags(c.paths)
-    if flags["house_style_present"]:
-        return Outcome("pass", "A house style sheet is in place.", detail={"flags": flags})
-    return Outcome("warn", "No house style sheet yet. That is normal on a fresh install: the first-time setup (S0) builds it, and plans work without one.",
-                   "Open the setup wizard and run the house-style step when you are ready.", {"flags": flags})
-
-
-@check("CHK-S11c", "Head base (optional)", kind="soft", fm=["FACE-02"])
-def chk_s11c(c: DoctorCtx) -> Outcome:
-    flags = kit_flags(c.paths)
-    if flags["head_base_present"]:
-        return Outcome("pass", "A head base with zones.json is installed.", detail={"flags": flags})
-    return Outcome("warn", "No head base yet. Faces use the 2D face canvas and show \"2D preview - no head base\"; the Head item is left out of the upload kit.",
-                   "Add a head base kit later (Library) to get faces on the real head.", {"flags": flags})
 
 
 # ------------------------------------------------------------------------------------------------------- S12

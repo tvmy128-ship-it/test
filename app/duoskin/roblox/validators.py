@@ -156,7 +156,7 @@ def _recipe_ctx(recipe: Any) -> dict[str, Any]:
                "requires_bottom": dict(recipe.requires_bottom)}
     env = ctx.get("vars") or {}
     if "hem_rows" not in ctx:
-        ctx["hem_rows"] = sorted({int(round(env[k])) for k in ("torso_end", "sleeve_end", "leg_hem") if k in env})
+        ctx["hem_rows"] = sorted({round(env[k]) for k in ("torso_end", "sleeve_end", "leg_hem") if k in env})
     return ctx
 
 
@@ -357,7 +357,7 @@ def check_b05(kind: str, label_map: np.ndarray | None) -> CheckResult:
                 problems.append(f"kit piece on {k}")
             continue
         face = T.FACE_OF[k]
-        x0, y0, _x1, _y1 = T.REGIONS[k]
+        _x0, y0, _x1, _y1 = T.REGIONS[k]
         if face in ("f", "b", "l", "r"):
             rows = np.nonzero(T.crop(shoes, k).any(axis=1))[0] + y0
             if len(rows) and not (lo <= int(rows.min()) <= hi):
@@ -478,7 +478,7 @@ def check_skin_in_clothing(img: np.ndarray, skin: tuple[int, int, int] | None) -
         return _res("CHK-B06.skin_in_clothing", True, "skin_like_share", 0.0, "SOFT", "no opaque garment pixels")
     px = img[..., :3][inside]
     packed = (px[:, 0].astype(np.uint32) << 16) | (px[:, 1].astype(np.uint32) << 8) | px[:, 2].astype(np.uint32)
-    uniq, inv, counts = np.unique(packed, return_inverse=True, return_counts=True)
+    uniq, _inv, counts = np.unique(packed, return_inverse=True, return_counts=True)
     ur = np.stack([(uniq >> 16) & 255, (uniq >> 8) & 255, uniq & 255], axis=1).astype(np.float64)
     d = deltaE2000(srgb_to_lab(ur), srgb_to_lab(np.array(skin, dtype=np.float64)))
     share = float(counts[d <= LC.skin_in_clothing_de()].sum() / counts.sum())

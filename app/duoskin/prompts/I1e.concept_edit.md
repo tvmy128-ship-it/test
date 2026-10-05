@@ -12,6 +12,7 @@ must_lines: 4
 style_block: HOUSE_STYLE_2D
 priming: []
 bootstrap: false
+budget: {max_chars_excl_style: 1880, max_chars_total: 2200}
 size: 1536x1024
 images:
 - {id: current_concept, text: 'the current concept: the same character seen from the front (left) and from behind (right).'}

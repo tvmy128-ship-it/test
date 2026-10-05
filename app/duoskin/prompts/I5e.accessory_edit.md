@@ -48,6 +48,6 @@ MUST:
 4. One solid connected object with thick simple parts.
 5. Soft even light and flat base colours.
 STYLE: {style_block}
-KEEP: {keep_list}
+KEEP: {keep_list?}
 OUTPUT: The object alone on a fully transparent background with clean hard alpha edges. Preserve the transparent background.
 EXCLUDE: floor, plinth, cast shadow, hands, people, packaging, text, logos, watermark.
