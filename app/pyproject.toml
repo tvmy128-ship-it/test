@@ -1,0 +1,48 @@
+[project]
+name = "duoskin"
+version = "0.1.0"
+description = "DuoSkin Studio: local web app that plans and builds original Roblox duo skins"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  "pydantic>=2.9",
+  "python-multipart>=0.0.9",
+  "sse-starlette>=2.1",
+  "httpx>=0.27",
+  "anthropic>=1.0",
+  "openai>=2.0",
+  "keyring>=25",
+  "platformdirs>=4",
+  "pillow>=11",
+  "numpy>=2.0",
+  "opencv-python>=4.10; sys_platform == 'win32'",
+  "opencv-python-headless>=4.10; sys_platform != 'win32'",
+  "scipy>=1.13",
+  "scikit-image>=0.24",
+  "imagehash>=4.3",
+  "trimesh>=4.4",
+  "networkx>=3.3",
+  "manifold3d>=3.0",
+  "psutil>=6",
+  "defusedxml>=0.7",
+  "resvg-py>=0.2",
+  "pygltflib>=1.16",
+  "pyyaml>=6",
+  "truststore>=0.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-timeout>=2.3", "ruff>=0.6", "jsonschema>=4"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+timeout = 120
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.setuptools.packages.find]
+include = ["duoskin*"]
