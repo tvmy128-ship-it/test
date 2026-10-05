@@ -141,11 +141,11 @@ T: dict[str, tuple[Any, Status, list[str]]] = {
     "slab.back_mirror_phash_min": (10, "DES", ["ACC-17"]),
     "mesh.tris_max":              (3800, "DES", ["MESH-01"]),   # Roblox limit 4000 [DOC]
     "mesh.tex_warn_hard":         ((1024, 2048), "DOC", ["MESH-04"]),
-    "mesh.surface_area_max":      (70.0, "DOC", ["MESH-07"]),   # UGCValidateMaxTotalSurfaceArea
-    "mesh.coplanar_max_frac":     (0.15, "DOC", ["MESH-11"]),
-    "mesh.center_offset_max":     (1.0, "DOC", ["MESH-11"]),
-    "mesh.scale_min":             (0.01, "DOC", ["MESH-11"]),
-    "mesh.components_max":        (10, "DOC", ["MESH-09"]),
+    "mesh.surface_area_max":      (70.0, "UNV", ["MESH-07"]),   # UGCValidateMaxTotalSurfaceArea
+    "mesh.coplanar_max_frac":     (0.15, "UNV", ["MESH-11"]),
+    "mesh.center_offset_max":     (1.0, "UNV", ["MESH-11"]),
+    "mesh.scale_min":             (0.01, "UNV", ["MESH-11"]),
+    "mesh.components_max":        (10, "UNV", ["MESH-09"]),
     "mesh.shells_warn":           (8, "DES", ["MESH-09"]),
     "mesh.normals_out_min":       (0.99, "DES", ["MESH-08"]),
     "mesh.thickness_min":         (0.05, "DES", ["MESH-08"]),

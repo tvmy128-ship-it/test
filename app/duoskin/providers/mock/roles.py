@@ -26,7 +26,9 @@ FAMILY_HUES: dict[str, tuple[float, float, float]] = {       # base hue (0..1), 
     "warm_pastel": (0.04, 0.35, 0.96), "cool_pastel": (0.55, 0.35, 0.95), "warm_bright": (0.07, 0.85, 0.95),
     "cool_bright": (0.58, 0.80, 0.90), "earthy_natural": (0.09, 0.45, 0.65), "muted_vintage": (0.12, 0.30, 0.70),
     "jewel_tones": (0.75, 0.70, 0.60), "candy_bright": (0.92, 0.65, 0.98), "neon_night": (0.45, 0.90, 0.95),
-    "monochrome_accent": (0.60, 0.15, 0.60),
+    # saturation 0.40 (was 0.15): at 0.15 the two characters' "main" greys sat only dE 15 apart, so the shading of one figure fell within the
+    # concept check's partner-only distance (A_LEAK, dE 12) and every monochrome plan of the mock ended with no usable drawing
+    "monochrome_accent": (0.60, 0.40, 0.55),
 }
 ROLE_ORDER = ("a_main", "a_second", "b_main", "b_second", "accent", "neutral_light", "neutral_dark", "hair_a", "hair_b", "modesty")
 STRUCTURES = ("complement", "leader_chaotic", "mirror", "seasonal_twins", "same_club", "object_mascot")
@@ -84,7 +86,17 @@ def _palette(family: str, brief_colors: list[tuple[int, int, int]], rng: random.
     }
     for role, c in zip(("a_main", "b_main", "accent"), brief_colors, strict=False):
         cols[role] = c
-    return [{"id": f"p{i + 1}", "name": _name_of(cols[r]), "hex": _hex(cols[r]), "role": r} for i, r in enumerate(ROLE_ORDER)]
+    # every colour is snapped to the prompt compiler's colour dictionary: the compiler names a palette colour by its nearest dictionary name, and
+    # the mock draws a name as exactly that dictionary colour, so a mock drawing lands on the palette (the Gate A palette check passes)
+    from duoskin.imaging import colournames
+
+    out: list[dict[str, str]] = []
+    used: list[str] = []
+    for i, r in enumerate(ROLE_ORDER):
+        near = colournames.nearest_names(_hex(cols[r]), 1, exclude=used)[0]
+        used.append(near.name)
+        out.append({"id": f"p{i + 1}", "name": near.name, "hex": near.hex.upper(), "role": r})
+    return out
 
 
 def _pick(options: list[str] | tuple[str, ...], idx: int) -> str:

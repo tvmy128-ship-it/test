@@ -42,7 +42,8 @@ def test_planner_inputs_have_no_example_spec_and_use_none_for_empty_slots(unit_r
     p = db_project(unit_rt, brief="two friends at a night market", must_include=["a teal bow"])
     inputs = BR.planner_inputs(unit_rt, p)
     assert set(inputs) <= {"brief_text", "structure_request", "must_include", "combo", "reference_analysis", "taste_profile", "recent_cards",
-                           "recently_used", "avoid", "replacement", "wildcard_flag", "dropped_reasons", "least_used"}
+                           "recently_used", "avoid", "replacement", "wildcard_flag", "dropped_reasons", "least_used", "structure_suggestion",
+                           "palette_suggestion"}
     assert inputs["reference_analysis"] == "none" and inputs["taste_profile"] == "none" and inputs["recent_cards"] == "none"
     assert inputs["recently_used"] == "none"
     assert inputs["must_include"] == "a teal bow" and inputs["structure_request"] == "auto" and inputs["combo"] == "bg"

@@ -113,7 +113,7 @@ function planTile(gate, tile, i, dna, firstChoice, project, refresh, ctx) {
   const ackNote = h("p", { class: "note bad", role: "alert", hidden: true }, "Please tick the box to confirm you understand.");
   const sheet = SHEET_ROLES.filter((r) => assets[r]).length
     ? h("div", { class: "sheet-4up" }, SHEET_ROLES.filter((r) => assets[r]).map((r) => h("figure", { class: "fig" }, casImage(assets[r], { alt: `Plan ${i + 1}: ${roleLabel(r)}`, ext: extForRole(r) }), h("figcaption", {}, h("span", { class: `char-chip ${r[0]}` }, r[0].toUpperCase()), roleLabel(r).replace(/^[AB] /, "")))))
-    : Object.keys(assets).length ? h("div", { class: "hero" }, h("figure", { class: "fig" }, casImage(Object.values(assets)[0], { alt: `Plan ${i + 1}` }))) : h("div", { class: "tile-wait muted" }, "The drawings are still being made.");
+    : Object.keys(assets).length ? h("div", { class: "hero" }, h("figure", { class: "fig" }, casImage(Object.values(assets)[0], { alt: `Plan ${i + 1}` }))) : h("div", { class: "tile-wait muted" }, hardLines.length ? "No drawing of this plan could be used, so there is nothing to look at." : "The drawings are still being made.");
   const alts = /** @type {Record<string, string>[]} */ (tile.alternatives || []);
   const altBlock = alts.length ? h("details", { class: "alts-details" }, h("summary", {}, `Other drafts (${alts.length})`),
     h("div", { class: "alts" }, alts.map((alt, k) => ["a", "b"].filter((c) => alt[`${c}_front`]).map((c) => h("div", { class: "alt" },

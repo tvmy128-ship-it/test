@@ -4,8 +4,8 @@ Everything here also runs on Linux/macOS (the app is developed there): Windows-o
 are imported inside guarded functions only, and each function degrades to a documented no-op.
 
 Public interface: ``bind_socket``, ``keep_awake``, ``console_ctrl_handler``, ``quickedit_off``, ``single_instance``,
-``dpapi_protect`` / ``dpapi_unprotect``, ``fix_mimetypes``, ``fix_dll_directories``, ``replace_with_retry``,
-``atomic_write``, ``lint_path``.
+``dpapi_protect`` / ``dpapi_unprotect``, ``fix_mimetypes``, ``fix_dll_directories``, ``configure_stdio``,
+``replace_with_retry``, ``atomic_write``, ``lint_path``.
 """
 from __future__ import annotations
 
@@ -74,6 +74,29 @@ def bind_socket(preferred: int = 8765, *, host: str = LOOPBACK, ports: Iterable[
 
 
 # ---------------------------------------------------------------------------------------------------------------- console
+def configure_stdio(streams: Iterable[Any] | None = None) -> bool:
+    """SYS-06: make ``print`` and the console log handler unable to crash on a cp1252 console or pipe.
+
+    The .bat files set ``PYTHONUTF8=1``, which already does this; it is not enough when ``python -m duoskin`` is started
+    by hand (or redirected to a file) with the ANSI code page. Each stream is switched to UTF-8 with ``errors="replace"``
+    (a character that cannot be shown becomes ``?`` instead of raising ``UnicodeEncodeError``). Streams that cannot be
+    reconfigured (``None`` under pythonw, plain file-likes) are left alone. Returns True when a stream was changed.
+    """
+    changed = False
+    for stream in (streams if streams is not None else (sys.stdout, sys.stderr)):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        for kwargs in ({"encoding": "utf-8", "errors": "replace"}, {"errors": "replace"}):
+            try:
+                reconfigure(**kwargs)
+                changed = True
+                break
+            except (ValueError, OSError):
+                continue
+    return changed
+
+
 def quickedit_off() -> bool:
     """Turn console QuickEdit off (a click in the console freezes output). Returns True when changed (win32 only)."""
     if not IS_WINDOWS:
@@ -269,7 +292,8 @@ def _dpapi(data: bytes, protect: bool) -> bytes:
     fn = crypt32.CryptProtectData if protect else crypt32.CryptUnprotectData
     # CryptProtectData(in, descr, entropy, reserved, prompt, flags, out) and CryptUnprotectData share this shape
     if not fn(ctypes.byref(blob_in), None, None, None, None, 0, ctypes.byref(blob_out)):
-        raise OSError(ctypes.get_last_error() or -1, "DPAPI call failed")
+        # ctypes.windll DLLs are not loaded with use_last_error, so get_last_error() would always be 0: ask Windows directly
+        raise OSError(getattr(ctypes, "GetLastError", lambda: 0)() or -1, "DPAPI call failed")
     try:
         return ctypes.string_at(blob_out.pbData, blob_out.cbData)
     finally:

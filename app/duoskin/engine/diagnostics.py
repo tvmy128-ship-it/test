@@ -29,6 +29,10 @@ def export_diagnostics(rt: Runtime, dest_dir: Path | None = None) -> Path:
     while target.exists():
         n += 1
         target = dest_dir / f"duoskin-diagnostics-{stamp}-{n}.zip"
+    try:
+        rt.keys.stored_values()     # reads every key once so the redactor knows its exact value, even in a process that never called a provider
+    except Exception:  # noqa: BLE001, S110
+        pass
     failing = [s.model_dump(mode="json") for s in rt.repo.list_steps(state="failed", limit=200)]
     info = {"app_version": __version__, "python": sys.version, "platform": platform.platform(),
             "instance_id": rt.instance_id, "time": utcnow().isoformat(), "settings": rt.settings.model_dump(mode="json"),

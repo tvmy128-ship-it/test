@@ -38,6 +38,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
+from duoskin import winplat
 from duoskin.checks.model import CheckResult, not_run
 from duoskin.mesh.types import MeshData, MeshError, MeshJob, MeshResult
 
@@ -106,7 +107,7 @@ def pymeshlab_decimator():
         import pymeshlab
 
         try:
-            with tempfile.TemporaryDirectory(prefix="duoskin_pml_") as td:
+            with tempfile.TemporaryDirectory(prefix="duoskin_pml_", ignore_cleanup_errors=True) as td:
                 tdp = Path(td)
                 from duoskin.mesh import texture as tx
 
@@ -503,7 +504,7 @@ def main(argv: list[str] | None = None) -> int:
     res = execute(job)
     tmp = result_path.with_suffix(".json.tmp")
     tmp.write_text(res.model_dump_json(indent=1), encoding="utf-8")
-    os.replace(tmp, result_path)
+    winplat.replace_with_retry(tmp, result_path)   # antivirus can hold the fresh file for a moment
     return 0
 
 

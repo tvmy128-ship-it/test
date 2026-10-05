@@ -11,6 +11,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from duoskin.logsetup import redact
 from duoskin.models.job import Step, StepError
 
 ERROR_KINDS = frozenset({
@@ -116,7 +117,7 @@ def classify(exc: BaseException, step: Step, handler_provider: str | None = None
         billed = "no"   # a rejected request never bills, whatever the adapter defaulted to
     retryable = bool(getattr(exc, "retryable", kind in RETRY_BACKOFF_KINDS))
     hint = getattr(exc, "user_hint", "") or USER_HINTS.get(kind, "")
-    message = str(exc) or type(exc).__name__
+    message = redact(str(exc) or type(exc).__name__)     # before the cut to 2000 characters, so a key is never split into an unrecognisable half
     return StepError(kind=kind, code=getattr(exc, "code", None), message=message[:2000], retryable=retryable,
                      billed=billed, provider_request_id=getattr(exc, "request_id", None), user_hint=hint)
 

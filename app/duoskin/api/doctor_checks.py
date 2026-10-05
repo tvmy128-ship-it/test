@@ -44,6 +44,7 @@ from duoskin import __version__, config, winplat
 from duoskin.checks.model import CheckResult, not_applicable, not_run
 from duoskin.logsetup import redact
 from duoskin.models.common import iso_utc, utcnow
+from duoskin.security import child_env
 
 if TYPE_CHECKING:
     from duoskin.engine.runtime import Runtime
@@ -110,13 +111,25 @@ def check(check_id: str, title: str, *, kind: Literal["hard", "soft", "assert"],
     return deco
 
 
+#: SYS-09: the app registers the venv's ``msvcp140*.dll`` folders before it imports onnxruntime (``winplat.fix_dll_directories``).
+#: A probe child must do the same, or ``import onnxruntime`` fails there on a PC without the VC++ redistributable although the
+#: app itself would work (and the doctor would block paid features for nothing).
+_DLL_PRELUDE = (
+    "import os as _os, sys as _sys\n"
+    "if _sys.platform == 'win32':\n"
+    "    for _d in (_sys.prefix, _os.path.join(_sys.prefix, 'Scripts')):\n"
+    "        if _os.path.exists(_os.path.join(_d, 'msvcp140.dll')):\n"
+    "            _os.add_dll_directory(_d)\n"
+)
+
+
 def run_py(code: str, *, timeout: int = SUBPROCESS_TIMEOUT_S, args: list[str] | None = None,
            cwd: Path | None = None) -> tuple[int, str, str]:
     """Run ``python -c code`` in a child process (native imports never run in the server process). ``cwd=APP_ROOT``
     lets the child ``import duoskin``."""
-    env = {**os.environ, "PYTHONUTF8": "1", "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"}
+    env = child_env({"PYTHONUTF8": "1", "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"})
     try:
-        proc = subprocess.run([sys.executable, "-X", "utf8", "-c", code, *(args or [])], check=False, capture_output=True,
+        proc = subprocess.run([sys.executable, "-X", "utf8", "-c", _DLL_PRELUDE + code, *(args or [])], check=False, capture_output=True,
                               encoding="utf-8", errors="replace", timeout=timeout, env=env, stdin=subprocess.DEVNULL,
                               cwd=str(cwd) if cwd else None)
         return proc.returncode, proc.stdout or "", proc.stderr or ""
@@ -145,7 +158,7 @@ print(json.dumps({"ok": img is not None, "shape": list(img.shape) if img is not 
 def chk_s01(c: DoctorCtx) -> Outcome:
     from PIL import Image
 
-    with tempfile.TemporaryDirectory(prefix="duoskin-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="duoskin-", ignore_cleanup_errors=True) as tmp:
         folder = Path(tmp) / "caf\u00e9_\u65e5\u672c\u8a9e"
         folder.mkdir()
         target = folder / "t\u00e9st \u2713.png"
@@ -174,13 +187,13 @@ def chk_s01(c: DoctorCtx) -> Outcome:
 @check("CHK-S02", "UTF-8 text works (files and child processes)", kind="hard", fm=["SYS-06"])
 def chk_s02(c: DoctorCtx) -> Outcome:
     sample = "caf\u00e9 \u65e5\u672c\u8a9e \u0645\u0631\u062d\u0628\u0627 \u2713"
-    with tempfile.TemporaryDirectory(prefix="duoskin-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="duoskin-", ignore_cleanup_errors=True) as tmp:
         p = Path(tmp) / "t\u00e9xt.txt"
         p.write_text(sample, encoding="utf-8")
         if p.read_text(encoding="utf-8") != sample:
             return Outcome("fail", "A UTF-8 text file did not read back the same.", "Check the disk and antivirus.")
     code = "import sys; sys.stdout.write(sys.argv[1])"
-    env = {**os.environ, "PYTHONUTF8": "1"}
+    env = child_env({"PYTHONUTF8": "1"})
     try:
         proc = subprocess.run([sys.executable, "-X", "utf8", "-c", code, sample], check=False, capture_output=True, encoding="utf-8",
                               timeout=30, env=env, stdin=subprocess.DEVNULL)
@@ -208,15 +221,15 @@ def chk_s03(c: DoctorCtx) -> Outcome:
     if winplat.IS_WINDOWS:
         if sysconfig.get_platform() != "win-amd64":
             problems.append(f"it is a {sysconfig.get_platform()} build; 64-bit x64 Python is required")
-        if version not in ((3, 14), (3, 13)):
-            problems.append(f"Python {version[0]}.{version[1]} is not supported (use 3.14 or 3.13)")
+        if version not in ((3, 14), (3, 13), (3, 12)):
+            problems.append(f"Python {version[0]}.{version[1]} is not supported (use 3.14, 3.13 or 3.12)")
     elif version < (3, 11):
         problems.append(f"Python {version[0]}.{version[1]} is too old for development (3.11+)")
     detail = {"executable": sys.executable, "version": platform.python_version(), "platform": sysconfig.get_platform(),
               "venv": in_venv}
     if problems:
         return Outcome("fail", "Python problem: " + "; ".join(problems) + ".",
-                       "Run setup.bat to build the .venv with 64-bit Python 3.14 (or 3.13) from python.org.", detail)
+                       "Run setup.bat to build the .venv with 64-bit Python 3.14 (or 3.13 or 3.12) from python.org.", detail)
     note = "" if winplat.IS_WINDOWS else " (development host: the Windows-only platform rules are not applied)"
     return Outcome("pass", f"Python {platform.python_version()} ({sysconfig.get_platform()}) in a virtual environment{note}.", detail=detail)
 
@@ -353,7 +366,7 @@ def _selftest_app() -> tuple[Any, Any]:
     from duoskin.app import create_app
     from duoskin.engine.testkit import make_client
 
-    tmp = tempfile.TemporaryDirectory(prefix="duoskin-doctor-")
+    tmp = tempfile.TemporaryDirectory(prefix="duoskin-doctor-", ignore_cleanup_errors=True)
     app = create_app(Path(tmp.name), providers_mode="mock")
     return make_client(app, authed=False), (tmp, app)
 
@@ -479,7 +492,10 @@ def detect_blender(settings: Any) -> Path | None:
                 return Path(str(result))
     except Exception:  # noqa: BLE001, S110
         pass
-    candidates: list[str | None] = [settings.three_d.blender_path, os.environ.get("DUOSKIN_BLENDER"), shutil.which("blender")]
+    from duoskin.mesh.blender import _looks_like_blender
+
+    typed = settings.three_d.blender_path                    # user text: only a file that is named like Blender may be run
+    candidates: list[str | None] = [typed if typed and _looks_like_blender(Path(typed)) else None, os.environ.get("DUOSKIN_BLENDER"), shutil.which("blender")]
     for cand in candidates:
         if cand and Path(cand).exists():
             return Path(cand)

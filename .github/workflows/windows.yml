@@ -1,0 +1,59 @@
+# Windows verification (APP_SPEC 17.5). The app is developed on Linux; this is the first thing that runs setup.bat, the doctor
+# and the tests on a real Windows machine. Run it by hand from the Actions tab ("Run workflow") or on every push.
+name: windows
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.14", "3.13", "3.12"]
+    defaults:
+      run:
+        working-directory: app
+    env:
+      DUOSKIN_NOPAUSE: "1"
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          architecture: x64
+
+      # setup.bat finds the interpreter that setup-python put on PATH (or the py launcher), builds .venv, installs the lock, runs the doctor
+      - name: setup.bat
+        shell: cmd
+        run: call setup.bat
+
+      - name: doctor
+        shell: cmd
+        run: .venv\Scripts\python.exe -m duoskin doctor
+
+      # one hashed lock must have wheels for every supported Python (needs `packaging`, which the lock installs)
+      - name: Lock file against PyPI
+        shell: cmd
+        run: .venv\Scripts\python.exe tools\check_lock.py --online
+
+      - name: Install the test tools
+        shell: cmd
+        run: .venv\Scripts\python.exe -m pip install pytest pytest-timeout jsonschema
+
+      - name: Tests (everything except the browser tests)
+        shell: cmd
+        run: .venv\Scripts\python.exe -m pytest tests -q --ignore=tests\web -p no:cacheprovider
+
+      - name: Logs
+        if: failure()
+        shell: cmd
+        run: |
+          dir "%LOCALAPPDATA%\DuoSkin\logs" 2>nul
+          type "%LOCALAPPDATA%\DuoSkin\logs\duoskin.log" 2>nul

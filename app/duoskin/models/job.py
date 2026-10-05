@@ -9,8 +9,9 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
+from duoskin.logsetup import redact
 from duoskin.models.common import PartId, Sha256, Strict, UtcDatetime
 
 
@@ -76,6 +77,12 @@ class StepError(Strict):
     billed: Literal["no", "yes", "unknown"] = "unknown"
     provider_request_id: str | None = None
     user_hint: str = ""
+
+    @field_validator("code", "message", "provider_request_id", "user_hint")
+    @classmethod
+    def _no_secrets(cls, v: str | None) -> str | None:
+        """An error text may come from an exception, a provider body or a URL: no key or signed URL survives into the database, an event or the UI."""
+        return redact(v) if isinstance(v, str) else v
 
 
 class Step(Strict):

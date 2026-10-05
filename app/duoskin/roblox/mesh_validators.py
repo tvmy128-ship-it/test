@@ -12,14 +12,20 @@ CHK-M01    load: no extensions, bare file names, parsed                 HARD  SY
 CHK-M02    1 mesh node / primitive / material / UV set, UVs in 0-1      HARD  MESH-02
 CHK-M03    triangles <= 3800 (``M03T`` soft: hair target 3600)          HARD  MESH-01 HAIR-07
 CHK-M04    watertight, 2 faces per edge, no zero-area faces, normals    HARD  MESH-08
-CHK-M05    shells: <= 10 (``M05W``: warn above 8)                       HARD  MESH-09
+CHK-M05    shells: <= 10 [UNVERIFIED], no micro-islands (``M05W``: 8)   HARD  MESH-09
 CHK-M06    texture: embedded PNG, opaque RGB, <= 2048, not flat         HARD  MESH-04 HAIR-01
 CHK-M07    no COLOR_0, emissive, metal/rough/normal maps, metallic 0    HARD  MESH-03 MESH-05
 CHK-M09    every vertex in the Classic box, Handle size, Classic scale  HARD  MESH-06 HAIR-02
-CHK-M10    surface area <= 70 stud^2 (``M10W``: warn above 60)          HARD  MESH-07
-CHK-M11    coplanar <= 15%, bbox centre <= 1 stud, scale >= 0.01        HARD  MESH-11
+CHK-M10    surface area <= 70 stud^2 [UNVERIFIED] (``M10W``: 60)        HARD  MESH-07
+CHK-M11    coplanar <= 15%, centre <= 1 stud, scale >= 0.01 [UNVERIFIED] HARD  MESH-11
 CHK-M12    sparse bounds: 6-view coverage, spike test                   HARD  MESH-10
 ========== =========================================================== =====================================
+
+What Roblox's creator-docs (commit 0b817b5c, 2026-09-26) actually give: the 4000-triangle and 2048-pixel limits, the size boxes, the
+attachment names (``avatar/rigid-accessories/specifications.md``), "alpha below 255 fails" for the colour map and the existence of the
+sparse-geometry, centring, thin-axis, coplanar, surface-area and island checks (``marketplace/validation-system.md``). The docs give NO
+number for the surface area, the coplanar share, the centring distance, the minimum scale or the shell count: those figures are marked
+UNVERIFIED (``limits.json -> status_overrides``, shown as UNVERIFIED in every ``threshold`` text) and Studio's validator is the authority.
 """
 from __future__ import annotations
 
@@ -148,7 +154,7 @@ def check_shells(f: Facts) -> list[CheckResult]:
     if n > mx:
         problems.append(f"{n} shells (limit {mx})")
     if micro:
-        problems.append(f"{micro} micro-islands (tiny floating pieces the validator rejects)")
+        problems.append(f"{micro} micro-islands (tiny floating pieces: Roblox's validator rejects them on bodies; we apply the same bar here, UNVERIFIED for accessories)")
     return [_res("CHK-M05", fm, "hard", not problems, "shells", float(n), limits.describe("mesh.components_max", "<=") + "; no micro-islands",
                  "; ".join(problems) or f"{n} shells ({f.get('closed_shells', '?')} closed)", "regenerate"),
             _res("CHK-M05W", fm, "soft", n <= warn, "shells_warn", float(n), limits.describe("mesh.shells_warn", "<="), f"{n} shells")]
@@ -232,7 +238,7 @@ def check_surface_area(f: Facts) -> list[CheckResult]:
     a = float(f["surface_area"])
     mx, warn = float(limits.threshold("mesh.surface_area_max")), float(limits.threshold("mesh.surface_area_warn"))
     return [_res("CHK-M10", fm, "hard", a <= mx, "surface_area_stud2", a, limits.describe("mesh.surface_area_max", "<="),
-                 f"{a:.2f} stud^2 (both faces of a thin slab count)", "revise_plan"),
+                 f"{a:.2f} stud^2 against our limit (UNVERIFIED: Roblox's docs give no number); both faces of a thin slab count", "revise_plan"),
             _res("CHK-M10W", fm, "soft", a <= warn, "surface_area_warn", a, limits.describe("mesh.surface_area_warn", "<="), f"{a:.2f} stud^2")]
 
 
@@ -244,13 +250,13 @@ def check_validator_defaults(f: Facts) -> CheckResult:
     allowed = math.floor(float(limits.threshold("mesh.coplanar_max_frac")) * int(f["tris"]))
     problems = []
     if f["coplanar_intersections"] > allowed:
-        problems.append(f"{f['coplanar_intersections']} coplanar intersecting triangles (max {allowed})")
+        problems.append(f"{f['coplanar_intersections']} coplanar intersecting triangles (our limit {allowed}, UNVERIFIED)")
     if f["centre_offset"] > float(limits.threshold("mesh.center_offset_max")):
-        problems.append(f"bbox centre {f['centre_offset']:.2f} stud from the origin (max 1.0)")
+        problems.append(f"bbox centre {f['centre_offset']:.2f} stud from the origin (our limit 1.0, UNVERIFIED)")
     if f["scale_min"] < float(limits.threshold("mesh.scale_min")):
-        problems.append(f"mesh scale {f['scale_min']} < 0.01")
+        problems.append(f"mesh scale {f['scale_min']} < 0.01 (our limit, UNVERIFIED)")
     return _res("CHK-M11", fm, "hard", not problems, "coplanar_centre_scale", float(f["coplanar_intersections"]),
-                "coplanar <= 15% of triangles, centre <= 1 stud, scale >= 0.01",
+                "coplanar <= 15% of triangles, centre <= 1 stud, scale >= 0.01 (UNVERIFIED: Roblox's docs name these checks but give no numbers)",
                 "; ".join(problems) or f"{f['coplanar_intersections']} coplanar (max {allowed}), centre {f['centre_offset']:.2f}", "regenerate")
 
 

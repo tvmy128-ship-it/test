@@ -88,11 +88,11 @@ def check_palette_integrity(spec: dict[str, Any], character: str) -> CheckResult
         if isinstance(node, dict):
             for k, v in node.items():
                 if k.endswith("_ref") and isinstance(v, str) and v not in ("none", "") and v not in ids:
-                    bad.append(f"{path}/{k}={v}")
-                walk(v, f"{path}/{k}")
+                    bad.append(f"{path}/{k}={v}")   # win-ok: JSON pointer, not a file path
+                walk(v, f"{path}/{k}")   # win-ok: JSON pointer, not a file path
         elif isinstance(node, list):
             for i, v in enumerate(node):
-                walk(v, f"{path}/{i}")
+                walk(v, f"{path}/{i}")   # win-ok: JSON pointer, not a file path
 
     walk(ch, f"/{character}")
     return common.mk_result("COL_PALETTE_REFS", not bad, metric="unknown_palette_refs", value=float(len(bad)),

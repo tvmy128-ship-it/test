@@ -43,7 +43,6 @@ _DEFAULT_SLOT = {"shape_language": "shape_language_line", "detail_level": "detai
 ROUTING: dict[str, RouteRow] = {
     # I1 concept (per character) and its variants: shape language + motif object
     "I1.concept_char": RouteRow(_MOTIF_SHAPE),
-    "I1e.concept_edit": RouteRow(_MOTIF_SHAPE),
     "I1f.concept_front": RouteRow(_MOTIF_SHAPE),
     "I1b.concept_back": RouteRow(_MOTIF_SHAPE),
     "I1p.concept_partner_style": RouteRow(_MOTIF_SHAPE),
@@ -55,10 +54,10 @@ ROUTING: dict[str, RouteRow] = {
     "R2.print": RouteRow(_SHAPE_DETAIL, slots=(("shape_language", "shape_short"), ("detail_level", "detail_level_short")),
                          forms=(("shape_language", "short"), ("detail_level", "short"))),
     # face parts: line parts carry shape language only; iris and mouth_open carry the detail level (R1: one field) or both (I3)
-    "I3.face_part": RouteRow(_SHAPE_DETAIL, per_part=(
+    "I3.face_part": RouteRow(_SHAPE_DETAIL, slots=(("shape_language", "shape_short"),), forms=(("shape_language", "short"),), per_part=(
         ("iris", _SHAPE_DETAIL), ("mouth_open", _SHAPE_DETAIL), ("lash_upper", ("shape_language",)),
         ("brow", ("shape_language",)), ("mouth_closed", ("shape_language",)))),
-    "I3.face_part_incanvas": RouteRow(_SHAPE_DETAIL, per_part=(
+    "I3.face_part_incanvas": RouteRow(_SHAPE_DETAIL, slots=(("shape_language", "shape_short"),), forms=(("shape_language", "short"),), per_part=(
         ("iris", _SHAPE_DETAIL), ("mouth_open", _SHAPE_DETAIL), ("lash_upper", ("shape_language",)),
         ("brow", ("shape_language",)), ("mouth_closed", ("shape_language",)))),
     "R1.face_part": RouteRow(_SHAPE_DETAIL, slots=(("shape_language", "shape_short"), ("detail_level", "detail_clause")),
@@ -68,14 +67,15 @@ ROUTING: dict[str, RouteRow] = {
     # hair
     "I4.hair_front": RouteRow(("shape_language",)),
     "I4k.hair_kit_first": RouteRow(("shape_language",)),
-    # accessories and badges: motif object + shape language
-    "I5.accessory_front": RouteRow(_MOTIF_SHAPE),
-    "I5.accessory_frame": RouteRow(_MOTIF_SHAPE),
-    "I5g.accessory_guided": RouteRow(_MOTIF_SHAPE),
-    "I6.badge_art": RouteRow(_MOTIF_SHAPE),
-    "I6.badge_frame": RouteRow(_MOTIF_SHAPE),
+    # accessories and badges: motif object + shape language (short form: a spiky or angular character may not make the object spiky,
+    # because Gate B rejects thin parts, spikes and a ragged outline of an accessory or badge, ac_no_thin_parts and bd_compact_outline)
+    "I5.accessory_front": RouteRow(_MOTIF_SHAPE, slots=(("shape_language", "shape_short"),), forms=(("shape_language", "short"),)),
+    "I5.accessory_frame": RouteRow(_MOTIF_SHAPE, slots=(("shape_language", "shape_short"),), forms=(("shape_language", "short"),)),
+    "I5g.accessory_guided": RouteRow(_MOTIF_SHAPE, slots=(("shape_language", "shape_short"),), forms=(("shape_language", "short"),)),
+    "I6.badge_art": RouteRow(_MOTIF_SHAPE, slots=(("shape_language", "shape_short"),), forms=(("shape_language", "short"),)),
+    "I6.badge_frame": RouteRow(_MOTIF_SHAPE, slots=(("shape_language", "shape_short"),), forms=(("shape_language", "short"),)),
 }
-# every other template (I0, I7, I8, I10, I11, T2, the global-edit variants I2e..I6e, the L routes) is DNA-free: Image 1 or the
+# every other template (I0, I7, I8, I10, I11, T2, the edit variants I1e..I6e, the L routes) is DNA-free: Image 1 or the
 # shared library asset already carries the look (bible §3.3).
 
 

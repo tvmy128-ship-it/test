@@ -13,38 +13,66 @@ import logging.handlers
 import re
 import sys
 import threading
+import time
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, TextIO
+from urllib.parse import quote, quote_plus
 
 from duoskin.models.common import iso_utc, utcnow
 
 REDACTED = "[REDACTED]"
 
+_QUERY_SECRETS = (r"x-amz-signature|x-amz-credential|x-amz-security-token|x-goog-signature|x-goog-credential|x-goog-api-key|"
+                  r"signature|sig|token|access[_-]?token|refresh[_-]?token|id[_-]?token|key|api[_-]?key|apikey|secret|client[_-]?secret|"
+                  r"password|passwd|auth|authorization|credential|policy|key-pair-id")
+_HEADER_SECRETS = (r"x-api-key|x-goog-api-key|api[_-]?key|api[_-]?token|apikey|authorization|proxy-authorization|x-auth-token|"
+                   r"x-access-token|access[_-]?token|refresh[_-]?token|client[_-]?secret|fal[_-]?key")
+_BARE_SECRETS = r"token|secret|password|passwd"
+
 _PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"sk-[A-Za-z0-9_\-]{6,}"),
-    re.compile(r"tsk_[A-Za-z0-9_\-]{6,}"),
-    re.compile(r"AIza[0-9A-Za-z_\-]{10,}"),
-    re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._\-~+/=]{6,}"),
-    re.compile(r"(?i)(x-api-key|api[_-]?key|api[_-]?token|authorization)(\s*[\"']?\s*[:=]\s*[\"']?)[^\s,\"'}]{4,}"),
-    re.compile(r"(?i)([?&](?:x-amz-signature|x-amz-credential|signature|sig|token|key|api_key)=)[^&\s\"']+"),
+    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_\-]{6,}"),                                             # not the end of "risk-averse"
+    re.compile(r"(?<![A-Za-z0-9])tsk_[A-Za-z0-9_\-]{6,}"),
+    re.compile(r"(?<![A-Za-z0-9])AIza[0-9A-Za-z_\-]{10,}"),
+    re.compile(r"\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}"),               # a JWT
+    re.compile(r"(?i)\b(?:bearer|basic|digest)\s+[A-Za-z0-9._\-~+/=]{6,}"),
+    re.compile(r"(?i)\b((?:set-)?cookie)(\s*[\"']?\s*[:=]\s*[\"']?)[^\r\n\"'}]+"),                    # a cookie header: everything on its line
+    re.compile(rf"(?i)({_HEADER_SECRETS})(\s*[\"']?\s*[:=]\s*[\"']?)[^\s,\"'}}&]{{4,}}"),
+    re.compile(rf"(?i)(?<![\w-])({_BARE_SECRETS})(\s*[\"']?\s*[:=]\s*[\"']?)[^\s,\"'}}&]{{4,}}"),
+    re.compile(r"\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*_(?:KEY|TOKEN|SECRET))(\s*=\s*)[^\s,\"'}&]{4,}"),     # OPENAI_API_KEY=..., RECRAFT_API_TOKEN=...
+    re.compile(rf"(?i)([?&;](?:{_QUERY_SECRETS})=)[^&\s\"'<>]+"),                                  # signed-URL and ?key= query strings
+    re.compile(r"(?i)(\bhttps?://)[^/\s:@\"']+:[^/\s@\"']+(?=@)"),                                  # user:password@host
 )
 _SECRET_LOCK = threading.Lock()
 _SECRETS: set[str] = set()
 _MIN_SECRET_LEN = 6
 
 
+def _variants(value: str) -> set[str]:
+    """The ways one secret can show up in text: as is, URL-encoded, JSON-escaped, Python-repr-escaped."""
+    out = {value}
+    try:
+        out.add(quote(value, safe=""))
+        out.add(quote_plus(value))
+        out.add(json.dumps(value)[1:-1])
+        out.add(repr(value)[1:-1])
+    except (TypeError, ValueError):
+        pass
+    return {v for v in out if len(v) >= _MIN_SECRET_LEN}
+
+
 def register_secret(value: str | None) -> None:
-    """Remember an exact secret value so it is masked wherever it appears in a log line."""
+    """Remember an exact secret value (and its URL-encoded / JSON-escaped forms) so it is masked wherever it appears."""
     if value and len(value) >= _MIN_SECRET_LEN:
+        forms = _variants(value)
         with _SECRET_LOCK:
-            _SECRETS.add(value)
+            _SECRETS.update(forms)
 
 
 def forget_secret(value: str | None) -> None:
     if value:
         with _SECRET_LOCK:
-            _SECRETS.discard(value)
+            _SECRETS.difference_update(_variants(value))
 
 
 def registered_secret_count() -> int:
@@ -71,24 +99,70 @@ def redact(text: str, extra_secrets: Iterable[str] = ()) -> str:
     return text
 
 
+def redact_data(obj: Any, *, _depth: int = 0) -> Any:
+    """``redact`` applied to every string (keys and values) inside JSON-like data (dict, list, tuple, str); other values pass through.
+    Used where free text from exceptions or providers enters an event payload, a step row or a zip."""
+    if _depth > 40:
+        return obj
+    if isinstance(obj, str):
+        return redact(obj)
+    if isinstance(obj, dict):
+        return {(redact(k) if isinstance(k, str) else k): redact_data(v, _depth=_depth + 1) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [redact_data(v, _depth=_depth + 1) for v in obj]
+    if isinstance(obj, tuple):
+        return tuple(redact_data(v, _depth=_depth + 1) for v in obj)
+    return obj
+
+
+def _scrub_record(record: logging.LogRecord) -> None:
+    """Rewrite the record in place so that formatting it can never reveal a key (message, args, traceback, stack)."""
+    try:
+        message = record.getMessage()
+    except Exception:  # noqa: BLE001
+        message = str(record.msg)
+    record.msg = redact(message)
+    record.args = None
+    if record.exc_info and not record.exc_text:
+        record.exc_text = logging.Formatter().formatException(record.exc_info)
+        record.exc_info = None
+    if record.exc_text:
+        record.exc_text = redact(record.exc_text)
+    if record.stack_info:
+        record.stack_info = redact(record.stack_info)
+
+
 class RedactFilter(logging.Filter):
     """Rewrite the record so formatting it can never reveal a key (message, args, traceback, stack)."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        try:
-            message = record.getMessage()
-        except Exception:  # noqa: BLE001
-            message = str(record.msg)
-        record.msg = redact(message)
-        record.args = None
-        if record.exc_info and not record.exc_text:
-            record.exc_text = logging.Formatter().formatException(record.exc_info)
-            record.exc_info = None
-        if record.exc_text:
-            record.exc_text = redact(record.exc_text)
-        if record.stack_info:
-            record.stack_info = redact(record.stack_info)
+        _scrub_record(record)
         return True
+
+
+_factory_lock = threading.Lock()
+_factory_installed = False
+
+
+def install_record_factory() -> None:
+    """Make every ``LogRecord`` born redacted, so no handler (the file, the console, ``logging.lastResort`` before ``setup_logging`` has
+    run, a test's capture handler, a third-party handler) can ever see a key. Idempotent; the handler filters stay as a second layer."""
+    global _factory_installed
+    with _factory_lock:
+        if _factory_installed:
+            return
+        previous = logging.getLogRecordFactory()
+
+        def factory(*args: Any, **kwargs: Any) -> logging.LogRecord:
+            record = previous(*args, **kwargs)
+            try:
+                _scrub_record(record)
+            except Exception:  # noqa: BLE001, S110 - logging must never raise
+                pass
+            return record
+
+        logging.setLogRecordFactory(factory)
+        _factory_installed = True
 
 
 _RESERVED = set(logging.LogRecord("", 0, "", 0, "", (), None).__dict__) | {"message", "asctime", "taskName"}
@@ -129,6 +203,37 @@ class _NoWinError10054(logging.Filter):
         return "WinError 10054" not in text
 
 
+class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
+    """``RotatingFileHandler`` that survives Windows file locking (SYS-14).
+
+    Renaming ``duoskin.log`` fails with ``PermissionError`` (WinError 32) while antivirus, OneDrive or a second copy of the
+    app (``doctor.bat`` while the app runs) has the file open. The rollover is then skipped and tried again a minute later;
+    the record that triggered it is still written, and logging never raises.
+    """
+
+    retry_after_s = 60.0
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._not_before = 0.0
+
+    def shouldRollover(self, record: logging.LogRecord) -> bool:
+        if time.monotonic() < self._not_before:
+            return False
+        return bool(super().shouldRollover(record))
+
+    def doRollover(self) -> None:
+        try:
+            super().doRollover()
+        except OSError:
+            self._not_before = time.monotonic() + self.retry_after_s
+            if self.stream is None:
+                try:
+                    self.stream = self._open()
+                except OSError:
+                    pass
+
+
 class LogHandle:
     def __init__(self, handlers: list[logging.Handler], fault_file: TextIO | None, restore: list[Any]) -> None:
         self._handlers = handlers
@@ -154,6 +259,7 @@ class LogHandle:
 
 
 _current: LogHandle | None = None
+NOISY_LOGGERS = ("httpx", "httpx2", "httpcore", "httpcore2", "anthropic", "openai", "urllib3", "hpack", "h11", "h2")
 
 
 def setup_logging(logs_dir: Path, *, level: int | str = logging.INFO, console: bool = True, dev: bool = False,
@@ -164,6 +270,7 @@ def setup_logging(logs_dir: Path, *, level: int | str = logging.INFO, console: b
     DEBUG output includes request headers (never enable ``ANTHROPIC_LOG=debug``).
     """
     global _current
+    install_record_factory()
     if _current is not None:
         _current.shutdown()
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -171,8 +278,7 @@ def setup_logging(logs_dir: Path, *, level: int | str = logging.INFO, console: b
     root.setLevel(logging.DEBUG if dev else level)
     handlers: list[logging.Handler] = []
 
-    file_handler = logging.handlers.RotatingFileHandler(logs_dir / "duoskin.log", maxBytes=5_000_000, backupCount=5,
-                                                        encoding="utf-8")
+    file_handler = SafeRotatingFileHandler(logs_dir / "duoskin.log", maxBytes=5_000_000, backupCount=5, encoding="utf-8")
     file_handler.setFormatter(JsonFormatter())
     handlers.append(file_handler)
     if console:
@@ -183,7 +289,7 @@ def setup_logging(logs_dir: Path, *, level: int | str = logging.INFO, console: b
         h.addFilter(RedactFilter())
         h.addFilter(_NoWinError10054())
         root.addHandler(h)
-    for noisy in ("httpx", "httpcore", "anthropic", "openai", "urllib3", "hpack"):
+    for noisy in NOISY_LOGGERS:                                       # their DEBUG/INFO lines carry full URLs (signed ones too) and headers
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
     fault_file: TextIO | None = None

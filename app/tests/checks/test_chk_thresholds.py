@@ -40,7 +40,7 @@ def test_known_values_from_the_spec_table():
     assert TH.get("ladder.max_fixes_per_part") == 3
     assert TH.get("gate.max_soft_warnings") == 2
     assert TH.get("face.skin_tones") == 5
-    assert TH.status_of("mesh.surface_area_max") == "DOC"
+    assert TH.status_of("mesh.surface_area_max") == "UNV"  # the docs do not state this number (Roblox review)
 
 
 def test_removed_accessory_jaccard_key():
@@ -60,13 +60,13 @@ def test_describe_text():
 
 
 def test_overrides_only_for_tunable_statuses():
-    assert TH.is_tunable("img.palette_de_max") and not TH.is_tunable("mesh.surface_area_max") and not TH.is_tunable("gate.max_soft_warnings")
+    assert TH.is_tunable("img.palette_de_max") and not TH.is_tunable("tpl.size_wh") and not TH.is_tunable("gate.max_soft_warnings")
     with TH.overrides({"img.palette_de_max": 9.0}):
         assert TH.get("img.palette_de_max") == 9.0
         assert TH.default("img.palette_de_max") == 12.0
         assert "default 12.0" in TH.describe("img.palette_de_max", "<=")
     assert TH.get("img.palette_de_max") == 12.0
-    with pytest.raises(ValueError), TH.overrides({"mesh.surface_area_max": 1.0}):
+    with pytest.raises(ValueError), TH.overrides({"tpl.size_wh": (1, 1)}):
         pass
     with pytest.raises(ValueError), TH.overrides({"gate.max_soft_warnings": 5}):
         pass

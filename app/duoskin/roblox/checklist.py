@@ -1,11 +1,17 @@
 """The upload checklist, generated from the item-type table (APP_SPEC §10.13, FAILURE_MODES EXP-01 / EXP-02 / EXP-09).
 
-There is no upload API for avatar items, so the user uploads by hand. The checklist is built **only** from ``ITEM_TYPES``
+The user uploads by hand and this app never uploads anything: the Open Cloud Assets API in the creator-docs of 2026-09-26
+(``content/en-us/cloud/guides/usage-assets.md``) lists only Animation, Audio, Decal/Image, Mesh, Model and Video, and no
+Shirt, Pants, T-shirt or avatar-item (accessory, head, body) type, so the kit says "upload manually". The text says
+"not listed in Roblox's docs of that date", never "there is no API". The checklist is built **only** from ``ITEM_TYPES``
 (one row per item type with its channel, fee and steps) so the channel and fee are never typed twice (EXP-01):
 
-* Classic Shirt / Pants: Creator Dashboard (browser), 80 Robux per submission, not refunded, ID verification.
-* Hair and accessories: Studio (3D Importer, Accessory Fitting Tool, UGC Validation tool, Save to Roblox).
+* Classic Shirt / Pants: Creator Dashboard (browser), 80 Robux upload fee per submission, ID verification.
+* Hair and accessories: Studio (3D Importer, Accessory Fitting Tool, Save to Roblox, which runs the UGC validation).
 * Head and Body: Studio.
+
+Fee figures, the publishing advance and the creator requirements live in ``roblox/fees.py`` (doc paths there); every fee text
+ends with "check Roblox for current prices".
 
 Every paid upload line is **locked** until the free "Studio test passed" step of the same item is ticked and the final-confirmation
 step is ticked (EXP-02, EXP-09): ``tick()`` refuses to tick a locked step, and un-ticking a prerequisite un-ticks what depends on it.
@@ -18,6 +24,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from duoskin.roblox import fees as FEES
 from duoskin.roblox import limits_clothing as LC
 
 StepKind = Literal["info", "test", "confirm", "upload"]
@@ -52,55 +59,80 @@ class ItemTypeRow:
     fm_ids: tuple[str, ...] = ("EXP-01", "EXP-02")
 
 
-_CONFIRM = Step("confirm_final", "Confirm the Gate 3 renders, the file list and the category for this item. Items cannot be edited after "
-                "upload, so a mistake is permanent.", "confirm")
+_CONFIRM = Step("confirm_final", "Confirm the Gate 3 renders, the file list and the category for this item. The asset and its thumbnail cannot be "
+                "changed after upload (title, description and sale settings can), so a mistake is permanent.", "confirm")
 
 ITEM_TYPE_ROWS: tuple[ItemTypeRow, ...] = (
     ItemTypeRow(
         "classic", CLASSIC_TYPES, "creator_dashboard", LC.UPLOAD_PATH, LC.UPLOAD_FEE_ROBUX,
-        f"{LC.UPLOAD_FEE_ROBUX} Robux per submission, not refunded",
-        ("ID verification on the Roblox account", f"{LC.TEMPLATE_SIZE[0]}x{LC.TEMPLATE_SIZE[1]} RGBA 8-bit PNG (the file in this kit)"),
-        (Step("studio_test", "Free Studio test: Avatar tab > Character > Block Avatar rig; insert a Shirt or Pants object under the Rig and "
-                             "set its ShirtTemplate/PantsTemplate to the PNG. Tick when it looks right on the rig.", "test"),
+        FEES.fee_note("Shirt"),
+        ("ID verification on the Roblox account (your own government ID or a linked parental account with ID verification) is needed to upload",
+         f"{FEES.REQ_PUBLISH} (Classic Shirt or Pants: {FEES.publishing_advance('Shirt')} Robux, non-limited). {FEES.PRICE_NOTE}",
+         f"{LC.TEMPLATE_SIZE[0]}x{LC.TEMPLATE_SIZE[1]} RGBA 8-bit PNG (the file in this kit)"),
+        (Step("studio_test", "Free Studio test (Roblox's docs say testing has no fee): Avatar tab > Character > choose a Block Avatar rig. Import the "
+                             "PNG with the Asset Manager (images go through moderation before you can use them), insert a Shirt or Pants object "
+                             "under the Rig and set its ShirtTemplate / PantsTemplate to that image. Tick when it looks right on the rig.", "test"),
          _CONFIRM,
-         Step("upload", f"Upload: {LC.UPLOAD_PATH}. {LC.UPLOAD_FEE_ROBUX} Robux per submission, not refunded.", "upload",
+         Step("upload", f"Upload: {LC.UPLOAD_PATH}. Set the Asset Type dropdown to Shirt or Pants, fill Name and Description, click Upload. "
+                        f"{FEES.fee_note('Shirt')}", "upload", ("studio_test", "confirm_final"))),
+    ),
+    ItemTypeRow(
+        "accessory", ACCESSORY_TYPES, "studio",
+        "Studio: Import > Accessory Fitting Tool > Save to Roblox (UGC Validation runs when you choose the asset type, before you pay)",
+        FEES.UPLOAD_FEE_ROBUX, FEES.fee_note("Accessory"),
+        ("Mesh files from this kit (.gltf + .bin + PNG; .fbx only when produced)", FEES.REQ_UPLOAD, f"{FEES.REQ_PUBLISH}. {FEES.PRICE_NOTE}"),
+        (Step("importer_settings", "3D Importer (Home > Import): 'Upload to Roblox' OFF while testing; Scale Unit = Studs; World Forward = Front; "
+                                   "World Up = Top; Merge Meshes OFF; Rig Scale = Default (Classic) if the Importer shows it (it is offered for R15 rigs).", "info"),
+         Step("aft", "Accessory Fitting Tool (Avatar tab > Accessory): Part = the imported MeshPart, asset type Accessory, pick the category and attachment "
+                     "from the dropdown, body type Classic. Move, Scale and Rotate it in the viewport until it sits as fit.json describes (the fit.json "
+                     "offsets are UNVERIFIED: trust the AFT preview), then Generate MeshPart Accessory. The tool builds the Accessory and its "
+                     "attachment (Roblox does not support importing attachments for rigid accessories).", "info"),
+         Step("meshpart", "MeshPart: Material Plastic, Transparency 0, VertexColor 1,1,1, no extra objects (Roblox's rules). DuoSkin also keeps "
+                          "DoubleSided off: that is its own choice, not a Roblox rule.", "info"),
+         Step("studio_test", "Free UGC validation: right-click the Accessory in the Explorer > Save to Roblox > Submit As: Avatar Asset > choose the "
+                             "asset type. Validation starts when you choose the type and costs nothing; Submit is what charges the fee, so do NOT "
+                             "click Submit yet. Also run property_check.luau and validation_rules.luau from the studio folder. Tick when validation passes.",
+              "test", ("importer_settings", "aft", "meshpart")),
+         _CONFIRM,
+         Step("upload", f"Save to Roblox > Submit (this pays the fee). {FEES.fee_note('Accessory')}", "upload", ("studio_test", "confirm_final"))),
+    ),
+    ItemTypeRow(
+        "head", ("Head",), "studio", "Studio (Avatar Setup or manual)", FEES.UPLOAD_FEE_ROBUX, FEES.fee_note("Head"),
+        ("Head base present and validated once (FM-T2)",
+         "Roblox's dynamic head rules: at most 4000 triangles, an outer cage with eye and mouth landmarks, at least 17 FACS poses",
+         FEES.REQ_UPLOAD, f"{FEES.REQ_PUBLISH}. {FEES.PRICE_NOTE}"),
+        (Step("studio_test", "Studio's dynamic head validation (it runs when you choose the asset type in Save to Roblox, before you pay): the head "
+                             "needs at least the 17 required FACS poses and must visibly move at the cage landmarks for eyes closed, mouth open, "
+                             "happy and sad. Do NOT run Avatar Setup's automatic FACS on a head that already has its own: it is UNVERIFIED whether "
+                             "it would replace the rig the app rendered.", "test"),
+         _CONFIRM,
+         Step("upload", f"Upload the head as authored (Save to Roblox > Avatar Asset > Head). {FEES.fee_note('Head')}", "upload",
               ("studio_test", "confirm_final"))),
     ),
     ItemTypeRow(
-        "accessory", ACCESSORY_TYPES, "studio", "Studio: 3D Importer > Accessory Fitting Tool > UGC Validation tool > Save to Roblox", 80,
-        "80 Robux each (500 with emissive, which this app never uses)",
-        ("Mesh files from this kit (.gltf + .bin + PNG; .fbx only when produced)",),
-        (Step("importer_settings", "3D Importer: 'Upload to Roblox' OFF while testing; Scale Unit = Studs; World Forward = Front; World Up = "
-                                   "Top; Merge Meshes OFF; Rig Scale = Default (Classic).", "info"),
-         Step("aft", "Accessory Fitting Tool: set the category, the attachment and the numeric offset from fit.json.", "info"),
-         Step("meshpart", "MeshPart: Material Plastic, Transparency 0, VertexColor 1,1,1, no extra objects, DoubleSided off.", "info"),
-         Step("studio_test", "Run the free UGC Validation tool (and the property_check.luau script). Tick when it passes.", "test",
-              ("importer_settings", "aft", "meshpart")),
+        "body", ("Body",), "studio", "Studio", FEES.UPLOAD_FEE_ROBUX, FEES.fee_note("Body"),
+        ("Body base present",
+         ("15 separate meshes (Head, UpperTorso, LowerTorso, three per arm, three per leg), watertight; triangle limits: "
+          "head 4000, torso 1750, each arm and leg 1248, 10,742 in total"),
+         FEES.REQ_UPLOAD, f"{FEES.REQ_PUBLISH}. {FEES.PRICE_NOTE}"),
+        (Step("studio_test", "Only with a body base: check the modesty layers, the bundle contents (Roblox allows only hair, eyebrow and eyelash "
+                             "accessories bundled with a body) and let Studio's body validation run when you choose the asset type.", "test"),
          _CONFIRM,
-         Step("upload", "Save to Roblox (Avatar Asset). 80 Robux each.", "upload", ("studio_test", "confirm_final"))),
-    ),
-    ItemTypeRow(
-        "head", ("Head",), "studio", "Studio (Avatar Setup or manual)", 80, "80 Robux",
-        ("Head base present and validated once (FM-T2)",),
-        (Step("studio_test", "Studio's head validator on this duo's head: the 17 required FACS poses, blink, mouth, happy and sad. Do NOT let "
-                             "Avatar Setup generate FACS again: it would replace the rig the app rendered.", "test"),
-         _CONFIRM,
-         Step("upload", "Upload the head as authored. 80 Robux.", "upload", ("studio_test", "confirm_final"))),
-    ),
-    ItemTypeRow(
-        "body", ("Body",), "studio", "Studio", 80, "80 Robux",
-        ("Body base present",),
-        (Step("studio_test", "Only with a body base: check the modesty layers, the bundle contents (only hair, brow and lash accessories) "
-                             "and run the body validator.", "test"),
-         _CONFIRM,
-         Step("upload", "Upload the body bundle. 80 Robux.", "upload", ("studio_test", "confirm_final"))),
+         Step("upload", f"Upload the body bundle (Save to Roblox > Avatar Asset). {FEES.fee_note('Body')}", "upload", ("studio_test", "confirm_final"))),
     ),
 )
 ITEM_TYPES: dict[str, ItemTypeRow] = {t: row for row in ITEM_TYPE_ROWS for t in row.types}
 
 COMMON_NOTES = (
-    "Confirm the Gate 3 renders, the file list and the category per item before any upload (items cannot be edited after upload).",
-    "R6 games map each classic region whole and without the R15 seams; the garments were designed to read unsplit.",
+    ("Confirm the Gate 3 renders, the file list and the category per item before any upload: the asset and its thumbnail cannot be changed "
+     "after upload (title, description and sale settings can). If you want a custom thumbnail, make it before you upload; Roblox's docs say it "
+     "cannot be added afterwards."),
+    FEES.PRICE_NOTE + " The upload fee, the refundable publishing advance and the creator requirements all apply to your own account.",
+    ("You upload everything yourself and this app never does: the Open Cloud Assets API in Roblox's docs of 2026-09-26 does not list Shirt, Pants, "
+     "T-shirt or avatar-item types, so the Creator Dashboard (classic clothing) and Studio (everything else) are the only routes this kit uses."),
+    "These are classic 2D Shirt and Pants. Roblox warns that many user-generated avatars on the Marketplace do not show classic clothing.",
+    ("R6 games: the classic template's dotted limits are labelled 'R15 only' on Roblox's own template, so the garments were designed to read without "
+     "the R15 seams. How an R6 avatar maps each region is UNVERIFIED: look at it in Studio before you rely on it."),
 )
 
 
@@ -174,7 +206,7 @@ def build_checklist(items: Iterable[Any], *, banners: Sequence[str] = (), creato
             steps.insert(len(steps) - 1, confirm)
             steps[-1] = ChecklistStep(steps[-1].step_id, steps[-1].text, steps[-1].kind, (*steps[-1].requires, "lineage_confirm"))
         out.append(ChecklistItem(item_id, str(_get(it, "character", "")), itype, row.row_id, row.channel, row.channel_text, row.fee_robux,
-                                 row.fee_note, row.requirements, tuple(steps), (), tuple(notes)))
+                                 FEES.fee_note(itype), row.requirements, tuple(steps), (), tuple(notes)))
     context: dict[str, Any] = {}
     if creator_docs_commit:
         context["creator_docs_commit"] = creator_docs_commit

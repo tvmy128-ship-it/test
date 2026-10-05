@@ -218,7 +218,7 @@ def check_b02(img: np.ndarray, data: bytes | None, facts: T.PngFacts | None) -> 
         problems.append(f"file is {len(data)} bytes, over {LC.MAX_FILE_BYTES}")
     if img.shape != (T.HEIGHT, T.WIDTH, 4) or img.dtype != np.uint8:
         problems.append(f"pixels are {img.shape} {img.dtype}")
-    return _res("CHK-B02", not problems, "png_facts", float(len(problems)), f"{T.WIDTH}x{T.HEIGHT} RGBA 8-bit PNG, no colour chunks, <= {LC.MAX_FILE_BYTES} bytes (tpl.size_wh, DOC)",
+    return _res("CHK-B02", not problems, "png_facts", float(len(problems)), f"{T.WIDTH}x{T.HEIGHT} RGBA 8-bit PNG (tpl.size_wh, DOC), no colour chunks (ours), <= {LC.MAX_FILE_BYTES} bytes (our cap, UNVERIFIED)",
                 note + ("; ".join(problems) if problems else f"{len(data)} bytes, RGBA 8-bit, no colour chunks"), "code_recrop")
 
 
@@ -412,7 +412,7 @@ def check_split_rows(img: np.ndarray, ctx: dict[str, Any]) -> CheckResult:
             if n >= LC.SPLIT_FLAG_MIN_COLUMNS:
                 flagged.append(f"{region}: {n} px")
                 total += n
-    return _res("CHK-B05.split_rows", not flagged, "split_row_step_columns", float(total), "SOFT: no trim or print edge within 2 px of rows 170, 418/419, 467",
+    return _res("CHK-B05.split_rows", not flagged, "split_row_step_columns", float(total), "SOFT: no trim or print edge within 2 px of rows 170, 418/419, 467 (row 170 is dotted on Roblox's template; rows 418/419 and 467 are UNVERIFIED, derived outside Roblox's docs, which print dotted limits at 407 and 446 instead)",
                 "; ".join(flagged[:5]) or "no steps across the split rows (hem rows exempt)")
 
 

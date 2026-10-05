@@ -44,6 +44,7 @@ from duoskin.models.job import Job, JobKind
 from duoskin.models.part import Part, PartKind
 from duoskin.models.project import Stage
 from duoskin.pipeline import common, itemspec, kits, parts
+from duoskin.roblox import fees as FEES
 
 if TYPE_CHECKING:
     from duoskin.engine.context import StepContext
@@ -59,7 +60,7 @@ RESERVED = {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(1, 10)), *(f"
 SECRET_PATTERNS = (
     ("api key", re.compile(rb"\b(?:sk-ant-[A-Za-z0-9_\-]{16,}|sk-proj-[A-Za-z0-9_\-]{16,}|sk-[A-Za-z0-9]{32,}|tsk_[A-Za-z0-9]{16,}|AIza[0-9A-Za-z_\-]{30,})")),
     ("bearer token", re.compile(rb"[Bb]earer\s+[A-Za-z0-9_\-\.]{20,}")),
-    ("signed url", re.compile(rb"[?&](?:X-Amz-Signature|X-Goog-Signature|Signature|token|access_token)=[A-Za-z0-9%_\-]{12,}")),
+    ("signed url", re.compile(rb"(?i)[?&](?:X-Amz-Signature|X-Amz-Security-Token|X-Amz-Credential|X-Goog-Signature|X-Goog-Credential|Signature|sig|token|access_token|api_?key|key|Key-Pair-Id)=[A-Za-z0-9%_\-~.+/=]{12,}")),
     ("email address", re.compile(rb"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")),
 )
 PROPERTY_CHECK_LUAU = """-- DuoSkin property check: run in the Studio command bar with an accessory selected (UNTESTED until FM-T5).
@@ -72,7 +73,29 @@ assert(handle.Transparency == 0, "Transparency must be 0")
 assert(handle.Material == Enum.Material.Plastic, "Material must be Plastic")
 print("DuoSkin property check passed")
 """
-WRAPPER_LUAU = """-- accessory_wrapper.luau (UNTESTED until FM-T5): wraps the imported MeshPart in an Accessory with the attachment named in fit.json.
+VALIDATION_RULES_LUAU = """-- DuoSkin T7 helper (UNTESTED until FM-T7): prints Roblox's live validation rules so you can compare them with fit.json and limits.json.
+-- Run it in the Studio command bar. AvatarCreationService:GetValidationRules is documented in Roblox's creator-docs
+-- (reference/engine/classes/AvatarCreationService.yaml). The live numbers win over the numbers in this kit.
+local ok, rules = pcall(function()
+	return game:GetService("AvatarCreationService"):GetValidationRules()
+end)
+if not ok then
+	warn("GetValidationRules failed: " .. tostring(rules))
+	return
+end
+local mesh = rules.MeshRules or {}
+local tex = rules.TextureRules or {}
+print("AccessoryMaxTriangles", mesh.AccessoryMaxTriangles, "MaxTextureSize", tex.MaxTextureSize)
+for assetType, info in pairs(rules.AccessoryRules or {}) do
+	print(tostring(assetType), "RigidAllowed", info.RigidAllowed)
+	for _, att in ipairs(info.Attachments or {}) do
+		print("   ", att.Name, "Size", att.Size, "Offset", att.Offset)
+	end
+end
+print("Compare with the Classic boxes in limits.json. Studio's own validation at Save to Roblox is the final authority.")
+"""
+WRAPPER_LUAU = """-- accessory_wrapper.luau (UNTESTED until FM-T5; NOT a Roblox-documented workflow: the Accessory Fitting Tool is the documented way to build
+-- an Accessory and its attachment, so use this only to compare with an AFT-made copy). Wraps the imported MeshPart in an Accessory.
 local fit = ... -- the decoded fit.json table
 local accessory = Instance.new("Accessory")
 accessory.Name = fit.asset_id
@@ -153,6 +176,33 @@ def is_mock_asset(rt: Runtime, sha: str) -> str | None:
         return "made from a mock or placeholder input"
     if pv.stream != "pipeline":
         return f"stream {pv.stream}"
+    return mock_ancestor(rt, sha)
+
+
+def mock_ancestor(rt: Runtime, sha: str, *, depth: int = 8) -> str | None:
+    """Defence in depth for the export gate: walk ``input_shas`` back ``depth`` levels and say why an ANCESTOR of ``sha`` is a mock, a
+    placeholder or a drill/regression stream input (a step that forgot to copy the ``mock_lineage`` note cannot hide it), or None."""
+    seen: set[str] = set()
+    frontier = [sha]
+    for _ in range(depth):
+        nxt: list[str] = []
+        for cur in frontier:
+            if cur in seen:
+                continue
+            seen.add(cur)
+            a = rt.cas.find_asset(cur)
+            if a is None:
+                continue
+            pv = a.first_provenance
+            if cur != sha:
+                if pv.source in ("mock", "placeholder") or "mock_lineage" in pv.notes:
+                    return f"made from a mock input ({cur[:8]})"
+                if pv.stream != "pipeline":
+                    return f"made from a {pv.stream} input ({cur[:8]})"
+            nxt += [x for x in pv.input_shas if x not in seen]
+        frontier = nxt
+        if not frontier:
+            break
     return None
 
 
@@ -210,7 +260,58 @@ def gate_checks(rt: Runtime, project_id: str, spec: dict[str, Any]) -> list[Any]
             except KeyError as exc:
                 bad5.append(f"{p.id}: {exc}")
     res.append(build_result("CHK-E05", passed=not bad5, metric="category_attachment", evidence="; ".join(bad5) or "every category fits its attachment", fix_hint="human"))
+    kl = kit_lineage(rt, spec)
+    bad9 = kit_origin_problems(kl)
+    res.append(build_result("CHK-E09", passed=not bad9, metric="kit_lineage", value=float(len(bad9)), fix_hint="human",
+                            evidence="; ".join(bad9[:3]) or f"{len(kl)} kit asset(s), each with an allowed origin and a sha256"))
     return res
+
+
+#: A kit asset that ships inside an item must be the user's own work, made by code or made by the app: Roblox's marketplace policy says not to
+#: use Roblox-created assets or branding (creator-docs marketplace/marketplace-policy.md, General creation guidelines). ``roblox_reference`` (a
+#: head base built on Roblox's own reference mannequin) is the one exception and only for the head base, and it always adds the manual
+#: confirmation line of the checklist (license unknown, POL-07).
+SHIPPABLE_ORIGINS = ("user_made", "code_generated", "app_generated")
+REFERENCE_ORIGIN = "roblox_reference"
+
+
+def kit_origin_problems(kl: list[dict[str, Any]]) -> list[str]:
+    """CHK-E09: what stops a kit asset from shipping (no sha256, an origin that is not self-made, a Roblox reference outside the head base)."""
+    bad: list[str] = []
+    for k in kl:
+        asset, origin = str(k.get("kit_asset", "?")), k.get("origin")
+        if not k.get("sha256"):
+            bad.append(f"{asset}: no sha256")
+        if origin in SHIPPABLE_ORIGINS or (origin == REFERENCE_ORIGIN and asset.startswith("head_base/")):
+            continue
+        bad.append(f"{asset}: origin {origin!r} may not ship (allowed: {', '.join(SHIPPABLE_ORIGINS)}; a Roblox reference only for the head base)")
+    return bad
+
+
+def head_base_lineage(kit: Any, spec: dict[str, Any]) -> list[dict[str, Any]]:
+    """The head-base variants the duo's faces use (APP_SPEC Appendix B.1): origin ``roblox_reference`` and licence ``unknown`` until the user's
+    own ``head_base/<variant>/provenance.json`` (``{"origin": ..., "license": ...}``) says otherwise. ``unknown`` adds the manual
+    confirmation line to the Head item of the checklist (POL-07)."""
+    if not kit.flags.get("head_base_present"):
+        return []
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for c in ("a", "b"):
+        d = kit.head_base_dir((spec.get(c, {}).get("face") or {}).get("eye_shape"))
+        if d is None or d.name in seen:
+            continue
+        seen.add(d.name)
+        meta: dict[str, Any] = {}
+        pj = d / "provenance.json"
+        if pj.is_file():
+            try:
+                meta = json.loads(pj.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                meta = {}
+        head = d / "head.fbx"
+        out.append({"kit_asset": f"head_base/{d.name}/head.fbx", "sha256": kits.file_sha(head) if head.is_file() else "",
+                    "origin": meta.get("origin") or REFERENCE_ORIGIN, "license": meta.get("license") or "unknown"})
+    return out
 
 
 def kit_lineage(rt: Runtime, spec: dict[str, Any]) -> list[dict[str, Any]]:
@@ -226,6 +327,7 @@ def kit_lineage(rt: Runtime, spec: dict[str, Any]) -> list[dict[str, Any]]:
         fmeta = kit.manifest.get("fabrics", {}).get(fab) if fab else None
         if fmeta:
             out.append({"kit_asset": f"fabrics/{fab}", "sha256": fmeta["sha256"], "origin": fmeta["origin"], "license": "n/a"})
+    out += head_base_lineage(kit, spec)
     seen, uniq = set(), []
     for k in out:
         if k["kit_asset"] not in seen:
@@ -288,13 +390,13 @@ def mesh_files(rt: Runtime, w: Writer, part: Part, folder: str, stem: str) -> li
     if w.mock:
         gltf_name, bin_name, png_name = (f"MOCK_{gltf_name}", f"MOCK_{bin_name}", f"MOCK_{png_name}")
     ba = part.build_assets
-    out.append(w.files[w.write(f"{folder}/{gltf_name}", rewrite_gltf(rt.cas.get(ba["gltf"]), bin_name, png_name))])
-    out.append(w.files[w.write(f"{folder}/{bin_name}", rt.cas.get(ba["bin"]))])
-    out.append(w.files[w.write(f"{folder}/{png_name}", rt.cas.get(ba["png"]))])
+    out.append(w.files[w.write(f"{folder}/{gltf_name}", rewrite_gltf(rt.cas.get(ba["gltf"]), bin_name, png_name))])   # win-ok: kit-relative path, '/' works on Windows
+    out.append(w.files[w.write(f"{folder}/{bin_name}", rt.cas.get(ba["bin"]))])   # win-ok: kit-relative path, '/' works on Windows
+    out.append(w.files[w.write(f"{folder}/{png_name}", rt.cas.get(ba["png"]))])   # win-ok: kit-relative path, '/' works on Windows
     if ba.get("fbx"):
-        out.append(w.files[w.write(f"{folder}/{stem}.fbx", rt.cas.get(ba["fbx"]))])
+        out.append(w.files[w.write(f"{folder}/{stem}.fbx", rt.cas.get(ba["fbx"]))])   # win-ok: kit-relative path, '/' works on Windows
     if ba.get("fit_json"):
-        out.append(w.files[w.write(f"{folder}/fit.json", rt.cas.get(ba["fit_json"]))])
+        out.append(w.files[w.write(f"{folder}/fit.json", rt.cas.get(ba["fit_json"]))])   # win-ok: kit-relative path, '/' works on Windows
     return out
 
 
@@ -372,7 +474,9 @@ def run_build(ctx: StepContext, p: ExportParams, inputs: list[Any]) -> StepResul
     if blocking:
         common.store_checks(ctx, results)
         reason = "; ".join(f"{r.check_id}: {r.evidence}" for r in blocking[:3])
-        rt.repo.kv_set(state_key(project_id), {"status": "blocked", "reason": reason, "checks": [r.check_id for r in blocking], "at": iso_utc(utcnow())})
+        mock_sources = any(is_mock_asset(rt, s) for pt in rt.repo.list_parts(project_id) for s in {**pt.board_assets, **shipped_assets(pt)}.values())
+        rt.repo.kv_set(state_key(project_id), {"status": "blocked", "reason": reason, "checks": [r.check_id for r in blocking], "at": iso_utc(utcnow()),
+                                               "mock": mock_sources, "preview": export_preview(rt, project_id, spec, mock=mock_sources)})
         rt.repo.set_project_stage(project_id, Stage.GATE3, bus=rt.bus)
         set_gate3_status(rt, project_id, {"status": "blocked", "reason": reason, "checks": [r.check_id for r in blocking]})
         raise StepFailure(f"The export gate stopped the kit: {reason}", kind="bad_request", billed="no", retryable=False,
@@ -408,7 +512,7 @@ def run_build(ctx: StepContext, p: ExportParams, inputs: list[Any]) -> StepResul
             it = itemspec.accessory_item(spec, pid)
             folder = f"{cf}/accessories/{it.category}_{it.kind}"
             files = mesh_files(rt, w, part, folder, "acc")
-            files.append(w.files[w.write(f"{folder}/accessory_wrapper.luau", WRAPPER_LUAU.encode("utf-8"))])
+            files.append(w.files[w.write(f"{folder}/accessory_wrapper.luau", WRAPPER_LUAU.encode("utf-8"))])   # win-ok: kit-relative path, '/' works on Windows
             items.append(item_row(rt, part, it.asset_type, it.category, it.attachment, "studio", files, part.build_assets, spec, item=it))
         colours = ps[f"{c}.colours"]
         bf = w.files[w.write(f"{cf}/body/body_colors.json", rt.cas.get(colours.build_assets["body_colors"]))]
@@ -425,6 +529,7 @@ def run_build(ctx: StepContext, p: ExportParams, inputs: list[Any]) -> StepResul
         w.write("duo/phone_strip.png", rt.cas.get(renders["phone_strip"]))
         w.write("duo/face_poses.png", rt.cas.get(renders["face_poses"]))
     w.write("studio/property_check.luau", PROPERTY_CHECK_LUAU.encode("utf-8"))
+    w.write("studio/validation_rules.luau", VALIDATION_RULES_LUAU.encode("utf-8"))
     if rt.effective_settings().three_d.studio_forward_axis == "unknown":
         w.write("studio/calibration_arrow.gltf", calibration_arrow())
     # ---- the checklist (E08) from the manifest items
@@ -451,11 +556,58 @@ def run_build(ctx: StepContext, p: ExportParams, inputs: list[Any]) -> StepResul
     results += [build_result("CHK-E03", passed=all(i["lineage"] and i["license"] and i["approval_hash"] and i["build_hash"] for i in items),
                              metric="provenance_complete", evidence="every item has lineage, a licence and both stamps", fix_hint="human"),
                 build_result("CHK-E08", passed=bool(checklist.items), metric="checklist", evidence=f"{len(checklist.items)} checklist item(s)")]
-    kl = kit_lineage(rt, spec)
-    results.append(build_result("CHK-E09", passed=all(k.get("origin") and k.get("sha256") for k in kl), metric="kit_lineage",
-                                evidence=f"{len(kl)} kit asset(s) with an allowed origin and a sha256"))
     common.store_checks(ctx, results)
+    late = common.hard_failures(results[-2:])                       # E03 and E08 need the written items; they block the kit like the gate does
+    if late:
+        reason = "; ".join(f"{r.check_id}: {r.evidence}" for r in late[:3])
+        rt.repo.kv_set(state_key(project_id), {**get_state(rt, project_id), "status": "failed", "reason": reason})
+        rt.repo.set_project_stage(project_id, Stage.GATE3, bus=rt.bus)
+        set_gate3_status(rt, project_id, {"status": "failed", "reason": reason})
+        raise StepFailure(f"The kit was written but did not pass its own checks: {reason}", kind="bad_request", billed="no", retryable=False)
     return StepResult(outputs=[], result={"kit_dir": str(root), "files": len(w.files), "mock": mock, "items": len(items)}, message=f"kit written ({len(w.files)} files)")
+
+
+def preview_items(rt: Runtime, project_id: str, spec: dict[str, Any]) -> list[dict[str, Any]]:
+    """The item rows of the kit this duo would make, without writing a file: the same items ``run_build`` lists, for the demo-mode export preview."""
+    ps = {x.id: x for x in rt.repo.list_parts(project_id)}
+    head_base = bool(kits.load_context(rt).flags.get("head_base_present"))
+    items: list[dict[str, Any]] = []
+    for c in ("a", "b"):
+        for kind, typ in (("shirt", "Shirt"), ("pants", "Pants")):
+            if f"{c}.{kind}" in ps:
+                items.append(item_row(rt, ps[f"{c}.{kind}"], typ, "classic", "", "creator_dashboard", [], {}, spec))
+        if f"{c}.face" in ps:
+            items.append(item_row(rt, ps[f"{c}.face"], "Head" if head_base else "FaceLayers", "head", "", "studio" if head_base else "none", [], {}, spec))
+        if f"{c}.hair" in ps:
+            hi = itemspec.hair_item(spec, c)
+            items.append(item_row(rt, ps[f"{c}.hair"], "Hair", "hair", hi.attachment, "studio", [], ps[f"{c}.hair"].build_assets, spec, item=hi))
+        for pid in sorted(x for x in ps if x.startswith(f"{c}.acc.")):
+            it = itemspec.accessory_item(spec, pid)
+            items.append(item_row(rt, ps[pid], it.asset_type, it.category, it.attachment, "studio", [], ps[pid].build_assets, spec, item=it))
+        if f"{c}.colours" in ps:
+            items.append(item_row(rt, ps[f"{c}.colours"], "Body", "body", "", "studio", [], {}, spec))
+    return items
+
+
+def export_preview(rt: Runtime, project_id: str, spec: dict[str, Any], *, mock: bool) -> dict[str, Any] | None:
+    """What the export would contain and the checklist a person would follow, for a kit the gate stopped (demo mode: nothing here can be exported, but
+    the flow ends by showing what a real run would hand over). ``None`` when it cannot be worked out: the preview never hides the reason for the block."""
+    from duoskin.roblox import checklist as CL
+
+    try:
+        project = rt.repo.get_project(project_id)
+        items = preview_items(rt, project_id, spec)
+        body_base = bool(kits.load_context(rt).flags.get("body_base_present"))
+        shippable = [i for i in items if i["type"] != "FaceLayers" and (i["type"] != "Body" or body_base)]
+        banners = banners_for(rt, project_id, get_state(rt, project_id), mock)
+        checklist = CL.build_checklist(shippable, banners=banners, creator_docs_commit=project.pins.roblox_docs_commit if project.pins else "",
+                                       lineage_unknown_items=[])
+        return {"checklist": CL.to_json(checklist), "banners": banners,
+                "items": [{"item_id": i["item_id"], "character": i["character"], "type": i["type"], "category": i["category"],
+                           "upload_channel": i["upload_channel"], "fee_robux": i["fee_robux"]} for i in shippable]}
+    except Exception:  # noqa: BLE001  (a preview is a courtesy; the block and its reason are what matter)
+        log.exception("could not build the export preview")
+        return None
 
 
 def calibration_arrow() -> bytes:
@@ -464,7 +616,7 @@ def calibration_arrow() -> bytes:
     from duoskin.mesh import export as MX
     from duoskin.mesh import fixtures
 
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
         files = MX.write_gltf_set(fixtures.f_fixture(), td, "calibration_arrow")
         return Path(files["gltf"]).read_bytes()
 
@@ -473,11 +625,13 @@ def item_row(rt: Runtime, part: Part, typ: str, category: str, attachment: str, 
              spec: dict[str, Any], *, item: itemspec.Item | None = None) -> dict[str, Any]:
     facts = (rt.repo.kv_get(parts.facts_key(part.project_id, part.id)) or {}).get("mesh_facts", {}) or {}
     lin = lineage_of(rt, part.project_id, list(shipped_assets(part).values()))
-    kit_lin = [k for k in kit_lineage(rt, spec) if part.kind == PartKind.HAIR and k["kit_asset"].startswith("hair/")] if part.kind == PartKind.HAIR else []
+    prefix = {PartKind.HAIR: "hair/", PartKind.FACE: "head_base/"}.get(part.kind)
+    kit_lin = [k for k in kit_lineage(rt, spec) if k["kit_asset"].startswith(prefix)] if prefix and typ != "FaceLayers" else []
     return {"item_id": part.id, "character": part.character, "type": typ, "category": category, "attachment": attachment, "scale_type": "Classic",
             "target_studs": list(item.target_studs) if item else None, "bbox_studs": facts.get("bbox_studs"), "tris": facts.get("tris"),
             "texture_px": facts.get("texture_px"), "files": files, "fbx": "produced" if build_assets.get("fbx") else ("not produced" if build_assets.get("gltf") else None),
-            "upload_channel": channel, "fee_robux": 80 if channel in ("creator_dashboard", "studio") else 0, "checklist_id": part.id,
+            "upload_channel": channel, "fee_robux": FEES.UPLOAD_FEE_ROBUX if channel in ("creator_dashboard", "studio") else 0, "fee_note": FEES.PRICE_NOTE,
+            "checklist_id": part.id,
             "license": part.license, "approval_hash": part.approval.approval_hash if part.approval else None,
             "build_hash": part.build_stamp.build_hash if part.build_stamp else None, "lineage": lin, "notes": [], "kit_lineage": kit_lin}
 
@@ -529,7 +683,10 @@ def readme(project: Any, spec: dict[str, Any], items: list[dict[str, Any]], bann
     for i in items:
         lines.append(f"  {i['item_id']:<12} {i['type']:<10} {len(i['files'])} file(s)  upload: {i['upload_channel']}")
     lines += ["", "Order of the Studio tests: open CHECKLIST.html and tick each free 'Studio test' before its upload line unlocks.",
-              "Fees: Classic Shirt/Pants 80 Robux per submission (Creator Dashboard); hair and accessories 80 Robux each (Studio). Items cannot be edited after upload.", ""]
+              "Studio helper scripts (UNTESTED until you run them): studio/property_check.luau and studio/validation_rules.luau.",
+              "You upload everything yourself; this app never uploads anything. The asset and its thumbnail cannot be changed after upload.",
+              "Fees, classic Shirt/Pants (Creator Dashboard): " + FEES.fee_note("Shirt"),
+              "Fees, hair and accessories (Studio): " + FEES.fee_note("Accessory"), ""]
     for b in banners:
         lines.append("NOTE: " + b)
     return "\n".join(lines) + "\n"
@@ -667,7 +824,7 @@ def run_zip(ctx: StepContext, p: ExportParams, inputs: list[Any]) -> StepResult:
     zpath = root.parent / f"{root.name}.zip"
     with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted(x for x in root.rglob("*") if x.is_file()):
-            z.write(f, f"{root.name}/{f.relative_to(root).as_posix()}")
+            z.write(f, f"{root.name}/{f.relative_to(root).as_posix()}")   # win-ok: zip member names always use '/'
     leaks = secret_scan(rt, zip_path=zpath)
     r = build_result("CHK-E06", passed=not leaks, metric="secret_scan_zip", value=float(len(leaks)), evidence="; ".join(leaks[:3]) or "the zip is clean", fix_hint="human")
     common.store_checks(ctx, [r])

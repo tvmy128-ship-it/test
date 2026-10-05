@@ -80,7 +80,9 @@ def _tail(path: str) -> str:
 def run_process(cmd: Sequence[str], *, timeout_s: float, cwd: str | Path | None = None, env: dict[str, str] | None = None,
                 max_rss_mb: float | None = None, poll_s: float = 0.2) -> ProcResult:
     """Run ``cmd``; kill the whole process tree on timeout or when its memory exceeds ``max_rss_mb``."""
-    full_env = dict(os.environ)
+    from duoskin.security import child_env
+
+    full_env = child_env()                       # the parent's environment without any API key or token: this child parses untrusted files
     full_env.update({"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"})
     if env:
         full_env.update(env)
@@ -92,7 +94,7 @@ def run_process(cmd: Sequence[str], *, timeout_s: float, cwd: str | Path | None 
     else:
         kwargs["start_new_session"] = True
     start = time.monotonic()
-    with tempfile.TemporaryDirectory(prefix="duoskin_proc_") as td:
+    with tempfile.TemporaryDirectory(prefix="duoskin_proc_", ignore_cleanup_errors=True) as td:
         out_path, err_path = os.path.join(td, "out.txt"), os.path.join(td, "err.txt")
         with open(out_path, "wb") as fo, open(err_path, "wb") as fe:
             proc = subprocess.Popen(list(cmd), stdout=fo, stderr=fe, stdin=subprocess.DEVNULL, cwd=str(cwd) if cwd else None,

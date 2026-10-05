@@ -10,7 +10,7 @@ import { runTileAction } from "../components/tile-actions.js";
 import { decide } from "../components/decisions.js";
 import { confirmDialog } from "../components/modal.js";
 import { dnaCard } from "../components/dnacard.js";
-import { openGatePanels } from "../components/gatepanels.js";
+import { openGatePanels, failedStepsPanel } from "../components/gatepanels.js";
 import { toast } from "../components/toast.js";
 import { stateLabel, partKindLabel, nextAction } from "../text.js";
 
@@ -39,6 +39,9 @@ export async function render(ctx) {
     if (gates.unavailable) { setChildren(body, notAvailable("The part board")); return; }
     const board = gates.data.find((g) => g.kind === "part_board");
     const panels = openGatePanels(id, gates.data.filter((g) => g.kind !== "part_board" && g.kind !== "concept"), { refresh: draw, navigate: ctx.navigate });
+    const failedPanel = await failedStepsPanel(id, draw, ctx.signal);
+    if (failedPanel) panels.unshift(failedPanel);
+    if (!ctx.active()) return;
     const parts = /** @type {any[]} */ (bundle.parts || []);
     if (!board) {
       const na = nextAction(project, gates.data);
@@ -48,8 +51,10 @@ export async function render(ctx) {
         ? panel({ title: project.stage === "parts" ? "The parts are being made" : "The parts" }, project.stage === "parts" ? h("p", { class: "muted" }, "Each part appears here as soon as it is ready for you to look at.") : null,
           progress(parts.length ? approved / parts.length : 0, "Parts approved"),
           h("ul", { class: "plain-list" }, parts.map((p) => h("li", {}, h("strong", {}, p.label || partKindLabel(p.kind)), " ", badge(stateLabel(p.state), p.state === "approved" || p.state === "built" ? "ok" : "muted")))),
-          allDone ? null : h("a", { class: "btn primary", href: na.href }, na.label))
-        : emptyState("No parts yet", "The parts appear after you approve a concept.", h("a", { class: "btn primary", href: na.href }, na.label)));
+          allDone || na.href.endsWith("/board") ? null : h("a", { class: "btn primary", href: na.href }, na.label))     // never a button that leads to this very page
+        : project.stage === "gate1" && !gates.data.some((g) => g.kind === "concept")
+          ? emptyState("Locking in your concept", "Your choice is saved. The colours and the design card are being fixed from the picture you approved; the parts appear here in a moment, by themselves.")
+          : emptyState("No parts yet", "The parts appear after you approve a concept.", h("a", { class: "btn primary", href: na.href }, na.label)));
       return;
     }
     const firstChoice = Boolean(board.first_choice_at);

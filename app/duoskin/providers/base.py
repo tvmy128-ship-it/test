@@ -60,7 +60,9 @@ _SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 
 def scrub(text: Any, *, limit: int = 2000) -> str:
     """Remove API keys, bearer tokens and URLs (which may be signed) from ``text``; cap its length."""
-    s = str(text)
+    from duoskin.logsetup import redact  # the exact value of every key the keystore has read, then the patterns
+
+    s = redact(str(text))
     for pat, repl in _SECRET_PATTERNS:
         s = pat.sub(repl, s)
     return s if len(s) <= limit else s[:limit] + "..."
@@ -142,11 +144,11 @@ class ProviderError(Exception):
         self.kind = kind
         self.message = scrub(message)
         self.http = http
-        self.code = code
+        self.code = scrub(code, limit=200) if code is not None else None
         self.retryable = retryable
         self.billed = billed
-        self.request_id = request_id
-        self.user_hint = user_hint
+        self.request_id = scrub(request_id, limit=200) if request_id is not None else None
+        self.user_hint = scrub(user_hint) if user_hint else user_hint
         self.retry_after_s = retry_after_s
         self.context = dict(context or {})
         self.cost = cost
@@ -635,6 +637,9 @@ def sniff_kind(data: bytes) -> str:
     return "unknown"
 
 
+_DNS_NAME = re.compile(r"(?i)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.?")
+
+
 class HostAllowlist:
     """Exact hosts (``tripo-data.rg1.data.tripo3d.com``) and ``*.suffix`` patterns (sub-domains only)."""
 
@@ -663,21 +668,41 @@ class Downloader:
     """
 
     def __init__(self, provider: str, allow: Iterable[str], *, max_bytes: int = 150 * 1024 * 1024,
-                 timeout: float = 120.0, client: Any = None, transport: Any = None) -> None:
+                 timeout: float = 120.0, client: Any = None, transport: Any = None, max_seconds: float = 900.0) -> None:
         from duoskin.providers._http import make_client
         self.provider = provider
         self.allow = HostAllowlist(allow)
         self.max_bytes = int(max_bytes)
+        self.max_seconds = float(max_seconds)
         self._client = client or make_client(timeout=timeout, follow_redirects=False, transport=transport)
 
+    def _checked_host(self, url: Any, httpx_mod: Any) -> str | None:
+        """The host of ``url`` when it is a plain ``https://<allowed dns name>[:443]/...`` link that urllib and httpx read the same way;
+        None for anything else (userinfo, a non-443 port, a backslash, whitespace or control characters, percent-escapes or non-ASCII in the
+        host, an IP literal that is not on the list, a parser that disagrees about the host)."""
+        if not isinstance(url, str) or url != url.strip() or len(url) > 4096 or any(ord(c) < 33 or ord(c) == 127 or c == "\\" for c in url):
+            return None
+        try:
+            parts = urlsplit(url)
+            host = parts.hostname
+            port = parts.port
+            seen = httpx_mod.URL(url)
+        except (ValueError, httpx_mod.InvalidURL):
+            return None
+        if parts.scheme != "https" or "@" in parts.netloc or port not in (None, 443) or not host or not _DNS_NAME.fullmatch(host):
+            return None
+        if str(seen.host).lower().rstrip(".") != host.lower().rstrip(".") or not self.allow.allows(host):
+            return None
+        return host
+
     def fetch(self, url: str, ctx: CallCtx | None = None) -> bytes:
-        parts = urlsplit(url)
-        host = parts.hostname
-        if parts.scheme != "https" or "@" in parts.netloc or not self.allow.allows(host):
-            raise ProviderError(self.provider, "bad_request", f"download host {host!r} is not allowed",
+        from duoskin.providers._http import httpx
+
+        host = self._checked_host(url, httpx)
+        if host is None:
+            raise ProviderError(self.provider, "bad_request", f"download host {urlsplit(str(url)[:300]).hostname!r} is not allowed",
                                 code="host_not_allowed", billed="no",
                                 user_hint="The provider returned a download link on an unexpected host, so the app did not fetch it.")
-        from duoskin.providers._http import httpx
         try:
             with self._client.stream("GET", url) as resp:
                 status = resp.status_code
@@ -694,10 +719,13 @@ class Downloader:
                 if declared and declared.isdigit() and int(declared) > self.max_bytes:
                     raise ProviderError(self.provider, "bad_request", "download is larger than the size cap", code="too_large")
                 buf = bytearray()
+                started = time.monotonic()
                 for chunk in resp.iter_bytes():
                     buf += chunk
                     if len(buf) > self.max_bytes:
                         raise ProviderError(self.provider, "bad_request", "download is larger than the size cap", code="too_large")
+                    if time.monotonic() - started > self.max_seconds:        # the read timeout is per chunk: a server that drips bytes must not hold a worker forever
+                        raise ProviderError(self.provider, "timeout", "the download took too long", retryable=True)
                     if ctx is not None:
                         ctx.tick()
                 return bytes(buf)

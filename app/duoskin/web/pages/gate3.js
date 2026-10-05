@@ -11,7 +11,7 @@ import { decide } from "../components/decisions.js";
 import { changeBox } from "../components/changebox.js";
 import { followChange } from "../components/changeflow.js";
 import { openDialog } from "../components/modal.js";
-import { openGatePanels } from "../components/gatepanels.js";
+import { openGatePanels, failedStepsPanel } from "../components/gatepanels.js";
 import { warningList } from "../components/warnings.js";
 import { toast } from "../components/toast.js";
 import { nextAction, roleLabel } from "../text.js";
@@ -50,6 +50,9 @@ export async function render(ctx) {
     if (gates.unavailable) { setChildren(body, notAvailable("The final pick screen")); return; }
     const gate = gates.data.find((g) => g.kind === "final_pick");
     const panels = openGatePanels(id, gates.data.filter((g) => !["final_pick", "concept", "part_board"].includes(g.kind)), { refresh: draw, navigate: ctx.navigate });
+    const failedPanel = await failedStepsPanel(id, draw, ctx.signal);
+    if (failedPanel) panels.unshift(failedPanel);
+    if (!ctx.active()) return;
     if (!gate) {
       const na = nextAction(project, gates.data);
       setChildren(body, ...panels, emptyState("Nothing to pick right now", project.stage === "duo" ? "The duo is being put together. This page fills in by itself." : "There is no final pick waiting.", h("a", { class: "btn primary", href: na.href }, na.label)));

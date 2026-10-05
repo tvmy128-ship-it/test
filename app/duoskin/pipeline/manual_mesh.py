@@ -29,6 +29,7 @@ from duoskin.models.gate import Gate, GateAction, GateKind, GateTile, TileState
 from duoskin.models.job import JobKind, Step
 from duoskin.models.part import Part, PartState
 from duoskin.pipeline import common, itemspec, kits, parts
+from duoskin.roblox import limits
 
 if TYPE_CHECKING:
     from duoskin.engine.context import StepContext
@@ -37,6 +38,8 @@ if TYPE_CHECKING:
 log = logging.getLogger("duoskin.manual")
 
 INBOX_POLL_S = 2.0
+WATCHED_SUFFIXES = (".glb", ".gltf", ".fbx", ".obj", ".blend", ".zip")
+MAX_WATCHED_BYTES = int(limits.threshold("upload.max_mb")) * 1024 * 1024
 
 
 class PackParams(Strict):
@@ -245,13 +248,15 @@ class InboxWatcher:
         ready: list[str] = []
         for folder, pack in self.watch_dirs():
             for f in sorted(folder.iterdir()) if folder.is_dir() else []:
-                if not f.is_file() or mesh_import.is_partial_name(f.name):
-                    continue
+                if not f.is_file() or mesh_import.is_partial_name(f.name) or f.suffix.lower() not in WATCHED_SUFFIXES:
+                    continue                  # the inbox may be a Downloads folder: only model files are looked at, never hashed or recorded
                 key = str(f)
                 try:
                     size = f.stat().st_size
                 except OSError:
                     continue
+                if size > MAX_WATCHED_BYTES:
+                    continue                  # over the 50 MB import limit: never hashed (the drop zone says why when the user drops it)
                 hist = self._sizes.setdefault(key, [])
                 hist.append(size)
                 self._sizes[key] = hist[-4:]
@@ -315,11 +320,29 @@ def start_watcher(rt: Runtime) -> None:
 
 
 # ---------------------------------------------------------------------------------------------------- the wizard
+def safe_upload_name(name: str) -> str:
+    """A file name that is safe to create in the inbox on Windows and POSIX: base name only (both separators), ``[A-Za-z0-9._-]`` only (so no
+    ``:`` alternate data stream, no backslash trick, no 8.3 ``~``), no leading dots, no trailing dots or spaces, no reserved device name
+    (``CON``, ``NUL``, ``COM1.glb`` ...), at most 120 characters."""
+    from duoskin.pipeline import mesh_import
+
+    base = str(name).replace("\\", "/").rsplit("/", 1)[-1]
+    safe = "".join(c if (c.isascii() and (c.isalnum() or c in "._-")) else "_" for c in base)
+    safe = safe.lstrip(".").rstrip(". ")
+    if len(safe) > 120:
+        stem, dot, suffix = safe.rpartition(".")
+        safe = (stem[: 120 - len(suffix) - 1] + "." + suffix) if dot and 0 < len(suffix) <= 8 else safe[:120]
+    safe = safe.rstrip(". ")
+    if not safe or safe.split(".")[0].upper() in mesh_import.RESERVED_NAMES:
+        safe = f"upload_{safe}" if safe else "upload.glb"
+    return safe
+
+
 def ingest_upload(rt: Runtime, name: str, data: bytes, *, project_id: str | None = None, part_id: str | None = None) -> dict[str, Any]:
     """``POST /api/imports``: store a dropped file in the inbox folder (an app-created directory; the name is cleaned) and record it as ready."""
     from duoskin.pipeline import mesh_import
 
-    safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in Path(name).name)[:120] or "upload.glb"
+    safe = safe_upload_name(name)
     if mesh_import.is_partial_name(safe):
         raise ValueError("this looks like an unfinished download: wait for the browser to finish")
     dest = inbox_dir(rt) / safe
@@ -349,6 +372,13 @@ def assign_import(rt: Runtime, inbox_id: str, project_id: str, part_id: str, *, 
         raise ValueError("tripo_plan must be free, paid or not_tripo")
     part = rt.repo.get_part(project_id, part_id)
     path = Path(entry["path"])
+    cap = int(limits.threshold("upload.max_mb")) * 1024 * 1024
+    try:
+        size = path.stat().st_size
+    except OSError as exc:
+        raise ValueError("the file is not there any more") from exc
+    if size > cap:                                                # the inbox may be a Downloads folder: never read an unbounded file into memory
+        raise ValueError(f"the file is {size / 1048576:.0f} MB; the limit is {cap // 1048576} MB. Export it with fewer triangles and a 1024 px texture.")
     data = path.read_bytes()
     licence = mesh_import.licence_from_plan(tripo_plan)           # type: ignore[arg-type]
     state = pack_state(rt, project_id, part_id) or {}

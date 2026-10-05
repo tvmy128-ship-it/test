@@ -63,6 +63,12 @@ def _candidates() -> list[str]:
     return out
 
 
+def _looks_like_blender(path: Path) -> bool:
+    """``blender``, ``blender.exe``, ``Blender`` (macOS), ``blender-4.2``: the file name starts with "blender" and is not a script or a shell."""
+    name = path.name.lower()
+    return name.startswith("blender") and path.suffix.lower() in ("", ".exe", ".bin", ".appimage") and "\x00" not in str(path)
+
+
 def find_blender(explicit: str = "") -> str | None:
     """Path of a usable ``blender`` executable, or None. ``explicit`` (a setting) wins, then ``DUOSKIN_BLENDER``, PATH, defaults."""
     cands = ([explicit] if explicit else []) + _candidates()
@@ -70,6 +76,8 @@ def find_blender(explicit: str = "") -> str | None:
         if not c:
             continue
         p = Path(c)
+        if c is explicit and not _looks_like_blender(p):
+            continue            # the Settings path is user text: it may only name a Blender executable, never any program on the PC
         if p.name.lower().startswith("blender-launcher"):
             p = p.with_name("blender.exe" if p.suffix.lower() == ".exe" else "blender")
         if p.is_file():
@@ -99,7 +107,7 @@ def run_script(exe: str, script_name: str, args: dict[str, Any], *, timeout_s: f
     script = SCRIPT_DIR / script_name
     if not script.is_file():
         return BlenderResult(False, error=f"missing Blender script {script_name}")
-    with tempfile.TemporaryDirectory(prefix="duoskin_blender_") as td:
+    with tempfile.TemporaryDirectory(prefix="duoskin_blender_", ignore_cleanup_errors=True) as td:
         args_path, result_path = Path(td) / "args.json", Path(td) / "result.json"
         args_path.write_text(json.dumps(args), encoding="utf-8")
         res = run_process(build_command(exe, script, args_path, result_path), timeout_s=timeout_s, cwd=td, max_rss_mb=max_rss_mb)

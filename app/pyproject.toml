@@ -5,6 +5,7 @@ description = "DuoSkin Studio: local web app that plans and builds original Robl
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115",
+  "starlette>=0.40",                                # imported directly (middleware, test client); fastapi pins the real range
   "uvicorn>=0.30",
   "pydantic>=2.9",
   "python-multipart>=0.0.9",
@@ -30,6 +31,15 @@ dependencies = [
   "pygltflib>=1.16",
   "pyyaml>=6",
   "truststore>=0.9",
+  # Added by the Windows review (the code imports these; requirements\win-x64.lock is compiled from this list).
+  "httpx2>=2.13",                                   # providers/_http.py (both official SDKs are built on it)
+  "onnxruntime>=1.20",                              # OCR + DreamSim (doctor CHK-S04 requires it to import)
+  "rapidocr>=3.8,<4",                               # OCR; bundles its models in the wheel
+  "omegaconf>=2.3.1",                               # with wheels only, pip falls back to 2.0.6, which crashes rapidocr (SYS-08)
+  "antlr4-python3-runtime==4.9.3",                  # omegaconf 2.3.x needs exactly 4.9.x; sdist-only on PyPI -> wheelhouse\
+  "pymeshlab>=2025.7; sys_platform == 'win32'",     # texture-aware decimation; imported only in the mesh worker
+  "msvc-runtime>=14.40; sys_platform == 'win32'",   # msvcp140*.dll for onnxruntime (winplat.fix_dll_directories)
+  "pywin32-ctypes>=0.2.3; sys_platform == 'win32'", # keyring's Windows Credential Manager backend
 ]
 
 [project.optional-dependencies]

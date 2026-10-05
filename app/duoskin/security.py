@@ -7,8 +7,11 @@
    * every POST/PUT/PATCH/DELETE must carry ``X-DuoSkin-Token`` equal to this launch's token, else 403
      ``{"error": "bad_token"}`` (the UI reloads on that);
    * when an ``Origin`` header is present it must be exactly ``http://127.0.0.1:<port>``, else 403 ``bad_origin``;
-   * every response gets ``X-Content-Type-Options: nosniff`` and ``Referrer-Policy: no-referrer``; HTML responses get the
-     Content-Security-Policy; ``/api`` responses are ``Cache-Control: no-store``.
+   * a request to ``/api`` or ``/cas`` that the browser marks ``Sec-Fetch-Site: cross-site`` (or ``same-site``: another port on this host)
+     gets 403 ``cross_site``, GET included;
+   * every response gets ``X-Content-Type-Options: nosniff``, ``Referrer-Policy: no-referrer`` and ``Cross-Origin-Resource-Policy:
+     same-origin``; HTML responses also get the Content-Security-Policy, ``X-Frame-Options: DENY`` and ``Cross-Origin-Opener-Policy``;
+     ``/api`` responses are ``Cache-Control: no-store``.
 3. No CORS middleware, no auth cookie. The token travels in a ``<meta name="duoskin-token">`` tag of an ``index.html`` that
    is always served ``no-store`` (cookies are not port-scoped and a cached page would hold an old token).
 
@@ -30,11 +33,55 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 TOKEN_HEADER = b"x-duoskin-token"
+MAX_BODY_BYTES = 96 * 1024 * 1024                              # a request body above this is refused on its Content-Length (uploads are capped at 50 MB each)
+CROSS_SITE = frozenset({b"cross-site", b"same-site"})        # Sec-Fetch-Site values of a request that did not come from our own origin
 META_NAME = "duoskin-token"
 TOKEN_PLACEHOLDER = "__DUOSKIN_TOKEN__"
 
 _IMPORTMAP_RE = re.compile(r"<script[^>]*type=[\"']importmap[\"'][^>]*>(.*?)</script>", re.DOTALL | re.IGNORECASE)
 _META_RE = re.compile(r"<meta\s+name=[\"']duoskin-token[\"']\s+content=[\"'][^\"']*[\"']\s*/?>", re.IGNORECASE)
+
+
+_SECRET_ENV = re.compile(r"(?i)(api_?key|_key$|^key$|token|secret|password|passwd|credential|private_?key)")
+
+
+def child_env(extra: dict[str, str] | None = None, *, base: dict[str, str] | None = None) -> dict[str, str]:
+    """The environment of a child process (the mesh worker, Blender, a doctor probe): everything the parent has **except** secrets. The
+    children parse untrusted files (a hostile model could exploit a native parser); they never call a provider, so they get no key: not the
+    ``ANTHROPIC_API_KEY`` family the key store reads, and not any other variable whose name says key, token, secret or password."""
+    import os
+
+    from duoskin.keystore import ENV_VARS
+
+    named = {v.upper() for v in ENV_VARS.values()}
+    env = {k: v for k, v in (os.environ if base is None else base).items() if k.upper() not in named and not _SECRET_ENV.search(k)}
+    if extra:
+        env.update(extra)
+    return env
+
+
+#: No image the app decodes may have more pixels than this (a 4 MB PNG of zeros can claim 100 000 x 100 000). Pillow's own limit (89 MP) only warns.
+MAX_IMAGE_PIXELS = 64_000_000
+
+
+def apply_image_limits() -> None:
+    """Lower Pillow's decompression-bomb limit to ``MAX_IMAGE_PIXELS`` (it raises ``DecompressionBombError`` above twice that). Idempotent."""
+    from PIL import Image
+
+    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+
+
+def image_pixels(data: bytes) -> int | None:
+    """Width x height read from the header only (no pixel decoding), or None when Pillow cannot identify the data."""
+    import io
+
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(data)) as im:
+            return int(im.width) * int(im.height)
+    except Exception:  # noqa: BLE001 - not an image, or a damaged header: the caller's own decode reports it
+        return None
 
 
 def importmap_csp_source(html: str) -> str | None:
@@ -49,7 +96,7 @@ def importmap_csp_source(html: str) -> str | None:
 def content_security_policy(importmap: str | None = None) -> str:
     script = "script-src 'self'" + (f" '{importmap}'" if importmap else "")
     return ("default-src 'self'; img-src 'self' blob: data:; " + script +
-            "; style-src 'self'; object-src 'none'; frame-ancestors 'none'")
+            "; style-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 
 
 def inject_token(html: str, token: str) -> str:
@@ -93,7 +140,17 @@ class SecurityMiddleware:
             await self.app(scope, receive, send)
             return
         headers = {k.lower(): v for k, v in scope.get("headers", [])}
+        path = scope.get("path", "")
+        if (path.startswith(("/api/", "/cas/")) or path == "/api") and headers.get(b"sec-fetch-site", b"") in CROSS_SITE:
+            # A page of another site (or another port on this host) is making the browser call us. The browser would hide the answer from it
+            # (no CORS), but the request itself must not even be served: no timing probe, no stream held open, no side effect.
+            await self._reject(send, 403, "cross_site")
+            return
         if scope["method"] in UNSAFE_METHODS:
+            declared = headers.get(b"content-length", b"")
+            if declared.isdigit() and int(declared) > MAX_BODY_BYTES:       # the biggest legitimate upload is 50 MB; refuse before anything is buffered
+                await self._reject(send, 413, "too_large")
+                return
             supplied = headers.get(TOKEN_HEADER, b"")
             if not hmac.compare_digest(supplied, self._token):
                 await self._reject(send, 403, "bad_token")
@@ -102,7 +159,6 @@ class SecurityMiddleware:
             if origin is not None and origin.decode("latin-1") != self._expected_origin(scope):
                 await self._reject(send, 403, "bad_origin")
                 return
-        path: str = scope.get("path", "")
         csp = self._csp
 
         async def send_wrapper(message: Message) -> None:
@@ -114,9 +170,17 @@ class SecurityMiddleware:
                     extra.append((b"x-content-type-options", b"nosniff"))
                 if b"referrer-policy" not in names:
                     extra.append((b"referrer-policy", b"no-referrer"))
+                if b"cross-origin-resource-policy" not in names:
+                    # Another site's <script>/<img>/<link> cannot load any of our files: no cheap "is DuoSkin running on this port" probe.
+                    extra.append((b"cross-origin-resource-policy", b"same-origin"))
                 content_type = next((v for k, v in raw if k.lower() == b"content-type"), b"")
-                if content_type.lower().startswith(b"text/html") and b"content-security-policy" not in names:
-                    extra.append((b"content-security-policy", csp))
+                if content_type.lower().startswith(b"text/html"):
+                    if b"content-security-policy" not in names:
+                        extra.append((b"content-security-policy", csp))
+                    if b"x-frame-options" not in names:
+                        extra.append((b"x-frame-options", b"DENY"))
+                    if b"cross-origin-opener-policy" not in names:
+                        extra.append((b"cross-origin-opener-policy", b"same-origin"))
                 if path.startswith("/api") and b"cache-control" not in names:
                     extra.append((b"cache-control", b"no-store"))
                 message = {**message, "headers": raw + extra}

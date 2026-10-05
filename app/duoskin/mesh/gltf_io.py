@@ -80,6 +80,63 @@ def gltf_structure_facts(path: str | Path) -> dict[str, Any]:
     }
 
 
+MAX_NODES = 50_000
+MAX_ACCESSOR_COUNT = 20_000_000
+MAX_INSTANCED_TRIANGLES = 3_000_000
+
+
+def external_references(doc: dict[str, Any], *, glb: bool) -> list[str]:
+    """Every buffer/image ``uri`` that is not a ``data:`` URI. In a GLB there must be none (its binary chunk is the only buffer); in a ``.gltf``
+    the caller separately requires them to be bare file names next to the file. ``file:``, ``http:``, absolute and ``..`` paths, drive letters
+    and UNC names are always references to the outside world: they must never be handed to the loader, which would read them."""
+    out: list[str] = []
+    for item in [*doc.get("buffers", []), *doc.get("images", [])]:
+        uri = item.get("uri") if isinstance(item, dict) else None
+        if not isinstance(uri, str) or not uri or uri.startswith("data:"):
+            continue
+        bare = not any(c in uri for c in "/\\:%?#") and not uri.startswith(".") and uri.strip() == uri and "\x00" not in uri
+        if glb or not bare:
+            out.append(uri[:120])
+    return out
+
+
+def complexity_problems(doc: dict[str, Any]) -> list[str]:
+    """Resource limits read from the JSON before any geometry is built: node count, accessor size and the triangle count after instancing (a
+    few nodes that all instance one big mesh multiply it, and the loader bakes every instance)."""
+    problems: list[str] = []
+    nodes = doc.get("nodes", [])
+    if len(nodes) > MAX_NODES:
+        problems.append(f"the file has {len(nodes)} nodes (limit {MAX_NODES})")
+    accessors = doc.get("accessors", [])
+
+    def count_of(i: Any) -> int:
+        try:
+            return int(accessors[i].get("count", 0)) if isinstance(i, int) and 0 <= i < len(accessors) else 0
+        except (AttributeError, TypeError, ValueError):
+            return 0
+
+    biggest = max((count_of(i) for i in range(len(accessors))), default=0)
+    if biggest > MAX_ACCESSOR_COUNT:
+        problems.append(f"an accessor holds {biggest} elements (limit {MAX_ACCESSOR_COUNT})")
+    tris_of_mesh: list[int] = []
+    for m in doc.get("meshes", []):
+        t = 0
+        for prim in (m.get("primitives", []) if isinstance(m, dict) else []):
+            if not isinstance(prim, dict):
+                continue
+            n = count_of(prim.get("indices")) or count_of((prim.get("attributes") or {}).get("POSITION"))
+            t += n // 3
+        tris_of_mesh.append(t)
+    total = 0
+    for node in nodes:
+        mi = node.get("mesh") if isinstance(node, dict) else None
+        if isinstance(mi, int) and 0 <= mi < len(tris_of_mesh):
+            total += tris_of_mesh[mi]
+    if total > MAX_INSTANCED_TRIANGLES:
+        problems.append(f"the scene instances {total} triangles (limit {MAX_INSTANCED_TRIANGLES})")
+    return problems
+
+
 def check_gltf_files(path: str | Path) -> list[str]:
     """Problems that would make the texture or buffers vanish in Studio (MESH-14); empty when fine."""
     p = Path(path)

@@ -209,8 +209,26 @@ def llm_call(ctx: StepContext, template_id: str, inputs: dict[str, Any], *, imag
     """
     from duoskin.prompts.llm import compile_llm
 
-    return send_prompt(ctx, compile_llm(template_id, inputs), images=images, counter=counter, nonce=nonce, op=op,
+    seed = kit_order_seed(ctx)
+    return send_prompt(ctx, compile_llm(template_id, inputs, order_seed=seed), images=images, counter=counter, nonce=nonce, op=op,
                        validate_context=validate_context, think=think)
+
+
+def kit_order_seed(ctx: StepContext) -> int | None:
+    """The order seed of the project round this step belongs to (``None`` for a step that has no project). Every Claude route of one round
+    gets the same seed, so they share one prompt-cache prefix; a new project or a "New plan" shows the kits in another order (no kit id is
+    listed first in every duo's prompt). The seed is logged."""
+    from duoskin.prompts.system_blocks import order_seed
+
+    try:
+        pid = getattr(ctx, "project_id", None) or getattr(getattr(ctx, "step", None), "project_id", None)
+        if not pid:
+            return None
+        seed = order_seed(str(pid), BR.plan_round(ctx.rt, str(pid)))
+    except Exception:    # noqa: BLE001 - the order is a nicety; a context without a runtime simply gets the sorted blocks
+        return None
+    log.debug("kit inventory order seed %s (project %s)", seed, pid)
+    return seed
 
 
 def send_prompt(ctx: StepContext, prompt: Any, *, images: Sequence[bytes] = (), counter: CallCounter | None = None, nonce: str = "",
@@ -597,6 +615,8 @@ def run_planner(ctx: StepContext, p: PlannerParams, inputs: list[Any]) -> StepRe
     rt = ctx.rt
     ctx.progress(0.05, "the planner is writing")
     inputs_ = planner_inputs_for(ctx, p)
+    seed = kit_order_seed(ctx)
+    log.info("planner %s: kit inventory order seed %s, structure suggestion %s", p.plan_set_id, seed, inputs_.get("structure_suggestion", "none"))
     counter = CallCounter()
     problems: list[str] = []
     try:
@@ -618,9 +638,10 @@ def run_planner(ctx: StepContext, p: PlannerParams, inputs: list[Any]) -> StepRe
     data = json.dumps(plan.model_dump(mode="json"), sort_keys=True, ensure_ascii=False).encode("utf-8")
     asset = common.put_bytes(ctx, data, "json", role="plan_set", part_id=None,
                              provenance=_prov(rt, prompt_id="L3.planner", prompt_version=1, nonce=ctx.step.nonce, request_id=rid, model=model or None,
-                                              params={"replacement": p.replacement, "plan_set_id": p.plan_set_id}))
+                                              params={"replacement": p.replacement, "plan_set_id": p.plan_set_id, "order_seed": seed}))
     return StepResult(outputs=[asset.sha256], result={"plan_sha": asset.sha256, "specs": len(plan.specs), "rule_problems": problems,
-                                                      "thinking": thinking[:400], "cached": cached, "request_id": rid},
+                                                      "thinking": thinking[:400], "cached": cached, "request_id": rid, "order_seed": seed,
+                                                      "structure_suggestion": inputs_.get("structure_suggestion", "")},
                       message=f"{len(plan.specs)} spec(s) written")
 
 

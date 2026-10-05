@@ -243,7 +243,7 @@ def _check_slots(meta: registry.TemplateMeta, env: dict[str, Any], ctx: CompileC
 
 def _slot_survived(text: str, d: dna_router.DnaSlot, tpl: registry.Template, part: str | None) -> bool:
     """A DNA slot counts as used only if its text is in the rendered prompt (a dropped line is not a used field)."""
-    return d.value in text
+    return bool(d.value) and d.value.lower() in text.lower()
 
 
 def lint_ctx(template_id: str, spec: DuoSpec | dict, ctx: CompileCtx, *, background: str | None = None,

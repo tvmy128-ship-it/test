@@ -39,32 +39,42 @@ def test_bat_files_never_use_activate_ps1_or_a_bare_python(name):
 
 def test_setup_bat_follows_the_spec():
     t = (ROOT / "setup.bat").read_text(encoding="ascii")
-    assert 'set "PYTHONUTF8=1"' in t and "cd /d \"%~dp0\"" in t
-    assert t.index("py -V:3.14") < t.index("py -V:3.13")                                       # 3.14 first, 3.13 fallback
+    assert 'set "PYTHONUTF8=1"' in t and "cd /d \"%~dp0\"" in t and "chcp 65001" in t
+    assert t.index("py\" \"-V:3.14") < t.index("py\" \"-V:3.13") < t.index("py\" \"-V:3.12")   # 3.14 first, then the fallbacks
     assert "tools\\probe_python.py" in t and "--require-hashes --no-deps --only-binary=:all:" in t
-    assert "requirements\\win-x64.lock" in t and "-m duoskin doctor --setup" in t
-    assert "if errorlevel 3 goto :fail" in t and "winget install 9NQ7512CXL7T" in t
-    assert 'if not defined DUOSKIN_NOPAUSE pause' in t
+    assert "requirements\\win-x64.lock" in t and "-m duoskin doctor --setup" in t and "tools\\install_deps.py" in t
+    assert "winget install 9NQ7512CXL7T" in t and "if not defined DUOSKIN_NOPAUSE pause" in t
     # APP_SPEC 15.2 v1.3: no uv.exe and no .python folder is shipped; with no Python found, :nopython prints the instructions
-    assert "uv.exe" not in t and "--install-dir" not in t and "if not defined PY goto :nopython" in t
+    assert "uv.exe" not in t and "--install-dir" not in t and "if not defined PYEXE goto :nopython" in t
     assert "python.org/downloads/windows" in t and "Python 3.14 - Windows installer 64-bit" in t
+    # the doctor exit code is read explicitly: 0 fine, 2 installed-with-blockers, anything else (also a crash = 1) is a failure
+    assert 'if "%DOCTOR_RC%"=="0" goto :done' in t and 'if "%DOCTOR_RC%"=="2" goto :warn' in t and "goto :fail" in t
+    # no .bat file may block on a prompt it cannot show
+    assert "<nul >nul 2>&1" in t
 
 
 def test_start_bat_follows_the_spec():
     t = (ROOT / "start.bat").read_text(encoding="ascii")
     assert "-m duoskin selfcheck" in t and "-m duoskin run --open-browser" in t and 'call "%~dp0setup.bat"' in t
     assert "%LOCALAPPDATA%\\DuoSkin\\logs" in t
+    assert "fc /b" in t and "win-x64.lock.installed" in t               # a new lock from an update triggers setup again
+
+
+def test_setup_stamps_the_installed_lock_so_start_can_compare_it():
+    setup = (ROOT / "setup.bat").read_text(encoding="ascii")
+    assert 'copy /y "requirements\\win-x64.lock" ".venv\\win-x64.lock.installed"' in setup
 
 
 def test_doctor_bat_runs_the_doctor():
     t = (ROOT / "doctor.bat").read_text(encoding="ascii")
     assert "-m duoskin doctor" in t and "pause" in t
+    assert 'if not exist ".venv\\Scripts\\python.exe"' in t                # a friendly message instead of "path not found"
 
 
 def test_probe_python_matches_the_spec():
     probe = ROOT / "tools" / "probe_python.py"
     text = probe.read_text(encoding="utf-8")
-    for needle in ("win-amd64", "Py_GIL_DISABLED", "windowsapps", "(3, 14), (3, 13)"):
+    for needle in ("win-amd64", "Py_GIL_DISABLED", "windowsapps", "(3, 14), (3, 13), (3, 12)"):
         assert needle in text
     assert subprocess.run([sys.executable, str(probe)], check=False, capture_output=True).returncode == 1       # a Linux dev host is not a supported build
 

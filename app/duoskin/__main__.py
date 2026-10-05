@@ -30,8 +30,14 @@ SELFCHECK_MODULES = ("duoskin", "fastapi", "starlette", "uvicorn", "pydantic", "
                      "platformdirs", "psutil", "yaml", "truststore", "PIL", "numpy")
 
 
+#: SDK / HTTP-library switches that turn on request logging (headers, URLs). They are dropped at start: a key must never reach a log.
+DEBUG_LOG_ENV_VARS = ("ANTHROPIC_LOG", "OPENAI_LOG", "HTTPX_LOG_LEVEL", "HTTPX2_LOG_LEVEL", "HTTP_DEBUG")
+
+
 def _early_setup() -> None:
     """Very first steps of ``run`` (APP_SPEC §15.4 step 1): faulthandler, certificate store, DLL directories, MIME fix."""
+    for name in DEBUG_LOG_ENV_VARS:
+        os.environ.pop(name, None)
     try:
         faulthandler.enable()
     except (RuntimeError, ValueError, OSError):
@@ -155,9 +161,12 @@ def _later(name: str) -> int:
 def _wait_for_health(port: int, timeout_s: float = 30.0) -> bool:
     deadline = time.monotonic() + timeout_s
     url = f"http://127.0.0.1:{port}/api/health"
+    # urllib reads the Windows proxy settings from the registry: without this, a company proxy that lacks "<local>" would
+    # answer for 127.0.0.1 and the browser would never open.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=2) as resp:
+            with opener.open(url, timeout=2) as resp:
                 if resp.status == 200:
                     return True
         except OSError:
@@ -283,6 +292,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from duoskin import logsetup, winplat
+
+    winplat.configure_stdio()              # print() and the console log handler must not crash on a cp1252 console (SYS-06)
+
+    logsetup.install_record_factory()      # every log record is born redacted, even before setup_logging (and for the CLI commands)
     args = build_parser().parse_args(argv)
     return int(args.fn(args) or 0)
 

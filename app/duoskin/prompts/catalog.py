@@ -77,6 +77,13 @@ def _term_regex(term: str) -> str:
     return r"\s+".join(parts)
 
 
+#: Ordinary colour and counting phrases that contain a banned word ("baby" is an age word, "couple" a romance word). They are blanked before
+#: matching, so "make the jacket baby blue" or "a couple of stripes" is not a lint failure; "baby" or "couple" on their own still are.
+HARMLESS_PHRASES = ("baby blue", "baby pink", "baby yellow", "baby green", "baby purple", "baby lilac", "baby mint", "baby aqua", "baby powder",
+                    "a couple of", "couple of")
+_HARMLESS = re.compile(r"(?<!\w)(?:" + "|".join(re.escape(p) for p in HARMLESS_PHRASES) + r")(?!\w)")
+
+
 class Banned:
     """Banned vocabulary by group (bible §2.4a). ``everywhere`` groups are banned in the whole prompt including EXCLUDE; the
     ``text_inviting`` group is banned in PURPOSE, IMAGES, SUBJECT and MUST and allowed in the fixed OUTPUT and EXCLUDE lines."""
@@ -93,7 +100,7 @@ class Banned:
 
     def hits(self, text: str, groups: Iterable[str]) -> list[str]:
         """Sorted distinct banned terms (as written in ``text``) of ``groups`` that occur as whole words."""
-        t = norm(text)
+        t = _HARMLESS.sub(" ", norm(text))
         found: set[str] = set()
         for g in groups:
             rx = self._rx.get(g)

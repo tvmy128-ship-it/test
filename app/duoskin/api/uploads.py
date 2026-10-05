@@ -8,6 +8,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from duoskin.api import RT
 from duoskin.engine.cas import CasError, make_prov
 from duoskin.engine.runtime import Runtime
+from duoskin.security import MAX_IMAGE_PIXELS
 
 router = APIRouter(prefix="/api")
 MAX_MASK_BYTES = 4 * 1024 * 1024
@@ -30,6 +31,8 @@ def upload_mask(file: Annotated[UploadFile, File()], rt: Runtime = RT) -> dict[s
             size = im.size
     except Exception as exc:
         raise HTTPException(status_code=415, detail={"error": "bad_mask", "message": "the mask is not a readable PNG"}) from exc
+    if size[0] * size[1] > MAX_IMAGE_PIXELS:       # a 4 MB PNG can claim billions of pixels: refuse on the header, decode nothing
+        raise HTTPException(status_code=413, detail={"error": "too_large", "message": "the mask has too many pixels"})
     problems = masks.validate_mask(data, size)
     if problems:
         raise HTTPException(status_code=422, detail={"error": "bad_mask", "message": "; ".join(problems)})

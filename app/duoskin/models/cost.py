@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
+from duoskin.logsetup import redact
 from duoskin.models.common import PartId, Strict, UtcDatetime
 
 
@@ -36,6 +37,12 @@ class CostEntry(Strict):
     remote_task_id: str | None = None
     balance_before: float | None = None
     balance_after: float | None = None  # Tripo
+
+    @field_validator("request_id", "remote_task_id", "model", "operation")
+    @classmethod
+    def _no_secrets(cls, v: str | None) -> str | None:
+        """These strings are echoed by providers (a request id, a model name): the ledger row, the Costs page and the diagnostics never hold a key."""
+        return redact(v) if isinstance(v, str) else v
 
 
 class Estimate(Strict):

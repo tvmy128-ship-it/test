@@ -506,6 +506,37 @@ def start_change(ac: Any, *, spec_id: str | None = None) -> Any:
     return ApplyResult(close_gate=False, spawned_step_ids=[step.id], change_request_id=cr.id, step="keep")
 
 
+REQUEST_MAX_CHARS = 800                # a change is a sentence or two; a pasted page is not a change and costs a paid call
+PRESCREEN_GROUPS = ("ip_platform", "ip_brands", "ip_franchises", "ip_artists", "sexual")      # the IP groups; ordinary words ("baby blue") pass
+
+
+def prescreen_request(text: str, banned: Any = None) -> list[str]:
+    """Why a typed change request must not be sent to L7 at all (an empty list means it may go). Checked in code before any paid call:
+
+    * brand, platform, franchise and artist names ("the Roblox logo", "Pikachu") and sexual words: the duo must stay original, so the request
+      is answered with a plain sentence and nothing is drawn;
+    * instruction-like phrases ("ignore the previous instructions"): not a change to the duo;
+    * a request far longer than a change.
+
+    Tag-like text is not rejected here: the L7 compiler turns it into plain text inside ``<user_change_request>`` (``llm.neutralise_tags``).
+    Whatever L7 returns is still linted (fix sentence, patch values, plan rules), so this is a first gate, not the only one."""
+    from duoskin.prompts import freetext
+    from duoskin.prompts.catalog import default_ctx
+
+    banned = banned or default_ctx().banned
+    t = " ".join(str(text or "").split())
+    problems: list[str] = []
+    hits = banned.hits(t, list(PRESCREEN_GROUPS))
+    if hits:
+        problems.append("Brand names, game or show characters and real people cannot be used, so the duo stays original. "
+                        "Describe the shape and the colours you want instead.")
+    if freetext.INJECTION.search(t):
+        problems.append("That does not describe a change to the duo. Say what should look different, for example a colour, a length or a shape.")
+    if len(t) > REQUEST_MAX_CHARS:
+        problems.append("Please describe the change in a sentence or two.")
+    return problems
+
+
 def _reject(rt: Runtime, cr: Any, doc: dict[str, Any], reason: str) -> Any:
     from duoskin.engine.registry import StepResult
 
@@ -549,6 +580,9 @@ def run_interpret(ctx: Any, p: InterpretParams, inputs: list[Any]) -> Any:
     parts = parts_for_l7(gate="concept" if gate_kind == "concept" else gate_kind, spec=spec,
                          parts=[] if gate_kind == "concept" else rt.repo.list_parts(cr.project_id), target=target)
     request = cr.text + "".join(f"\nAnswer: {a}" for a in answers)
+    screened = [x for part in (cr.text, *answers) for x in prescreen_request(part)]
+    if screened:                                  # no paid call for a request that asks for a brand, a known character or an instruction
+        return _reject(rt, cr, doc, screened[0])
     ctx.progress(0.2, "reading your change")
     out = PL.llm_call(ctx, "L7.change_interpreter", {"spec_json": PL.canonical(spec), "parts": PL.canonical(parts),
                                                      "clicked_tile": clicked_tile_for(target, origin.get("part_id")), "user_change_request": request},
@@ -578,7 +612,7 @@ def run_interpret(ctx: Any, p: InterpretParams, inputs: list[Any]) -> Any:
         ctx.record_checks(checks)
         return _reject(rt, cr, doc, _problems_text(bad))
     lctx = LI.lint_context(rt, rt.repo.get_project(cr.project_id), recent_cards=BR.recent_cards(rt, cr.project_id))
-    bundle = LI.lint_candidates([("new", new_spec)], lctx, check_set=False)
+    bundle = LI.lint_candidates([("old", spec), ("new", new_spec)], lctx, check_set=False)
     checks.extend(bundle.results("new"))
     hard = bundle.hard_findings("new")
     if hard:
@@ -601,7 +635,9 @@ def run_interpret(ctx: Any, p: InterpretParams, inputs: list[Any]) -> Any:
                                      existing_parts=[x.id for x in rt.repo.list_parts(cr.project_id)])
         invalidation = report.model_dump(mode="json")
         estimate = float(report.estimate_usd or 0.0)
-    warnings = soft_warning_rows(bundle.warnings("new"), plan.duo_contract_risks)
+    # the heads-up lists what THIS change makes worse: a suggestion the plan already had is not news (and would be shown again at every change)
+    already = {r.check_id + ":" + r.metric for r in bundle.warnings("old")}
+    warnings = soft_warning_rows([r for r in bundle.warnings("new") if r.check_id + ":" + r.metric not in already], plan.duo_contract_risks)
     spec_changes = [{"path": d["path"], "old": d["old"], "new": d["new"]} for d in diff]
     dna_changes = [c for c in spec_changes if "/dna/" in c["path"] or c["path"].startswith("/world") or c["path"].startswith("/shared_anchors")]
     doc.update({"l7": plan_json, "ops": ops, "new_spec": new_spec, "fixes": [asdict(f) | {"keep": list(f.keep)} for f in fixes],

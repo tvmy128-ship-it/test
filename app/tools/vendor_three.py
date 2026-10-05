@@ -126,7 +126,7 @@ def plan(files: dict[str, bytes]) -> dict[str, str]:
     """``{vendored path: package path}`` for everything to copy."""
     mapping = {dst: src for src, dst in CORE_FILES}
     for name in addon_closure(files):
-        mapping["addons/" + name[len(ADDON_PREFIX):]] = name
+        mapping["addons/" + name[len(ADDON_PREFIX):]] = name   # win-ok: tarball member paths, not file system paths
     mapping["LICENSE"] = "LICENSE"
     return dict(sorted(mapping.items()))
 
@@ -135,7 +135,9 @@ def vendor(tarball: Path | None, out: Path = DEFAULT_OUT) -> dict[str, object]:
     raw, files = read_tarball(tarball)
     mapping = plan(files)
     if out.exists():
-        shutil.rmtree(out)
+        shutil.rmtree(out, ignore_errors=True)
+        if out.exists():
+            raise OSError(f"could not remove {out}: a file in it is read-only or locked (close the editor or antivirus scan)")
     manifest_files: dict[str, str] = {}
     for dst, src in mapping.items():
         target = out / dst

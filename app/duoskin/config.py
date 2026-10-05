@@ -139,7 +139,7 @@ def load_settings(home: str | os.PathLike[str] | None = None) -> Settings:
     if not path.exists():
         return Settings()
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = json.loads(path.read_text(encoding="utf-8-sig"))   # Notepad and PowerShell 5 write a BOM
         if not isinstance(raw, dict):
             raise TypeError("settings.json is not a JSON object")
         return Settings.model_validate(_migrate(raw))

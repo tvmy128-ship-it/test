@@ -283,7 +283,7 @@ def load_fold_set(path: Path) -> FoldSet:
     stretched to 4x). Every panel must pass ``check_fold_panel``; raises ValueError listing the failures."""
     from PIL import Image
 
-    meta = json.loads((path / "fold.json").read_text(encoding="utf-8"))
+    meta = json.loads((path / "fold.json").read_text(encoding="utf-8-sig"))
     panels: dict[str, np.ndarray] = {}
     bad: list[str] = []
     for region in T.REGION_ORDER:

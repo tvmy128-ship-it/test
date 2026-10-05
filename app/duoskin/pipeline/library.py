@@ -14,13 +14,16 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from PIL import Image
+from pydantic import Field
 
+from duoskin import winplat
 from duoskin.engine import registry
 from duoskin.engine.errors import StepFailure
 from duoskin.engine.registry import StepResult
@@ -45,7 +48,7 @@ class KitError(ValueError):
 
 def _read_json(p: Path) -> dict[str, Any]:
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        return json.loads(p.read_text(encoding="utf-8-sig"))   # hand-edited kit files may start with a BOM
     except (OSError, ValueError) as exc:
         raise KitError(f"{p.name} cannot be read: {exc}") from exc
 
@@ -87,6 +90,50 @@ def validate_fabric(folder: Path) -> dict[str, Any]:
     return {"id": meta.get("id") or folder.name, "size": im.width}
 
 
+KIT_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,60}")
+MAX_KIT_FILES = 400
+MAX_KIT_BYTES = 200 * 1024 * 1024
+
+
+def _kit_id(raw: Any) -> str:
+    """A kit id becomes a folder name under ``DATA\\kits`` and an enum value: letters, digits, ``-`` and ``_`` only. The id comes from a file in
+    the kit (``style.json``, ``fabric.json``), i.e. from whoever made the kit: ``..\\..\\x`` or ``C:\\x`` must never reach a path."""
+    text = str(raw or "")
+    if not KIT_ID_RE.fullmatch(text) or text.split(".")[0].lower() in winplat._RESERVED_NAMES:
+        raise KitError(f"the kit id {text[:40]!r} is not allowed: use letters, digits, - and _ only (at most 61 characters)")
+    return text
+
+
+def _copy_kit_tree(src: Path, dest: Path) -> None:
+    """Copy a kit folder into DATA. Only plain files and folders are copied: a link (symlink or junction) would make this copy whatever it points
+    at, and a kit may come from anywhere. The number of files and the total size are capped."""
+    files = 0
+    total = 0
+    plan: list[tuple[Path, Path]] = []
+    for path in sorted(src.rglob("*")):
+        rel = path.relative_to(src)
+        if path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction()):
+            raise KitError(f"{rel.as_posix()} is a link: a kit folder may only hold plain files")
+        if winplat.lint_path(rel):
+            raise KitError(f"{rel.as_posix()}: " + "; ".join(winplat.lint_path(rel)))
+        if path.is_file():
+            files += 1
+            total += path.stat().st_size
+            if files > MAX_KIT_FILES or total > MAX_KIT_BYTES:
+                raise KitError(f"the kit is too big (more than {MAX_KIT_FILES} files or {MAX_KIT_BYTES // (1024 * 1024)} MB)")
+            plan.append((path, dest / rel))
+        elif not path.is_dir():
+            raise KitError(f"{rel.as_posix()} is not a plain file or folder")
+    dest.mkdir(parents=True, exist_ok=False)
+    try:
+        for from_, to in plan:
+            to.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(from_, to)
+    except BaseException:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise
+
+
 def add_kit(rt: Runtime, folder_path: str, kind: str, origin: str, license_: str) -> dict[str, Any]:
     """``POST /api/library/kits``: validate, copy into the user kits with its origin and licence, rebuild the manifest. Returns the manifest summary."""
     src = Path(folder_path)
@@ -100,25 +147,30 @@ def add_kit(rt: Runtime, folder_path: str, kind: str, origin: str, license_: str
         raise KitError("the folder does not exist")
     if kind in ("hair", "hair_module"):
         info = validate_hair(src, module=kind == "hair_module")
+        info["id"] = _kit_id(info["id"])
         dest = rt.paths.kits_dir / "hair" / ("modules" if kind == "hair_module" else "") / info["id"]
         meta_file = "style.json"
     elif kind == "fabric":
         info = validate_fabric(src)
+        info["id"] = _kit_id(info["id"])
         dest = rt.paths.kits_dir / "fabrics" / info["id"]
         meta_file = "fabric.json"
     elif kind == "folds":
         if not (src / "fold.json").exists():
             raise KitError("fold.json is missing")
-        info = {"id": src.name}
-        dest = rt.paths.kits_dir / "folds" / src.name
+        info = {"id": _kit_id(src.name)}
+        dest = rt.paths.kits_dir / "folds" / info["id"]
         meta_file = "fold.json"
     else:                                                          # head_base / body_base: a prebuilt folder; the manifest checks its generated files
-        info = {"id": src.name}
-        dest = rt.paths.kits_dir / ("head_base" if kind == "head_base" else "body_base") / src.name
+        info = {"id": _kit_id(src.name)}
+        dest = rt.paths.kits_dir / ("head_base" if kind == "head_base" else "body_base") / info["id"]
         meta_file = ""
+    root = rt.paths.kits_dir.resolve()
+    if not dest.resolve().is_relative_to(root):                    # belt and braces: the id check above already makes this impossible
+        raise KitError("the kit would be written outside the kits folder")
     if dest.exists():
         raise KitError(f"a kit named {info['id']} already exists")
-    shutil.copytree(src, dest)
+    _copy_kit_tree(src, dest)
     if meta_file:
         mp = dest / meta_file
         meta = _read_json(mp) if mp.exists() else {"id": info["id"]}
@@ -179,7 +231,7 @@ def run_head_build(ctx: StepContext, p: Any, inputs: list[Any]) -> StepResult:
 
 class HeadParams(Strict):
     source_path: str
-    variant: str
+    variant: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,60}$")
 
 
 def register(rt: Runtime | None = None) -> None:

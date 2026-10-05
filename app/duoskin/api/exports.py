@@ -53,7 +53,8 @@ def get_export(project_id: str, rt: Runtime = RT) -> dict[str, Any]:
     rt.repo.get_project(project_id)
     st = export.get_state(rt, project_id)
     out: dict[str, Any] = {"status": st.get("status", "none"), "reason": st.get("reason"), "kit_dir": st.get("kit_dir"), "zip": st.get("zip"),
-                           "banners": st.get("banners", []), "mock": bool(st.get("mock")), "checks": st.get("checks", [])}
+                           "banners": st.get("banners", []), "mock": bool(st.get("mock")), "checks": st.get("checks", []),
+                           "preview": st.get("preview")}
     if st.get("kit_dir"):
         try:
             mf = next(Path(st["kit_dir"]).glob("*manifest.json"))

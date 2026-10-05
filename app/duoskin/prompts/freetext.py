@@ -6,7 +6,9 @@ A string passes when it has
 * no banned word (platform, brand, franchise, artist, age, romance and body, and the text-inviting group) as a whole word, with
   NFKC normalisation and common plural and verb endings;
 * no quote character, no digit, no hex code and no letters-as-words ("the letter A", a lone ``x``);
-* no negation ("no ...", "without ...", "not ..."): negations belong only in the fixed EXCLUDE line of a template.
+* no negation ("no ...", "without ...", "not ..."): negations belong only in the fixed EXCLUDE line of a template;
+* no markup (angle brackets, braces, square brackets, back-ticks) and no instruction-like phrase ("ignore the previous instructions",
+  "system prompt", "you are now"): a model-written string that repeats a typed attack is rejected here, so it never reaches an image prompt.
 
 If the lint fails, the string goes back to the reviser (L6) as a finding. Code never edits it silently.
 """
@@ -21,13 +23,17 @@ QUOTES = re.compile("[\"“”‘’]")
 DIGITS = re.compile(r"\d")
 HEX = re.compile(r"#[0-9A-Fa-f]{3,8}\b")
 NEGATION = re.compile(r"\b(?:no|not|without|never|none|nothing|cannot|can't|don't|doesn't|isn't|aren't|won't)\b", re.IGNORECASE)
+MARKUP = re.compile(r"[<>{}\[\]`|\\]")
+INJECTION = re.compile(r"\b(?:ignore|disregard|forget|override|bypass)\b[^.;]{0,30}\b(?:instructions?|rules?|prompts?|guidelines?|system)\b"
+                       r"|\b(?:system|developer)\s+(?:prompt|message)\b|\byou\s+are\s+now\b|\bnew\s+instructions?\b|\bpretend\s+(?:to\s+be|you)\b"
+                       r"|\bjailbreak\b|\bdo\s+anything\s+now\b", re.IGNORECASE)
 LETTER_WORDS = re.compile(r"\b(?:the\s+)?(?:letter|letters|number|numbers|digit|digits|initial|initials|monogram|alphabet)\b|"
                           r"(?<![\w-])[b-hj-zB-HJ-Z](?![\w-])", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
 class FreeTextProblem:
-    kind: str          # words | banned | quote | digit | hex | negation | letters | empty
+    kind: str          # words | banned | quote | markup | injection | digit | hex | negation | letters | empty
     detail: str
 
     def __str__(self) -> str:
@@ -53,6 +59,12 @@ def free_text_problems(text: str, max_words: int | None, banned: Banned, *, allo
         out.append(FreeTextProblem("banned", ", ".join(hits)))
     if QUOTES.search(t):
         out.append(FreeTextProblem("quote", "quote characters are not allowed"))
+    markup = MARKUP.search(t)
+    if markup:
+        out.append(FreeTextProblem("markup", f"'{markup.group(0)}': tags, braces and brackets are not allowed"))
+    attack = INJECTION.search(t)
+    if attack:
+        out.append(FreeTextProblem("injection", f"'{attack.group(0)}' reads like an instruction, not a description"))
     if not strict:
         return out
     if DIGITS.search(t):

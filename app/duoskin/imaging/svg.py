@@ -13,9 +13,11 @@ resolved) -> ``snap_colours`` (CIEDE2000; a large fill farther than 15 from the 
 """
 from __future__ import annotations
 
+import atexit
 import copy
 import io
 import re
+import shutil
 import tempfile
 import xml.etree.ElementTree as ET
 from collections.abc import Sequence
@@ -40,6 +42,11 @@ MAX_SVG_BYTES = 2_000_000
 MAX_ELEMENTS = 5000
 MAX_DEPTH = 64
 MAX_USE_DEPTH = 8
+MAX_PATH_SEGMENTS = 50_000        # path commands + polygon points in the whole file: 160 000 segments cost resvg 13 s of CPU
+_SEGMENT = re.compile(r"[MmLlHhVvCcSsQqTtAaZz]")
+_NUMBER = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+_STYLE_BAD_FUNCS = ("expression(", "@import", "javascript:", "image(", "image-set(", "element(", "src(", "cross-fade(", "paint(")
+_CLIP_URL = re.compile(r"url\(\s*#[\w.-]+\s*\)")
 
 SHAPES = {"path", "rect", "circle", "ellipse", "polygon", "polyline", "line"}
 CONTAINERS = {"svg", "g", "defs", "symbol", "clipPath"}
@@ -52,6 +59,7 @@ PAINT_PROPS = ("fill", "stroke", "color", "opacity", "fill-opacity", "stroke-opa
 OPACITY_PROPS = ("opacity", "fill-opacity", "stroke-opacity")
 REJECT_ATTRS = {"filter", "mask", "marker-start", "marker-mid", "marker-end", "mix-blend-mode", "enable-background"}
 EMPTY_DIR = tempfile.mkdtemp(prefix="resvg_empty_")   # resources_dir that contains nothing (SYS-03)
+atexit.register(shutil.rmtree, EMPTY_DIR, ignore_errors=True)   # one empty folder per start would pile up in %TEMP%
 
 
 class SvgRejected(ValueError):
@@ -83,8 +91,8 @@ def _parse_css(root: ET.Element) -> dict[str, dict[str, str]]:
     rules: dict[str, dict[str, str]] = {}
     for st in (e for e in root.iter() if local(e.tag) == "style"):
         css = re.sub(r"/\*.*?\*/", "", st.text or "", flags=re.DOTALL)
-        if "@" in css or "url(" in css.lower() or "expression(" in css.lower():
-            raise SvgRejected("css", "at-rules and url() in <style> are not allowed")
+        if "@" in css or "\\" in css or "url(" in css.lower() or any(t in css.lower() for t in _STYLE_BAD_FUNCS):
+            raise SvgRejected("css", "at-rules, escapes, url() and script or image functions in <style> are not allowed")
         for sel, body in re.findall(r"([^{}]+)\{([^}]*)\}", css):
             decl = _parse_declarations(body)
             for one in sel.split(","):
@@ -137,6 +145,22 @@ def _num(v: str) -> float:
 
 
 # ------------------------------------------------------------------ sanitizer
+def _check_style_attr(value: str) -> None:
+    """A ``style=""`` attribute is checked declaration by declaration: no ``url()`` except ``clip-path:url(#id)``, none of the banned
+    properties (filter, mask, blend modes, markers), no CSS escape (``\\75rl(`` would hide a ``url(``), no comment, no script or image function.
+    Whatever passes is harmless to resvg (it cannot name a file or a host)."""
+    if "\\" in value or "/*" in value:
+        raise SvgRejected("style", "CSS escapes and comments are not allowed in a style attribute")
+    for prop, val in _parse_declarations(value).items():
+        if prop in REJECT_ATTRS:
+            raise SvgRejected(f"attr:{prop}", f"{prop} is not allowed")
+        low = val.lower()
+        if "url(" in low and not (prop == "clip-path" and _CLIP_URL.fullmatch(val.strip())):
+            raise SvgRejected("style", "url() in a style attribute (only clip-path:url(#id) is allowed)")
+        if any(t in low for t in _STYLE_BAD_FUNCS):
+            raise SvgRejected("style", "script or image function in a style attribute")
+
+
 def _check_tree(root: ET.Element) -> None:
     n = 0
 
@@ -161,14 +185,19 @@ def _check_tree(root: ET.Element) -> None:
             if lk in REJECT_ATTRS:
                 raise SvgRejected(f"attr:{lk}", f"{lk} is not allowed")
             if lk == "style":
-                low = v.lower()
-                if any(t in low for t in ("url(", "expression(", "@import", "javascript:")) and "clip-path" not in low:
-                    raise SvgRejected("style", "url() or script in a style attribute")
+                _check_style_attr(v)
             if isinstance(v, str) and "javascript:" in v.lower():
                 raise SvgRejected("script", "javascript: URL")
+            if lk == "d":
+                segments[0] += len(_SEGMENT.findall(v))
+            elif lk == "points" and name in ("polygon", "polyline"):
+                segments[0] += len(_NUMBER.findall(v)) // 2
+            if segments[0] > MAX_PATH_SEGMENTS:
+                raise SvgRejected("size", f"more than {MAX_PATH_SEGMENTS} path segments")
         for ch in el:
             walk(ch, depth + 1)
 
+    segments = [0]
     walk(root, 0)
 
 
@@ -306,15 +335,11 @@ def sanitize_and_normalize(svg: str) -> ET.Element:
             visit(ch, p, in_clip)
 
     visit(root, {}, False)
-    for st in [e for e in root.iter() if local(e.tag) == "style"]:
-        for parent in root.iter():
-            if st in list(parent):
-                parent.remove(st)
-    for tag in ("title", "desc", "metadata"):
-        for e in [e for e in root.iter() if local(e.tag) == tag]:
-            for parent in root.iter():
-                if e in list(parent):
-                    parent.remove(e)
+    parents = {child: parent for parent in root.iter() for child in parent}      # one pass: removing 5000 elements one by one was quadratic
+    for e in [e for e in root.iter() if local(e.tag) in ("style", "title", "desc", "metadata")]:
+        parent = parents.get(e)
+        if parent is not None:
+            parent.remove(e)
     # <defs> only ever held inlined <use> targets and clipPaths: remove everything else so it cannot render by accident
     for defs in [e for e in root.iter() if local(e.tag) == "defs"]:
         for ch in list(defs):

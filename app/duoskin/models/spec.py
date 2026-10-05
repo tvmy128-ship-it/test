@@ -99,7 +99,7 @@ class CharacterDNA(Strict):
     shape_language: ShapeLanguage = Field(description="the dominant shape language of this character")
     colour_plan: ColourPlan = Field(description="how colour is spread over this character's outfit")
     focal_location: FocalLocation = Field(description="where the eye should land on this character; steers print placement")
-    motif_object: str = Field(description="one concrete object, at most 5 words, e.g. 'paper lantern'; no brands or characters")
+    motif_object: str = Field(description="one concrete everyday object, at most 5 words, different from the partner's and from recent duos; no brands or characters")
     accessory_style: str = Field(description="at most 6 words, visual only")
     energy: str = Field(description="at most 3 words; metadata and default expression only, never drawn as text")
 
@@ -256,8 +256,8 @@ class DuoSpec(Strict):
 
 class BriefConstraint(Strict):
     text: str = Field(description="one must-include line from <must_include>, copied or lightly shortened, at most 12 words")
-    spec_paths: list[str] = Field(description="1 to 3 JSON Pointers into a DuoSpec that carry this line, for example /a/accessories/0; "
-                                              "each pointer must resolve in all 3 specs")
+    spec_paths: list[str] = Field(description="1 to 3 JSON Pointers into a DuoSpec, each to the field that shows this line (a print, an accessory, "
+                                              "a hair or garment field, ...); each pointer must resolve in all 3 specs")
 
 
 class PlanSet(Strict):

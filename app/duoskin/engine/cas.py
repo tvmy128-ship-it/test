@@ -26,6 +26,7 @@ from duoskin.db.errors import NotFound
 from duoskin.engine.cache import pixel_sha
 from duoskin.models.asset import Asset, AssetKind, AssetLink, Provenance
 from duoskin.models.common import iso_utc, new_id, utcnow
+from duoskin.security import MAX_IMAGE_PIXELS, apply_image_limits
 
 log = logging.getLogger("duoskin.cas")
 
@@ -71,6 +72,7 @@ class Cas:
     def __init__(self, root: Path, db: Database) -> None:
         self.root = root
         self.db = db
+        apply_image_limits()
 
     # ------------------------------------------------------------------------------------------------ paths
     def _file(self, sha: str, ext: str) -> Path:
@@ -133,8 +135,12 @@ class Cas:
 
         try:
             with Image.open(io.BytesIO(data)) as im:
+                if im.width * im.height > MAX_IMAGE_PIXELS:          # the header says so: refuse before one pixel is decoded
+                    raise CasError(f"the image has {im.width * im.height:,} pixels; the limit is {MAX_IMAGE_PIXELS:,}")
                 im.load()
                 return im.width, im.height, pixel_sha(data)
+        except CasError:
+            raise
         except Exception as exc:
             raise CasError(f"not a valid {kind} image: {type(exc).__name__}") from exc
 

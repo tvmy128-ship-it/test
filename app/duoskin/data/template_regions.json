@@ -5,7 +5,7 @@
   "faces: outward normal / image-right / image-down of each face in the three.js frame (Y up, character faces +Z, character RIGHT = -X).",
   "UP/U: front edge at the image bottom; DOWN/D: front edge at the image top. rlimb/llimb are the CHARACTER's right/left arm (Shirt) or leg (Pants).",
   "seams: 36 derived from the face frames (roblox.template.derive_adjacency); checked against this list at import.",
-  "rows: the R15 split rows, bands and keep-outs. hidden_leg_rows and the 418.5 elbow/knee row are [UNVERIFIED] until FM-T1 is run in Studio."
+  "rows: the R15 split rows, bands and keep-outs. Verified against the official PNGs: the 18 boxes (pixel for pixel) and the dotted guide rows 170 (torso), 407 and 446 (limbs, 'maximum limits for height of gloves and lower leg details on R15 only'). The creator-docs (avatar/classic-clothing.md) give only the region sizes, so these are [UNVERIFIED] until FM-T1 is run in Studio: the 418.5 elbow/knee and 467 wrist/ankle seams (derived from community-reverse-engineered composite meshes), the 170 row as a mesh seam, and hidden_leg_rows."
  ],
  "version": 1,
  "size": [

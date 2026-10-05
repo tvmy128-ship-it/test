@@ -22,6 +22,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from duoskin.db.db import Database
+from duoskin.logsetup import redact_data
 from duoskin.models.common import iso_utc, parse_iso, utcnow
 
 log = logging.getLogger("duoskin.bus")
@@ -89,7 +90,7 @@ class EventBus:
         """Insert the event and push it to subscribers after commit. Returns the event id."""
         if type not in EVENT_TYPES:
             raise ValueError(f"unknown event type '{type}'")
-        payload = dict(payload or {})
+        payload = redact_data(dict(payload or {}))      # an event can carry an error message: no key may ride along into the table or an SSE stream
         if type == "llm.thinking" and isinstance(payload.get("text"), str):
             payload["text"] = payload["text"][:THINKING_MAX_CHARS]
         ts = iso_utc(utcnow())

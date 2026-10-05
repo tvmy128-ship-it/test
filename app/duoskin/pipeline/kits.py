@@ -57,7 +57,7 @@ def folder_sha(folder: Path, *, skip: tuple[str, ...] = ()) -> str:
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8-sig"))   # hand-edited kit files may start with a BOM (Notepad, PowerShell 5)
 
 
 def _origin_problem(meta: dict[str, Any]) -> str | None:

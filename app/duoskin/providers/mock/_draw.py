@@ -28,16 +28,44 @@ BACKGROUND: RGB = (242, 242, 242)
 _WORD = re.compile(r"[a-z]+")
 
 
+def _dictionary_colours() -> dict[str, RGB]:
+    """The prompt compiler's colour dictionary (``data/colour_names.json``, "light blue", "hot pink", ...) as name -> RGB."""
+    cached = getattr(_dictionary_colours, "cache", None)
+    if cached is None:
+        try:
+            from duoskin.imaging import colournames
+
+            cached = {name.lower(): tuple(int(h[i:i + 2], 16) for i in (1, 3, 5)) for name, h in colournames.load_names().items()}
+        except Exception:  # noqa: BLE001  (the mock must work without the dictionary: the built-in words remain)
+            cached = {}
+        _dictionary_colours.cache = cached          # type: ignore[attr-defined]
+    return cached
+
+
 def colors_from_text(text: str, limit: int = 6) -> list[RGB]:
-    """Colours named in ``text`` (``COLOR_WORDS``), in order of first appearance, without repeats."""
+    """Colours named in ``text``, in order of first appearance, without repeats. A name of the prompt compiler's dictionary ("light blue", up to
+    three words, the longest match wins) gives exactly that colour, which is how a real model would read the prompt (the compiler names a palette
+    colour by its nearest dictionary name, so a drawing made from the name lands on the palette: ``A_PALETTE`` passes). A single word that is
+    only in ``COLOR_WORDS`` keeps its built-in value."""
+    words = _WORD.findall(text.lower())
+    names = _dictionary_colours()
     out: list[RGB] = []
     seen: set[str] = set()
-    for w in _WORD.findall(text.lower()):
-        if w in COLOR_WORDS and w not in seen:
-            seen.add(w)
-            out.append(COLOR_WORDS[w])
-            if len(out) >= limit:
+    i = 0
+    while i < len(words) and len(out) < limit:
+        for n in (3, 2, 1):
+            key = " ".join(words[i:i + n])
+            if len(words[i:i + n]) != n:
+                continue
+            rgb = names.get(key) or (COLOR_WORDS.get(key) if n == 1 else None)
+            if rgb is not None:
+                if key not in seen:
+                    seen.add(key)
+                    out.append(rgb)
+                i += n
                 break
+        else:
+            i += 1
     return out
 
 

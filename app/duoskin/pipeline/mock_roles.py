@@ -11,6 +11,9 @@ These builders read what the real prompts send (the tags of ``prompts/L*.md``) a
   plan is dropped and replaced), ``[mock:unfixable_wildcard]`` (the wildcard is the broken one), ``[mock:no_wildcard_replacement]`` (the
   replacement is no wildcard: the notice appears), ``[mock:notbuildable]`` (the plan has a cape the kits cannot build: the not-buildable
   panel), ``[mock:critic_fix]`` (the critic reports one high-severity fix).
+  Like a lazy real model it reads kits **in the order the cached ``<kit_inventory>`` lists them** (``ShownOrder``), so the seeded shuffle of
+  ``prompts/system_blocks.py`` is what makes its hair, eyes, mouths, garments and shoes differ from one project to the next; it follows a
+  ``<structure_suggestion>`` for an open brief and draws its motif objects from a pool that skips the ones the recent cards already use.
 * ``Critique`` / ``PairJudgment`` (L4, L5): deterministic levels from a hash of the spec; the pair verdict is the same in both orders.
 * ``Revision`` (L6): fixes dangling palette references, the wildcard flag, brief-constraint paths and critic fixes, and leaves what it cannot
   fix alone.
@@ -33,6 +36,49 @@ PHRASES = (("twin", "mirror"), ("mirror", "mirror"), ("matching", "same_club"), 
            ("club", "same_club"), ("season", "seasonal_twins"), ("mascot", "object_mascot"), ("opposite", "complement"),
            ("complement", "complement"), ("leader", "leader_chaotic"), ("chaos", "leader_chaotic"))
 UNBUILDABLE_WORDS = ("cape", "wings")
+MOCK_OBJECTS = ("paper lantern", "tiny umbrella", "brass key", "folded kite", "glass jar", "wooden spoon", "clay teapot", "woven basket", "silver bell",
+                "paper crane", "tin whistle", "pocket compass", "garden trowel", "music box", "spinning top", "glass marble", "rope knot", "sea shell",
+                "pine cone", "small kettle")
+
+
+class ShownOrder:
+    """A kit inventory read the way a lazy model reads it: ``ids(kind)`` lists the ids in the order the ``<kit_inventory>`` block of the
+    system prompt shows them (sorted order when the prompt has none). Everything else is the real inventory."""
+
+    def __init__(self, inv: Any, system_text: str = ""):
+        self._inv = inv
+        self._enums: dict[str, list[str]] = {}
+        m = re.search(r"<kit_inventory>\n(.*?)\n</kit_inventory>", system_text or "", re.DOTALL)
+        if m:
+            try:
+                enums = json.loads(m.group(1)).get("enums") or {}
+            except ValueError:
+                enums = {}
+            self._enums = {k: [str(x) for x in v] for k, v in enums.items() if isinstance(v, list)}
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inv, name)
+
+    def ids(self, kind: str) -> tuple[str, ...]:
+        base = tuple(self._inv.ids(kind))
+        shown = self._enums.get(kind)
+        return tuple(shown) if shown and set(shown) == set(base) else base
+
+
+def _vary_objects(specs: list[dict[str, Any]], rng: Any, avoid_text: str) -> list[dict[str, Any]]:
+    """Swap the generator's few fixed motif objects for others drawn from ``MOCK_OBJECTS`` (never one a recent card or a rejected plan uses)."""
+    from duoskin.providers.mock import roles as R
+
+    dumped = json.dumps(specs, sort_keys=True)
+    old = [o for o in R.OBJECTS if o in dumped]
+    low = (avoid_text or "").lower()
+    pool = [o for o in MOCK_OBJECTS if o not in low] or list(MOCK_OBJECTS)
+    new = rng.sample(pool, min(len(old), len(pool)))
+    for i, o in enumerate(old[:len(new)]):
+        dumped = dumped.replace(o, f"\x00{i}\x00")
+    for i, n in enumerate(new):
+        dumped = dumped.replace(f"\x00{i}\x00", n)
+    return json.loads(dumped)
 
 
 def register_mock_roles(register: Any) -> None:
@@ -128,12 +174,35 @@ def _separate_skin(spec: dict[str, Any], inv: Any) -> None:
         spec[c]["body"]["skin_tone"] = max(inv.skin_tones, key=lambda sid: min(de2000_hex(inv.skin_tones[sid].hex, h) for h in hexes))
 
 
+FACE_INK = "#2D1B69"          # a dark indigo: the only kind of dark line colour that is >= dE 20 from all five preview skin tones (FACE-06)
+
+
+def _face_colours(face: dict[str, Any], spec: dict[str, Any], pal: dict[str, str]) -> None:
+    """Colours of the face that pass the face checks on every preview skin tone (a near-black line cannot reach dE 20 from the darkest tone, a
+    light lash is lost on the lightest one, and a lash that matches the pupil leaves iris-coloured pixels under the closed lid):
+    every line (lash, brow, mouth line, mouth inside) is the ink colour (``neutral_dark``, an indigo), and the iris shade and the pupil are the
+    palette's own dark colour that is farthest from the ink, the iris and the white of the eye."""
+    from duoskin.imaging.palette import de2000_hex
+
+    by_role = {c["role"]: c for c in spec["palette"]}
+    ink = by_role["neutral_dark"]
+    pal[ink["id"]] = ink["hex"]
+    for key in ("lash_ref", "brow_ref", "mouth_line_ref", "mouth_inner_ref"):
+        face[key] = ink["id"]
+    iris, white = pal[face["iris_ref"]], pal[by_role["neutral_light"]["id"]]
+    dark = [by_role[r]["id"] for r in ("modesty", "hair_a", "hair_b") if r in by_role]
+    best = max(dark, key=lambda pid: min(de2000_hex(pal[pid], ink["hex"]), de2000_hex(pal[pid], iris), de2000_hex(pal[pid], white)))
+    face["iris_dark_ref"] = face["pupil_ref"] = best
+
+
 def _lint_ready(spec: dict[str, Any], plan: int, inv: Any) -> None:
     """Touch up what the base generator leaves for the plan linter: real kit hair styles (never ``hair_custom``), a hair ornament in the
     hat category, no banned word in a description, and a lash colour at least 10 dE2000 away from both iris colours (the generator reuses
     the dark neutral for all three)."""
     from duoskin.imaging.palette import de2000_hex
 
+    ink = next(c for c in spec["palette"] if c["role"] == "neutral_dark")
+    ink["hex"], ink["name"] = FACE_INK, "indigo"
     _separate_hair_colours(spec, inv)
     _separate_skin(spec, inv)
     pal = {c["id"]: c["hex"] for c in spec["palette"]}
@@ -149,14 +218,10 @@ def _lint_ready(spec: dict[str, Any], plan: int, inv: Any) -> None:
                 acc["category"], acc["attachment"] = "hat", "hat"
         if spec["world"]["pair_structure"] == "object_mascot" and ch.get("accessories"):
             kind, cat, att, desc = (("plush_pet", "shoulder", "right_shoulder", "a small plush pet in the main colours") if c == "a" else
-                                    ("keychain_charm", "waist", "waist_front", "a tiny charm on a short chain in the second colours"))
+                                    ("keychain_charm", "waist", "waist_front", "a tiny round charm in the second colours"))
             ch["accessories"][0].update({"kind": kind, "category": cat, "attachment": att, "build": "tripo",
                                          "material": "plush" if c == "a" else "enamel_flat", "linked_to_partner": True, "description": desc})
-        face = ch["face"]
-        refs = [face["iris_ref"], face["iris_dark_ref"]]
-        shared = [c["id"] for c in spec["palette"] if c["role"] in ("neutral_light", "neutral_dark", "modesty")]     # never the partner's colours
-        best = max(shared, key=lambda pid: min(de2000_hex(pal[pid], pal[r]) for r in refs if r in pal))
-        face["lash_ref"] = best
+        _face_colours(ch["face"], spec, pal)
 
 
 def planner_builder(call: Any) -> dict[str, Any]:
@@ -165,7 +230,7 @@ def planner_builder(call: Any) -> dict[str, Any]:
     from duoskin.models.spec import PlanSet
     from duoskin.providers.mock import roles as R
 
-    inv = kitenums.current_inventory()
+    inv = ShownOrder(kitenums.current_inventory(), call.system_text)
     text, rng, brief = call.content_text, call.rng, call.brief
     low = brief.lower()
     combo = _tag(text, "combo")
@@ -180,8 +245,12 @@ def planner_builder(call: Any) -> dict[str, Any]:
     structure_pool = structure_pool if len(structure_pool) >= 3 else list(R.STRUCTURES)
     family_pool = [f for f in R.FAMILY_HUES if f not in {a.get("palette_family") for a in avoid}]
     family_pool = family_pool if len(family_pool) >= 3 else list(R.FAMILY_HUES)
-    structures = [named] * 3 if named else rng.sample(structure_pool, 3)
-    families = rng.sample(family_pool, 3)
+    suggested = _json_tag(text, "structure_suggestion")
+    suggested = [s for s in suggested if s in R.STRUCTURES][:3] if isinstance(suggested, list) else []
+    structures = [named] * 3 if named else (suggested if len(suggested) == 3 else rng.sample(structure_pool, 3))
+    palettes = _json_tag(text, "palette_suggestion")
+    palettes = [f for f in palettes if f in R.FAMILY_HUES][:3] if isinstance(palettes, list) else []
+    families = palettes if len(palettes) == 3 else rng.sample(family_pool, 3)
     wildcard = rng.randrange(3)
     if replacement:
         wildcard = 0 if (want and want.group(1) == "true" and "[mock:no_wildcard_replacement]" not in low) else -1
@@ -194,6 +263,7 @@ def planner_builder(call: Any) -> dict[str, Any]:
     themes = [t for t in R.THEMES if t not in used_themes] or list(R.THEMES)
     for i, spec in enumerate(specs):
         spec["world"]["theme"] = _words(themes[(i + rng.randrange(len(themes))) % len(themes)], 8)
+    specs = _vary_objects(specs, rng, _tag(text, "recent_cards") + " " + _tag(text, "avoid"))
     if not replacement and "[mock:notbuildable]" in low:
         specs[0]["b"]["accessories"][0]["description"] = "a flowing cape on the back in the main colours"
     for i, spec in enumerate(specs):

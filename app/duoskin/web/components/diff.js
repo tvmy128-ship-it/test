@@ -5,8 +5,25 @@ import { DNA_LABELS, SPEC_LABELS } from "../text.js";
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
-/** "/a/dna/shape_language" -> "Character A › Shape style". @param {string} path */
-export function labelForPath(path) {
+/** What each palette role is called for the user. */
+const ROLE_WORDS = /** @type {Record<string, string>} */ ({
+  a_main: "Character A's main colour", a_second: "Character A's second colour", b_main: "Character B's main colour", b_second: "Character B's second colour",
+  accent: "The shared accent colour", neutral_light: "The light neutral colour", neutral_dark: "The dark neutral colour",
+  hair_a: "Character A's hair colour", hair_b: "Character B's hair colour", modesty: "The under-layer colour",
+});
+
+/** "/palette/2/hex" or "/palette/p3" -> "Character B's main colour" (when the palette is known), else "Colour 3". @param {string} ref @param {any[] | null | undefined} palette */
+function colourLabel(ref, palette) {
+  const entry = palette?.find((c, i) => c.id === ref || String(i) === ref);
+  if (entry?.role && ROLE_WORDS[entry.role]) return ROLE_WORDS[entry.role];
+  return /^\d+$/.test(ref) ? `Colour ${Number(ref) + 1}` : "A colour";
+}
+
+/**
+ * "/a/dna/shape_language" -> "Character A › Shape style".
+ * @param {string} path @param {any[] | null} [palette] the spec's palette, so a colour is named by its role instead of its position
+ */
+export function labelForPath(path, palette = null) {
   const segs = path.split("/").filter(Boolean);
   const out = [];
   for (let i = 0; i < segs.length; i += 1) {
@@ -14,7 +31,7 @@ export function labelForPath(path) {
     if (i === 0 && (s === "a" || s === "b")) out.push(`Character ${s.toUpperCase()}`);
     else if (s === "world") out.push("The world");
     else if (s === "dna") continue;
-    else if (s === "palette") { out.push("Colour " + (segs[i + 1] ?? "")); i += 1; if (segs[i + 1] === "hex") i += 1; }
+    else if (s === "palette") { out.push(colourLabel(segs[i + 1] ?? "", palette)); i += 1; if (segs[i + 1] === "hex" || segs[i + 1] === "name") i += 1; }
     else if (s === "shared_anchors") out.push("What they share");
     else if (/^\d+$/.test(s)) out.push(`#${Number(s) + 1}`);
     else out.push(DNA_LABELS[s] ?? SPEC_LABELS[s]?.replace(/^./, (c) => c.toUpperCase()) ?? humanize(s));
@@ -54,19 +71,19 @@ function valueNode(v) {
 
 /**
  * @param {{path: string, old: any, new: any}[]} changes
- * @param {{empty?: string, title?: string}} [o]
+ * @param {{empty?: string, title?: string, palette?: any[] | null}} [o]
  */
 export function diffList(changes, o = {}) {
   if (!changes?.length) return h("p", { class: "muted" }, o.empty ?? "Nothing changes.");
   return h("ul", { class: "diff-list", "aria-label": o.title ?? "Changes" },
-    changes.map((c) => h("li", {}, h("span", { class: "diff-path" }, labelForPath(c.path)),
+    changes.map((c) => h("li", {}, h("span", { class: "diff-path" }, labelForPath(c.path, o.palette)),
       h("span", { class: "diff-change" }, valueNode(c.old), h("span", { class: "arrow", "aria-label": "becomes" }, " → "), valueNode(c.new)))));
 }
 
-/** The DNA-card diff as a list of changed field paths (DnaCard.diff_from_previous). @param {string[]} paths */
-export function pathList(paths) {
+/** The DNA-card diff as a list of changed field paths (DnaCard.diff_from_previous). @param {string[]} paths @param {any[] | null} [palette] */
+export function pathList(paths, palette = null) {
   if (!paths?.length) return h("p", { class: "muted" }, "No fields change.");
-  return h("ul", { class: "diff-list" }, paths.map((p) => h("li", {}, h("span", { class: "diff-path" }, labelForPath(p)))));
+  return h("ul", { class: "diff-list" }, paths.map((p) => h("li", {}, h("span", { class: "diff-path" }, labelForPath(p, palette)))));
 }
 
 const EFFECT = /** @type {Record<string, {label: string, hint: string, tone: string}>} */ ({
@@ -100,6 +117,8 @@ export function invalidationList(report, labels = {}) {
   if (!rows.length) return h("p", { class: "muted" }, "No parts need to be redone.");
   return h("ul", { class: "redo-list" }, rows.map((r) => {
     const e = EFFECT[r.effect] ?? EFFECT.recheck;
-    return h("li", {}, h("span", { class: `badge ${e.tone}` }, e.label), " ", h("strong", {}, labels[r.part] ?? humanize(r.part.replace(/\./g, " "))), h("span", { class: "muted" }, ` — ${e.hint}`));
+    const concept = /^concept_([ab])$/.exec(r.part);      // a concept picture is not a board part, so it has no label of its own
+    const name = labels[r.part] ?? (concept ? `Character ${concept[1].toUpperCase()}'s concept picture` : humanize(r.part.replace(/\./g, " ")));
+    return h("li", {}, h("span", { class: `badge ${e.tone}` }, e.label), " ", h("strong", {}, name), h("span", { class: "muted" }, ` — ${e.hint}`));
   }));
 }

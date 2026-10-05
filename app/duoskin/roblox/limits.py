@@ -115,16 +115,44 @@ def threshold(name: str) -> Any:
     raise KeyError(f"unknown threshold {name!r}")
 
 
-def describe(name: str, op: str = "") -> str:
-    """Text for ``CheckResult.threshold`` such as ``"<= 3800 (mesh.tris_max, DES)"``."""
+def status_of(name: str) -> str:
+    """The status marker of a mesh threshold: ``DOC`` (Roblox's creator-docs give the number), ``SPEC``, ``DER``, ``DES`` (our design
+    choice) or ``UNV`` (UNVERIFIED: the docs name the check but give no number, or give none at all). ``limits.json -> status_overrides``
+    wins over the registry, because several registry entries say ``DOC`` for numbers that are not in the docs (see the notes there)."""
+    override = load_limits().get("status_overrides", {})
+    if name in override:
+        return str(override[name])
     th = _registry()
     if th is not None and name in th.T:
-        return th.describe(name, op)
+        return str(th.status_of(name))
     extra = load_limits()["extra_thresholds"]
     if name in extra:
+        return str(extra[name][1])
+    raise KeyError(f"unknown threshold {name!r}")
+
+
+def is_unverified(name: str) -> bool:
+    """True when the value is not a published Roblox figure (status ``UNV``): never state it to the user as Roblox's rule."""
+    return status_of(name) == "UNV"
+
+
+def describe(name: str, op: str = "") -> str:
+    """Text for ``CheckResult.threshold`` such as ``"<= 3800 (mesh.tris_max, DES)"``. An unverified value reads
+    ``"<= 70.0 (mesh.surface_area_max, UNVERIFIED)"``."""
+    th = _registry()
+    if th is not None and name in th.T:
+        text = th.describe(name, op)
+    else:
+        extra = load_limits()["extra_thresholds"]
+        if name not in extra:
+            return f"{op} ? ({name})".strip()
         value, status, _ = extra[name]
-        return f"{op} {value} ({name}, {status})".strip()
-    return f"{op} ? ({name})".strip()
+        text = f"{op} {value} ({name}, {status})".strip()
+    status = status_of(name)
+    head, sep, tail = text.rpartition(", ")
+    if sep and tail.endswith(")") and tail[:-1] in ("DOC", "SPEC", "DER", "DES", "UNV"):
+        text = f"{head}, {'UNVERIFIED' if status == 'UNV' else status})"
+    return text
 
 
 def fm_ids(name: str) -> list[str]:

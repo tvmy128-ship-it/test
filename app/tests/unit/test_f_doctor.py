@@ -137,8 +137,12 @@ def test_s03_windows_rules(ctx, monkeypatch):
     out = run(ctx, "CHK-S03")
     assert out.status == "fail" and "x64" in out.message
     monkeypatch.setattr(dc.sysconfig, "get_platform", lambda: "win-amd64")
-    monkeypatch.setattr(sys, "version_info", (3, 12, 4, "final", 0))
-    assert "not supported" in run(ctx, "CHK-S03").message
+    for version in ((3, 11, 9, "final", 0), (3, 15, 0, "alpha", 1), (3, 10, 0, "final", 0)):
+        monkeypatch.setattr(sys, "version_info", version)
+        assert "not supported" in run(ctx, "CHK-S03").message, version
+    for version in ((3, 12, 4, "final", 0), (3, 13, 1, "final", 0), (3, 14, 0, "final", 0)):       # one lock has wheels for all three
+        monkeypatch.setattr(sys, "version_info", version)
+        assert "not supported" not in run(ctx, "CHK-S03").message, version
 
 
 def test_s04_is_skipped_in_quick_mode(ctx):

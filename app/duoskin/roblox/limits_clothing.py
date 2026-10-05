@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 from duoskin.checks import thresholds as TH
+from duoskin.roblox import fees as FEES
 from duoskin.roblox import template as T
 
 # ---- the file (DOC unless marked) -------------------------------------------------------------------------------------
@@ -45,10 +46,11 @@ def find_label_words(texts: list[str] | tuple[str, ...]) -> list[str]:
 # ---- uploading (EXP-01 / EXP-02) ----------------------------------------------------------------------------------------
 UPLOAD_CHANNEL = "creator_dashboard"
 UPLOAD_PATH = "Creator Dashboard > Avatar Items > Classics > Upload Asset"
-UPLOAD_FEE_ROBUX = 80                                              # DOC: per submission, not refunded
-UPLOAD_REFUNDABLE = False
-UPLOAD_NEEDS_ID_VERIFICATION = True                               # DOC
-STUDIO_TEST = "Studio > Avatar tab > Character > Block Avatar rig; insert Shirt or Pants and set the template (free)"
+UPLOAD_FEE_ROBUX = FEES.UPLOAD_FEE_ROBUX                          # DOC (marketplace-fees-and-commissions.md#upload-fees): per submission
+UPLOAD_REFUNDABLE = False                                          # DOC: "in general, upload fees are not refunded if an item is rejected"
+UPLOAD_NEEDS_ID_VERIFICATION = True                               # DOC (marketplace-policy.md#creator-requirements)
+STUDIO_TEST = ("Studio > Avatar tab > Character > Block Avatar rig; import the PNG with the Asset Manager, insert Shirt or Pants and set "
+               "the template to that image (testing is free per classic-clothing.md)")
 
 # ---- design choices of the validators (DES; not in the registry because no gate uses them as a bar) ------------------------
 SKIN_SHARE_FLAG = 0.01                    # CLO-11: warn when at least this share of garment pixels is within tpl.skin_in_clothing_de of the skin tone
@@ -104,6 +106,17 @@ def hidden_leg_rows() -> tuple[int, int]:
     return int(a), int(b)
 
 
+#: Facts about the classic template that Roblox's creator-docs (classic-clothing.md: region sizes only) and the official PNGs (the 18 boxes
+#: and the dotted guide rows 170, 407, 446) do NOT confirm. They are written into the export manifest and must never be shown as Roblox rules.
+UNVERIFIED_FACTS: tuple[str, ...] = (
+    "R15 elbow/knee seam at row 418.5 and wrist/ankle seam at row 467 (derived from community-reverse-engineered composite meshes)",
+    "row 170 as the UpperTorso/LowerTorso mesh seam (the row is dotted on the official template; what it means is not documented)",
+    "hidden leg rows 355-377 (tpl.hidden_leg_rows, UNV)",
+    f"the {MAX_FILE_BYTES} byte cap on the PNG (ours; Studio and the Creator Dashboard are the authority)",
+    "how an R6 avatar maps each region (the template labels its dotted limits 'R15 only')",
+)
+
+
 def describe() -> dict[str, Any]:
     """The clothing limits as plain data (written into the export manifest next to the creator-docs commit)."""
     return {
@@ -114,8 +127,8 @@ def describe() -> dict[str, Any]:
         "split_rows_torso": list(TH.get("tpl.split_rows_torso")), "split_rows_limb": list(TH.get("tpl.split_rows_limb")),
         "bevel_inset_px": bevel_inset_px(), "hidden_leg_rows": list(hidden_leg_rows()),
         "upload": {"channel": UPLOAD_CHANNEL, "path": UPLOAD_PATH, "fee_robux": UPLOAD_FEE_ROBUX,
-                   "refundable": UPLOAD_REFUNDABLE, "id_verification": UPLOAD_NEEDS_ID_VERIFICATION},
-        "studio_test": STUDIO_TEST,
+                   "refundable": UPLOAD_REFUNDABLE, "id_verification": UPLOAD_NEEDS_ID_VERIFICATION, "price_note": FEES.PRICE_NOTE},
+        "studio_test": STUDIO_TEST, "unverified": list(UNVERIFIED_FACTS),
     }
 
 

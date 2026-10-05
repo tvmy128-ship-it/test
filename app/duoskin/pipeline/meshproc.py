@@ -19,6 +19,7 @@ def main(argv: list[str] | None = None) -> int:
         print("usage: python -m duoskin.pipeline.meshproc job.json", file=sys.stderr)
         return 2
     faulthandler.enable()
+    from duoskin import winplat
     from duoskin.checks import thresholds
     from duoskin.mesh import worker
     from duoskin.mesh.types import MeshJob
@@ -31,7 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(".tmp")
     tmp.write_text(res.model_dump_json(indent=1), encoding="utf-8")
-    os.replace(tmp, target)
+    winplat.replace_with_retry(tmp, target)   # antivirus can hold the fresh file for a moment
     return 0
 
 

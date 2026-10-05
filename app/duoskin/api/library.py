@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from duoskin.api import RT
 from duoskin.engine.runtime import Runtime
@@ -21,7 +21,7 @@ class KitIn(BaseModel):
 
 class HeadIn(BaseModel):
     source_path: str
-    variant: str
+    variant: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,60}$")      # becomes a folder name: no separators, dots or drive letters
 
 
 @router.get("/library")

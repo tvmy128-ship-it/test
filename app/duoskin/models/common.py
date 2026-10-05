@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
+import threading
 import time
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
@@ -43,14 +44,35 @@ def sha256_of(obj: Any) -> str:
 _ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 
+_id_lock = threading.Lock()
+_id_state = {"ms": 0, "rand": 0}
+_RAND_BITS = 80
+
+
 def new_id(prefix: str) -> str:
-    """Prefixed, time-sortable id (prj_, spc_, job_, stp_, gat_, dec_, chg_, cst_, lbl_)."""
-    ms = int(time.time() * 1000)
+    """Prefixed, time-sortable id (prj_, spc_, job_, stp_, gat_, dec_, chg_, cst_, lbl_).
+
+    Strictly increasing within a process, also when the clock is coarse (Python 3.12 on Windows ticks every ~15.6 ms, so a burst
+    of ids shares one timestamp) or steps backwards: ids of the same millisecond count up instead of being random."""
+    with _id_lock:
+        ms = int(time.time() * 1000)
+        if ms > _id_state["ms"]:
+            _id_state["ms"], _id_state["rand"] = ms, secrets.randbits(_RAND_BITS - 1)      # headroom for the counting
+        else:
+            ms = _id_state["ms"]
+            _id_state["rand"] += 1
+            if _id_state["rand"] >> _RAND_BITS:
+                _id_state["ms"], _id_state["rand"] = ms + 1, 0
+                ms += 1
+        rand = _id_state["rand"]
     t = ""
     for _ in range(10):
         t = _ULID_ALPHABET[ms & 31] + t
         ms >>= 5
-    r = "".join(secrets.choice(_ULID_ALPHABET) for _ in range(16))
+    r = ""
+    for _ in range(16):
+        r = _ULID_ALPHABET[rand & 31] + r
+        rand >>= 5
     return f"{prefix}_{t}{r}".lower()
 
 

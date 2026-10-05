@@ -233,6 +233,11 @@ def _scan_gltf(path: Path, kind: str, issues: list[ImportIssue], notes: list[str
         return
     for problem in load.check_extensions(doc):
         issues.append(ImportIssue("unsupported_extension", problem))
+    refs = gltf_io.external_references(doc, glb=kind == "glb")
+    if refs:
+        issues.append(ImportIssue("external_reference", "The model points at files outside itself (" + "; ".join(refs[:3]) + "). Export a single .glb with the texture inside it."))
+    for problem in gltf_io.complexity_problems(doc):
+        issues.append(ImportIssue("too_complex", "The model is too heavy to read safely: " + problem + ". Export it with fewer triangles."))
     if kind == "gltf":
         bad = gltf_io.check_gltf_files(path)
         if bad:

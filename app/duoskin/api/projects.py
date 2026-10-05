@@ -25,11 +25,12 @@ from duoskin.models.project import (
     ReferenceImage,
     Stage,
 )
+from duoskin.security import MAX_IMAGE_PIXELS
 
 router = APIRouter(prefix="/api")
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
-MAX_PIXELS = 100_000_000
+MAX_PIXELS = MAX_IMAGE_PIXELS     # the one limit of the whole app (security.py): header-only check, nothing is decoded above it
 _IMAGE_FORMATS = {"PNG": "png", "JPEG": "jpeg", "WEBP": "webp"}
 
 
@@ -132,6 +133,8 @@ def _sniff_image(data: bytes) -> str:
     try:
         with Image.open(io.BytesIO(data)) as im:
             fmt, (w, h) = im.format or "", im.size
+    except Image.DecompressionBombError as exc:       # Pillow itself refuses a header that claims more than twice its limit (an Exception, not an OSError)
+        raise HTTPException(status_code=413, detail={"error": "too_large", "message": "the image has too many pixels"}) from exc
     except (UnidentifiedImageError, OSError, ValueError) as exc:
         raise HTTPException(status_code=415, detail={"error": "bad_image", "message": "this is not a PNG, JPEG or WebP image"}) from exc
     if fmt not in _IMAGE_FORMATS:

@@ -1,8 +1,9 @@
 """Texture handling for rigid accessories (MESH-04, MESH-05, APP_SPEC 10.9 step 7).
 
-The Roblox texture rules we enforce: embedded PNG, 24-bit RGB (alpha 255 everywhere), at most 1024 px (WARN above,
-FAIL above 2048), not a single flat colour, material OPAQUE. Colours are dilated into the UV gutters before any resize so
-that no texel at an island edge is transparent or black.
+The Roblox texture rules we enforce (creator-docs avatar/rigid-accessories/specifications.md: Marketplace textures cannot exceed
+2048x2048; marketplace/validation-system.md: a colour map pixel with alpha below 255 fails): PNG, 24-bit RGB (alpha 255 everywhere),
+FAIL above 2048 px. Our own choices, not Roblox rules: ship at most 1024 px (WARN above), not a single flat colour, glTF material
+OPAQUE. Colours are dilated into the UV gutters before any resize so that no texel at an island edge is transparent or black.
 """
 from __future__ import annotations
 

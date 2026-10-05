@@ -3,10 +3,29 @@
     "Roblox rigid-accessory limits used by the mesh gate (FAILURE_MODES 4.2 and 4.3, APP_SPEC 10.9).",
     "Frame: studs, Y up. 'offset_file' is the box-centre offset from the attachment in the FILE frame we export (front = +Z).",
     "'offset_roblox' is the same offset in Roblox's own frame (front = -Z); only the Z component differs (negated).",
-    "Sizes are W x H x D = X x Y x Z. The live AccessoryRules hold one Size and Offset per attachment: confirm with T7 (GetValidationRules)."
+    "Sizes are W x H x D = X x Y x Z. The live AccessoryRules hold one Size and Offset per attachment: confirm with T7 (GetValidationRules; kit file studio/validation_rules.luau).",
+    "VERIFIED against creator-docs commit 0b817b5c (2026-09-26): the boxes, attachment names, the 4000-triangle and 2048-pixel limits (content/en-us/avatar/rigid-accessories/specifications.md), alpha 255 and the single mesh/material/UV set.",
+    "UNVERIFIED (the docs name the check but give no number; the figure is an earlier research value that Roblox's server flags may override): surface_area_max_stud2, coplanar_max_frac, centre_offset_max_stud, scale_min, components_max. See status_overrides.",
+    "Texts shown to the user must call these UNVERIFIED (limits.describe does this) and must never present them as Roblox's published limits."
   ],
-  "version": "2026-10-05.1",
-  "docs_commit": "unknown (creator-docs rigid-accessories/specifications.md as vendored for the design study; confirm with T7)",
+  "version": "2026-10-05.2",
+  "docs_commit": "0b817b5cd955a63936bebf7b90746e34488af079 (Roblox creator-docs, 2026-09-26)",
+  "docs_sources": {
+    "boxes_and_attachments": "content/en-us/avatar/rigid-accessories/specifications.md (Body scale > Classic; Attachment points)",
+    "rigid_accessory_tris_roblox_max": "content/en-us/avatar/rigid-accessories/specifications.md (Geometry and budgets: 4k triangles)",
+    "texture_px_fail": "content/en-us/avatar/rigid-accessories/specifications.md (Textures: 2048x2048 for Marketplace assets)",
+    "texture_alpha": "content/en-us/marketplace/validation-system.md ('Texture is not fully opaque': alpha below 255 fails)",
+    "sparse_thin_island_checks": "content/en-us/marketplace/validation-system.md (sparse geometry, centred at origin, islands: named, no numbers)",
+    "live_values": "content/en-us/reference/engine/classes/AvatarCreationService.yaml (GetValidationRules)"
+  },
+  "status_overrides": {
+    "mesh.surface_area_max": "UNV",
+    "mesh.surface_area_warn": "UNV",
+    "mesh.coplanar_max_frac": "UNV",
+    "mesh.center_offset_max": "UNV",
+    "mesh.scale_min": "UNV",
+    "mesh.components_max": "UNV"
+  },
   "scale_type": "Classic",
   "budgets": {
     "rigid_accessory_tris_roblox_max": 4000,
@@ -26,7 +45,7 @@
     "shells_warn": 8
   },
   "extra_thresholds": {
-    "mesh.surface_area_warn": [60.0, "DOC", ["MESH-07"]],
+    "mesh.surface_area_warn": [60.0, "DES", ["MESH-07"]],
     "mesh.thin_part_iou_min": [0.6, "DES", ["ACC-07"]],
     "mesh.spike_vertex_frac": [0.01, "DES", ["MESH-10"]],
     "mesh.spike_bbox_shrink_max": [0.10, "DES", ["MESH-10"]],
@@ -36,7 +55,7 @@
     "mesh.lighting_ramp_max": [0.15, "DES", ["ACC-16"]],
     "mesh.shading_band_diff_max": [1, "DES", ["ACC-14"]],
     "mesh.vertex_weld_stud": [1e-5, "DES", ["MESH-17"]],
-    "mesh.flat_texture_std_min": [2.0, "DOC", ["MESH-04"]],
+    "mesh.flat_texture_std_min": [2.0, "DES", ["MESH-04"]],
     "mesh.max_upload_mb": [50, "DES", ["SYS-04"]],
     "mesh.fixture_iou_min": [0.95, "DES", ["MESH-13"]],
     "hair.depth_ratio_min": [0.30, "DES", ["HAIR-05"]],

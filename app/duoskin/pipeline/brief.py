@@ -5,11 +5,18 @@ Gate 1 card shows:
 
 * ``structure_choices()`` is the "Pair structure" dropdown (``auto`` or one named structure, §2 S18). A named structure is a HARD lint
   (all 3 specs use it); ``auto`` is only an instruction to the planner (the mix is a SOFT warning);
-* ``planner_inputs(rt, project, ...)`` builds the ``<user_brief>``, ``<structure_request>``, ``<must_include>``, ``<combo>``,
-  ``<reference_analysis>``, ``<taste_profile>``, ``<recent_cards>`` (the last 5 DNA cards), ``<recently_used>`` (a derived view over the last
-  10 approved duos) and ``<avoid>`` (plans rejected in this session, with the person's reasons) slots. There is **no example spec** in any
-  of them (PROPOSAL_DECISION): the recent cards and the recently-used hints are the only things that change between runs of one brief;
+* ``planner_inputs(rt, project, ...)`` builds the ``<user_brief>``, ``<structure_request>``, ``<must_include>``, ``<structure_suggestion>``,
+  ``<combo>``, ``<reference_analysis>``, ``<taste_profile>``, ``<recent_cards>`` (the last 5 DNA cards), ``<recently_used>`` (a derived view
+  over the last 30 approved duos, most used first) and ``<avoid>`` (plans rejected in this session, with the person's reasons) slots. There
+  is **no example spec** in any of them (PROPOSAL_DECISION): the recent cards and the recently-used hints are the only things that change
+  between runs of one brief;
 * the hints are never a lint: nothing here caps, rations or blocks a kit id, a structure or a palette family (``test_no_novelty_lints``);
+* **sameness counter-measures** (all soft, all seeded by ``system_blocks.order_seed(project, round)``, so a run is repeatable and a new
+  project or a "New plan" differs): ``structure_suggestion`` rotates the three structures of an open brief (least used in the last 30 duos
+  first, ties broken by the seed) and is empty when the dropdown or the brief names a structure; ``palette_suggestion`` does the same for
+  the three palette families and is empty when the brief or a must-include line names colours; ``taste_for_planner`` shows a seeded
+  handful of the likes, all dislikes and one departure instead of the same profile text every time; the kit inventory order is shuffled by
+  ``prompts/system_blocks.py``;
 * ``structure_log`` / ``structure_shares`` log the structure picks of approved duos; ``planner_structure_lru_hint`` (default off) adds
   "least used recently" to ``<recently_used>`` once one structure passes ``calib.structure_collapse_share`` after 10 duos;
 * ``brief_read_as`` and ``must_include_coverage`` feed the Gate 1 summary ("Your brief was read as ..." and the must-include list);
@@ -18,6 +25,7 @@ Gate 1 card shows:
 from __future__ import annotations
 
 import json
+import random
 import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
@@ -25,17 +33,27 @@ from typing import TYPE_CHECKING, Any
 
 from duoskin.models.common import sha256_of
 from duoskin.models.dna import DnaCard, recent_cards_json
-from duoskin.models.spec import PAIR_STRUCTURES, DuoSpec
+from duoskin.models.spec import PAIR_STRUCTURES, DuoSpec, PaletteFamily
 
 if TYPE_CHECKING:
     from duoskin.engine.runtime import Runtime
     from duoskin.models.project import Project
 
 RECENT_CARDS = 5           # the planner sees the last 5 cards (APP_SPEC §3.2)
-RECENT_DUOS = 10           # recently_used is a view over the last 10 approved duos (APP_SPEC §6.13)
+RECENT_DUOS = 30           # recently_used is a sliding window over the last 30 approved duos (APP_SPEC §6.13; the registry window is 30 too)
 STRUCTURE_LOG_MIN = 10     # the LRU hint is offered after this many duos (APP_SPEC §3.3)
 AVOID_KEEP = 6             # rejected plans a session remembers (the most recent ones)
 NONE = "none"
+MAX_LIKES_SHOWN = 3        # the planner sees a seeded handful of the taste likes, never the same list in the same words every time
+ROTATION_STRUCTURES = tuple(s for s in PAIR_STRUCTURES if s != "other")      # "other" needs a structure_note: the planner picks it itself
+COLOUR_WORDS = frozenset({"red", "orange", "yellow", "green", "blue", "teal", "cyan", "turquoise", "purple", "violet", "lilac", "pink", "magenta",
+                          "brown", "black", "white", "grey", "gray", "beige", "cream", "gold", "golden", "silver", "navy", "maroon", "burgundy",
+                          "coral", "mint", "olive", "lime", "peach", "lavender", "crimson", "scarlet", "amber", "ivory", "charcoal", "rust",
+                          "pastel", "neon", "earthy", "vintage", "jewel", "candy", "monochrome", "muted", "colour", "colours", "color", "colors",
+                          "palette"})
+STRUCTURE_PHRASES = (("twin", "mirror"), ("mirror", "mirror"), ("matching", "same_club"), ("uniform", "same_club"), ("team", "same_club"),
+                     ("club", "same_club"), ("season", "seasonal_twins"), ("mascot", "object_mascot"), ("opposite", "complement"),
+                     ("complement", "complement"), ("leader", "leader_chaotic"), ("chaotic", "leader_chaotic"), ("chaos", "leader_chaotic"))
 
 STRUCTURE_LABELS = {
     "complement": "Complement: two clearly different main colours",
@@ -118,16 +136,21 @@ def recent_cards(rt: Runtime, project_id: str | None = None, n: int = RECENT_CAR
 
 
 def _ordered_unique(values: Sequence[str]) -> list[str]:
-    seen: dict[str, None] = {}
-    for v in values:
+    """Distinct values, the most used in the window first (ties: the most recent first). The planner is asked to prefer something else, so the
+    values it should steer away from most are the first it reads."""
+    counts: Counter[str] = Counter()
+    first: dict[str, int] = {}
+    for i, v in enumerate(values):
         if v and v != NONE:
-            seen.setdefault(v, None)
-    return list(seen)
+            counts[v] += 1
+            first.setdefault(v, i)
+    return sorted(counts, key=lambda v: (-counts[v], first[v]))
 
 
 def recently_used(rt: Runtime, project_id: str | None = None, n: int = RECENT_DUOS) -> dict[str, list[str]]:
-    """The derived view of APP_SPEC §6.13 over the last ``n`` approved duos: hair kit ids, eye shapes, mouth styles, palette families,
-    fabric ids, pair structures and anchor kinds, most recent first. A **hint** for the planner; no lint reads it."""
+    """The derived view of APP_SPEC §6.13 over the last ``n`` (30) approved duos: hair kit ids, eye shapes, mouth styles, palette families,
+    fabric ids, pair structures and anchor kinds, the most used first. A **soft hint** for the planner (it steers away, nothing is blocked);
+    no lint reads it."""
     hair: list[str] = []
     eyes: list[str] = []
     mouths: list[str] = []
@@ -189,6 +212,98 @@ def least_used_structures(rt: Runtime) -> list[str]:
     return sorted(PAIR_STRUCTURES, key=lambda s: (counts.get(s, 0), PAIR_STRUCTURES.index(s)))
 
 
+# ---------------------------------------------------------------------------------------------------- sameness counter-measures
+def seed_for(rt: Runtime, project_id: str) -> int:
+    """The order seed of this project's current round (see ``prompts/system_blocks.order_seed``)."""
+    from duoskin.prompts.system_blocks import order_seed
+
+    return order_seed(project_id, plan_round(rt, project_id))
+
+
+def brief_structure(brief: str) -> str | None:
+    """The pair structure the brief names ("same club") or implies ("twin sisters" is a mirror pair, "team uniform" a club), else ``None``
+    (an open brief). Only used to *withhold* the rotation suggestion: the planner itself reads the brief."""
+    low = " ".join(str(brief or "").lower().replace("_", " ").split())
+    for s in ROTATION_STRUCTURES:
+        if s.replace("_", " ") in low:
+            return s
+    for word, structure in STRUCTURE_PHRASES:
+        if re.search(rf"\b{word}", low):
+            return structure
+    return None
+
+
+def structure_suggestion(rt: Runtime, project: Project, *, seed: int) -> list[str]:
+    """Three different pair structures for an open brief, rotated: the ones used least in the last ``RECENT_DUOS`` approved duos come first,
+    a structure the person just rejected in this session comes last, and ties are broken by ``seed``. Empty when the dropdown names a
+    structure or the brief names or implies one: variety is never forced on a brief that fixes the structure. A soft planner hint only."""
+    if (project.structure_request or "auto") != "auto" or brief_structure(" ".join([project.brief or "", *map(str, project.must_include or ())])):
+        return []
+    counts = Counter(structure_log(rt, limit=RECENT_DUOS))
+    rejected = {str(a.get("pair_structure", "")) for a in avoid_entries(rt, project.id)}
+    rng = random.Random(seed + 3)
+    order = sorted(ROTATION_STRUCTURES, key=lambda s: (s in rejected, counts.get(s, 0), rng.random()))
+    return order[:3]
+
+
+def brief_names_colours(brief: str, must_include: Sequence[str] = ()) -> bool:
+    """True when the brief or a must-include line names a colour or a palette mood ("teal", "pastel"): the person's colours come first, so the
+    palette rotation is withheld."""
+    words = set(re.findall(r"[a-z]+", " ".join([str(brief or ""), *map(str, must_include or ())]).lower()))
+    return bool(words & COLOUR_WORDS)
+
+
+def palette_suggestion(rt: Runtime, project: Project, *, seed: int) -> list[str]:
+    """Three different palette families, rotated like the structures: the families used least in the last ``RECENT_DUOS`` approved duos
+    first, one the person just rejected last, ties broken by ``seed``. Empty when the brief or a must-include line names colours. A soft
+    planner hint only (nothing is blocked, and the planner may ignore it where the brief asks for something else)."""
+    from duoskin.prompts.system_blocks import literal_values
+
+    if brief_names_colours(project.brief, project.must_include):
+        return []
+    counts = Counter(recently_used_values(rt, project.id, "palette_family"))
+    rejected = {str(a.get("palette_family", "")) for a in avoid_entries(rt, project.id)}
+    rng = random.Random(seed + 4)
+    families = literal_values(PaletteFamily)
+    return sorted(families, key=lambda f: (f in rejected, counts.get(f, 0), rng.random()))[:3]
+
+
+def recently_used_values(rt: Runtime, project_id: str | None, field: str, n: int = RECENT_DUOS) -> list[str]:
+    """One world field (``palette_family`` or ``pair_structure``) of each of the last ``n`` approved duos, newest first."""
+    out: list[str] = []
+    for item in approved_specs(rt, exclude_project=project_id, limit=n):
+        value = str((item["spec"].get("world") or {}).get(field, ""))
+        if value:
+            out.append(value)
+    return out
+
+
+def taste_for_planner(doc: Any, seed: int) -> Any:
+    """The taste document (``{"profile": L2 profile or None, "reference_rules": L1 rules or None}``) as the planner should read it: a seeded
+    handful (``MAX_LIKES_SHOWN``) of the likes, every dislike, one departure to try and the reference rules in a seeded order. The same
+    stored profile therefore never reaches two duos as the same text in the same order, and no single like dominates every plan. Anything
+    that is not that shape is returned unchanged."""
+    if not isinstance(doc, Mapping):
+        return doc
+    rng = random.Random(seed + 2)
+    out: dict[str, Any] = dict(doc)
+    prof = doc.get("profile")
+    if isinstance(prof, Mapping):
+        p = dict(prof)
+        likes = list(p.get("likes") or [])
+        rng.shuffle(likes)
+        explore = list(p.get("explore") or [])
+        rng.shuffle(explore)
+        p.update({"likes": likes[:MAX_LIKES_SHOWN], "dislikes": list(p.get("dislikes") or []), "explore": explore[:1], "open_questions": []})
+        out["profile"] = p if (p["likes"] or p["dislikes"] or p["explore"]) else None
+    rules = doc.get("reference_rules")
+    if isinstance(rules, list):
+        shuffled = list(rules)
+        rng.shuffle(shuffled)
+        out["reference_rules"] = shuffled
+    return out if (out.get("profile") or out.get("reference_rules")) else None
+
+
 # ---------------------------------------------------------------------------------------------------- the avoid list
 def _session_key(project_id: str) -> str:
     return f"plan_session:{project_id}"
@@ -235,17 +350,24 @@ def planner_inputs(rt: Runtime, project: Project, *, reference_analysis: Any = N
     used = recently_used(rt, project.id)
     if rt.effective_settings().planner_structure_lru_hint:
         used = {**used, "least_used_structures": least_used_structures(rt)[:3]}
+    seed = seed_for(rt, project.id)
     inputs: dict[str, Any] = {
         "brief_text": project.brief.strip() or NONE,
         "structure_request": project.structure_request or "auto",
         "must_include": "\n".join(project.must_include) if project.must_include else NONE,
         "combo": project.combo,
         "reference_analysis": _json_or(reference_analysis),
-        "taste_profile": _json_or(taste_profile),
+        "taste_profile": _json_or(taste_for_planner(taste_profile, seed)),
         "recent_cards": _json_or(recent_cards_json(cards, RECENT_CARDS)),
         "recently_used": _json_or({k: v for k, v in used.items() if v}),
         "avoid": _json_or(avoid_entries(rt, project.id)) if avoid_entries(rt, project.id) else "",
     }
+    suggestion = [] if replacement else structure_suggestion(rt, project, seed=seed)
+    if suggestion:
+        inputs["structure_suggestion"] = json.dumps(suggestion)
+    palettes = [] if replacement else palette_suggestion(rt, project, seed=seed)
+    if palettes:
+        inputs["palette_suggestion"] = json.dumps(palettes)
     if replacement:
         inputs["replacement"] = True
         inputs["wildcard_flag"] = "true" if wildcard else "false"

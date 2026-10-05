@@ -101,7 +101,8 @@ export async function render(ctx) {
       h("div", { class: "thinking-box" }, h("h3", {}, "The planner's notes"), thinkingBox)));
 
     // plans so far
-    const specRows = /** @type {any[]} */ (specs.data || []);
+    // numbered in the order Gate 1 uses (best-ranked first), so "Plan 2" is the same plan on both pages
+    const specRows = /** @type {any[]} */ ([...(specs.data || [])].sort((a, b) => (a.spec?.rank ?? 99) - (b.spec?.rank ?? 99)));
     if (specs.unavailable) parts.push(panel({ title: "The plans" }, notAvailable("The list of plans")));
     else if (specRows.length) {
       parts.push(panel({ title: "The plans so far", lead: firstChoice ? "Required rules are checked for every plan, and a few suggestions are shown now that you have made your first choice." : "Every plan is checked against the required rules. Suggestions only appear after your first choice." },

@@ -162,8 +162,12 @@ class ProviderRegistry:
             return "mock"
 
     def key_for(self, provider: str) -> str | None:
+        from duoskin.logsetup import register_secret
+
         if self._key_provider is not None:
-            return self._key_provider(provider)
+            key = self._key_provider(provider)
+            register_secret(key)          # an injected key source gets the same log/error masking as the keystore
+            return key
         try:
             from duoskin.keystore import get_key
         except ImportError:

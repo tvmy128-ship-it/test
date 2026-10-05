@@ -26,6 +26,7 @@ from typing import Any
 import numpy as np
 from PIL import Image, ImageCms, ImageOps
 
+from duoskin import winplat
 from duoskin.checks import thresholds as TH
 from duoskin.checks.model import CheckResult
 from duoskin.checks.runner import build_result
@@ -55,7 +56,7 @@ def write_bytes_atomic(path: str | os.PathLike[str], data: bytes) -> Path:
             f.write(data)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, p)
+        winplat.replace_with_retry(tmp, p)
     except BaseException:
         try:
             os.unlink(tmp)

@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
+from duoskin.logsetup import redact, redact_data
 from duoskin.models.common import License, PartId, Sha256, Strict, UtcDatetime
 
 AssetKind = Literal["png", "jpeg", "webp", "svg", "glb", "gltf", "bin", "fbx", "obj_zip", "blend", "json", "txt",
@@ -38,6 +39,18 @@ class Provenance(Strict):
     license: License = "n/a"
     notes: list[str] = Field(default_factory=list)
     created_at: UtcDatetime
+
+    @field_validator("request_id", "remote_task_id")
+    @classmethod
+    def _ids_hold_no_secret(cls, v: str | None) -> str | None:
+        return redact(v) if isinstance(v, str) else v
+
+    @field_validator("params", "usage", "notes")
+    @classmethod
+    def _free_text_holds_no_secret(cls, v: Any) -> Any:
+        """Provenance travels into the export kit's ``provenance.json``: whatever an exception, a provider body or a pasted URL put into these
+        free-form fields is scrubbed of keys, bearer tokens and signed-URL queries first."""
+        return redact_data(v)
 
 
 class Asset(Strict):

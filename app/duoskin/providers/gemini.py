@@ -85,7 +85,10 @@ def rules_text(rules: list[RuleSpec]) -> str:
         "",
         "<rules>",
     ]
-    lines += [f"- {r.rule_id}: {r.statement}" for r in rules]
+    # a statement may carry model- or user-derived words: it must not be able to close <rules>
+    from duoskin.prompts.llm import neutralise_tags
+
+    lines += [f"- {neutralise_tags(r.rule_id)}: {neutralise_tags(r.statement)}" for r in rules]
     lines.append("</rules>")
     return "\n".join(lines)
 

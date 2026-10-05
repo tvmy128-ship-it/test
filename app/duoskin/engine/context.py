@@ -229,7 +229,9 @@ class StepContext:
         result_path = self.rt.paths.tmp_dir / f"{self.step.id}-{uuid.uuid4().hex[:8]}.json"
         result_path.parent.mkdir(parents=True, exist_ok=True)
         full_argv = [a.replace("{result_json}", str(result_path)) for a in argv]
-        child_env = {**os.environ, **(env or {}), "DUOSKIN_RESULT_JSON": str(result_path), "PYTHONUTF8": "1"}
+        from duoskin.security import child_env as scrubbed_env
+
+        child_env = scrubbed_env({**(env or {}), "DUOSKIN_RESULT_JSON": str(result_path), "PYTHONUTF8": "1"})   # no API key reaches a child
         kwargs: dict[str, Any] = {}
         if sys.platform == "win32":
             kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)

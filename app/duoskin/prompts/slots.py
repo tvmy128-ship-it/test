@@ -154,7 +154,10 @@ def print_clause(a: BuildArgs, prints: list, part: str) -> str:
         place = table.get(p.region, "")
         if not place:
             continue
+        motif = re.sub(r"^(?:one|an?|the)\s+", "", motif, flags=re.IGNORECASE)         # the template already says "a ... print"
         size = a.phr.get("print", "size_word", p.scale)
+        if size and motif.lower().split(" ")[0] == size:                                # "small gear wheel" is not "small small gear wheel"
+            size = ""
         return a.phr.get("print", "template").format(sized_motif=f"{size} {motif}" if size else motif, placement=place)
     return ""
 
@@ -196,17 +199,31 @@ def _dedupe(clauses: list[tuple[int, str]]) -> list[tuple[int, str]]:
     return keep
 
 
+_STEM_END = re.compile(r"(?:ed|es|s)$")
+
+
+def _stems(text: str) -> set[str]:
+    return {_STEM_END.sub("", w) if len(w) > 4 else w for w in re.findall(r"[a-z]+", text.lower())}
+
+
+def _new_words(clause: str, recipe_phrase: str) -> str:
+    """``clause`` unless the recipe phrase already says all of it ("long sleeves" after "long-sleeved crew-neck tee"): the same words twice
+    spend the prompt budget and make the picture model weigh them double."""
+    return "" if clause and _stems(clause) <= _stems(recipe_phrase) else clause
+
+
 def top_phrase(a: BuildArgs, c: Character, path: str, cap: int) -> str:
     t = c.top
     lvl = a.level
     inner = ""
     if t.front in ("open", "layered"):
         inner = _recipe_phrase(a, t.inner_recipe_id) if t.inner_recipe_id != "none" else "an inner layer"
+    recipe = _recipe_phrase(a, t.recipe_id)
     clauses = [
-        (0, _recipe_phrase(a, t.recipe_id)),
-        (3, cut_words(a, "top.sleeve", t.sleeve)),
-        (4, cut_words(a, "top.hem", t.hem) if lvl < 2 else ""),
-        (2, cut_words(a, "top.neckline", t.neckline)),
+        (0, recipe),
+        (3, _new_words(cut_words(a, "top.sleeve", t.sleeve), recipe)),
+        (4, _new_words(cut_words(a, "top.hem", t.hem), recipe) if lvl < 2 else ""),
+        (2, _new_words(cut_words(a, "top.neckline", t.neckline), recipe)),
         (5 if t.front != "closed" else 6, cut_words(a, "top.front", t.front, inner=inner) if (lvl < 1 or t.front != "closed") else ""),
         (1, print_clause(a, t.prints, "top")),
     ]
@@ -216,10 +233,11 @@ def top_phrase(a: BuildArgs, c: Character, path: str, cap: int) -> str:
 def bottom_phrase(a: BuildArgs, c: Character, path: str, cap: int) -> str:
     b = c.bottom
     lvl = a.level
+    recipe = _recipe_phrase(a, b.recipe_id)
     clauses = [
-        (0, _recipe_phrase(a, b.recipe_id)),
-        (2, cut_words(a, "bottom.leg", b.leg)),
-        (4, cut_words(a, "bottom.waist", b.waist) if lvl < 1 else ""),
+        (0, recipe),
+        (2, _new_words(cut_words(a, "bottom.leg", b.leg), recipe)),
+        (4, _new_words(cut_words(a, "bottom.waist", b.waist), recipe) if lvl < 1 else ""),
         (3, cut_words(a, "bottom.legwear", b.legwear) if lvl < 3 else ""),
         (1, print_clause(a, b.prints, "bottom")),
     ]
@@ -308,8 +326,12 @@ _TALL_REGIONS = ("torso_l", "torso_r", "rlimb_f", "rlimb_b", "rlimb_l", "rlimb_r
 
 
 def _print_source(a: BuildArgs):
-    ref = str(a.input("print", "top.0"))
     me = a.me
+    if a.input("accessory") is not None:
+        # the Recraft rung of a sticker-slab badge (R2_badge): the artwork is the accessory itself, in the accessory's own colours
+        idx, acc = _accessory(a)
+        return None, acc.description, f"/accessories/{idx}/description", list(acc.colour_refs)
+    ref = str(a.input("print", "top.0"))
     if ref == "shoes":
         return None, me.bottom.shoes.motif, "/bottom/shoes/motif", [me.bottom.shoes.accent_ref, me.bottom.shoes.base_ref]
     part, _, idx = ref.partition(".")
@@ -322,7 +344,7 @@ def _print_source(a: BuildArgs):
 
 def build_i2(a: BuildArgs) -> Built:
     p, motif, mpath, refs = _print_source(a)
-    cap = 6 if p is None else 12
+    cap = 15 if a.input("accessory") is not None else 6 if p is None else 12      # a shoe motif is 6 words, a print 12, an accessory description 15
     tall = bool(p is not None and p.region in _TALL_REGIONS)
     aspect = a.input("aspect") or ("tall" if tall else "square")
     if aspect not in ("square", "tall"):
@@ -573,6 +595,7 @@ def build_i11(a: BuildArgs) -> Built:
         raise PromptBuildError("I11: 1 to 4 edit sentences are required")
     subject = ft(a, a.input("subject_sentence", ""), 30, "subject_sentence", allow_empty=False)
     keep = [ft(a, k, 8, "keep") for k in (a.input("keep", []) or [])] + [ft(a, k, 8, "template_keep") for k in (a.input("template_keep", []) or [])]
+    keep = list(dict.fromkeys(k for k in keep if k))          # the caller's keep list and the template's often name the same thing
     form = str(a.input("form", "masked"))
     if form not in ("masked", "global"):
         raise PromptBuildError("I11: form must be masked or global")

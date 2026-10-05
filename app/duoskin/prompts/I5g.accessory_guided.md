@@ -24,7 +24,7 @@ slots:
     source: dna.motif_object
     max_words: 5
     lint: [free_text]
-  shape_language_line: {source: dna.shape_language}
+  shape_short: {source: dna.shape_language}
 style_block: HOUSE_STYLE_3D_INPUT
 bootstrap: false
 priming: [character, avatar, hand, shelf]
@@ -47,11 +47,11 @@ PURPOSE: Reference image of one small toy-like object; the single input image fo
 IMAGES: {images_line}
 SUBJECT: {accessory_description}; {material_phrase}; colours {colour_names}.
 MUST:
-1. Fill the grey box with the whole object, centred, seen straight from the front (orthographic), nothing outside the box.
+1. Fill the grey box with the whole object, centred and symmetric left to right, seen straight from the front (orthographic), nothing outside the box.
 2. One solid connected object with thick simple parts[[; {attachment_option}]].
 3. Soft even light from the front and slightly above, matte surfaces, true flat base colours with one soft shadow step.
-4. {motif_object} as the defining shape.
-5. {shape_language_line}
+4. The object's main form echoes this motif: {motif_object}; the object itself stays as described.
+5. Surface details are {shape_short}; the whole object stays one solid piece with thick parts.
 STYLE: {style_block}
 OUTPUT: The object alone on a fully transparent background with clean hard alpha edges.
 EXCLUDE: floor, plinth, cast shadow, hands, people, packaging, text, logos, watermark.

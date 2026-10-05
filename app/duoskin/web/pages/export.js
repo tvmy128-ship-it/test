@@ -7,7 +7,7 @@
 // fee_robux, fee_note, requirements, notes, steps: [{step_id, text, kind, requires, ticked, locked}]}]}, version}.
 // PATCH /api/exports/<id>/checklist {item_id, step_id, ticked, expected_version} -> {checklist, version}.
 import { get, tryGet, post, patch, friendly, ApiError } from "../api.js";
-import { h, humanize, fmtBytes, setChildren } from "../dom.js";
+import { h, humanize, fmtBytes, plural, setChildren } from "../dom.js";
 import { pageHeader, panel, note, emptyState, errorNote, notAvailable, progress } from "../components/ui.js";
 import { toast } from "../components/toast.js";
 import { licenceLabel } from "../text.js";
@@ -41,6 +41,24 @@ function filesOf(data) {
 const bannerText = (b) => (typeof b === "string" ? b : String(b?.text || b?.message || "")).replace(/^([ab])\.(\w+):\s*/i, (_m, c, part) => `Character ${String(c).toUpperCase()}, ${humanize(part).toLowerCase()}: `);
 /** @param {string} t */
 const bannerTone = (t) => (/FBX not produced|off$|degraded|No Head|Standard Block/i.test(t) ? "info" : "warn");
+
+/** What stopped the kit, in plain words (the gate's check ids and part ids stay in the log). @param {any} data @param {string} status */
+function blockedText(data, status) {
+  const checks = /** @type {string[]} */ (data.checks ?? []);
+  if (data.mock || /mock source|DEMO/i.test(String(data.reason ?? ""))) return "The final checks stopped the kit, because this duo was made with practice (demo) pictures and models. Nothing here can be exported.";
+  const WORDS = /** @type {Record<string, string>} */ ({
+    "CHK-E01": "Some parts are missing or not finished, so there is nothing complete to hand over yet.",
+    "CHK-E02": "A part changed after you approved it. Open the part board and approve it again.",
+    "CHK-E03": "The record of how each part was made is incomplete.",
+    "CHK-E04": "A file in the kit did not pass its final check.",
+    "CHK-E05": "An item is set to go on the wrong place on the body.",
+    "CHK-E06": "A key or password was found in a file that would be exported, so the kit was stopped to keep it private.",
+    "CHK-E09": "A part uses material whose rights are not known, so it needs a person to confirm it.",
+  });
+  const said = checks.map((c) => WORDS[c]).filter(Boolean);
+  if (said.length) return said.join(" ");
+  return status === "blocked" ? "One of the final checks did not pass, so the kit was stopped." : "Something went wrong while packing the kit.";
+}
 
 /** @param {import("../router.js").PageContext} ctx */
 export async function render(ctx) {
@@ -77,6 +95,22 @@ export async function render(ctx) {
     };
     const banners = /** @type {any[]} */ ([...(data.banners ?? []), ...(data.checklist?.banners ?? [])]).map(bannerText).filter((t, i, a) => t && a.indexOf(t) === i);
     const bannerNotes = banners.map((t) => note(t, /** @type {any} */ (bannerTone(t))));
+    const version = Number(data.version ?? 0);
+    /** @param {any} it @param {boolean} [preview] a preview lists the steps but nothing can be ticked: no kit was written */
+    const itemCard = (it, preview = false) => h("section", { class: "check-item", dataset: { itemId: it.item_id } },
+      h("h3", {}, it.character ? h("span", { class: `char-chip ${it.character}` }, String(it.character).toUpperCase()) : null, humanize(it.type)),
+      h("p", { class: "muted" }, it.channel_text ?? "", it.fee_robux ? ` Upload fee: ${it.fee_robux} Robux${it.fee_note ? ` (${it.fee_note})` : ""}. Check Roblox for current prices.` : ""),
+      it.requirements?.length ? h("ul", { class: "plain-list small muted" }, it.requirements.map((/** @type {string} */ r) => h("li", {}, r))) : null,
+      h("ul", { class: "checklist" }, (it.steps ?? []).map((/** @type {any} */ s) => {
+        const cid = `ck-${it.item_id}-${s.step_id}`.replace(/[^A-Za-z0-9_-]/g, "_");
+        const cb = h("input", { type: "checkbox", id: cid, checked: Boolean(s.ticked), disabled: preview || Boolean(s.locked) });
+        cb.addEventListener("change", async () => {
+          try { await patch(`/api/exports/${encodeURIComponent(id)}/checklist`, { item_id: it.item_id, step_id: s.step_id, ticked: cb.checked, expected_version: version }); await draw(); } catch (e) { cb.checked = !cb.checked; toast(friendly(e), { kind: "bad" }); await draw(); }
+        });
+        return h("li", { class: s.locked ? "locked" : "" }, cb, h("label", { for: cid }, String(s.text || humanize(s.step_id))), s.locked && !preview ? h("span", { class: "muted" }, " (locked until the step before it is ticked)") : null);
+      })),
+      it.notes?.length ? h("ul", { class: "plain-list small muted" }, it.notes.map((/** @type {string} */ n) => h("li", {}, n))) : null);
+
     if (status === "none" || (!data.manifest && !data.checklist && !["running", "blocked", "failed"].includes(status))) {
       setChildren(body, demo ? note("Demo mode: nothing can be exported.", "warn") : null, ...bannerNotes, emptyState("The upload kit has not been made yet", "Pick the final duo first, then make the kit.", startBtn("Make the upload kit")));
       return;
@@ -86,34 +120,24 @@ export async function render(ctx) {
       return;
     }
     if (status === "blocked" || status === "failed") {
-      setChildren(body, ...bannerNotes, panel({ class: "panel-error", title: status === "blocked" ? "The kit is not ready to upload" : "The kit could not be made" },
-        h("p", {}, data.reason ? String(data.reason).replace(/^[A-Z]{2,5}-[A-Z]?\d+[a-z]?:\s*/, "") : status === "blocked" ? "One of the final checks did not pass." : "Something went wrong while packing it."),
-        data.mock ? h("p", { class: "muted" }, "This duo was made with practice (demo) services, so it can be looked at but never exported.") : null,
-        project?.stage === "gate3" ? startBtn("Try again") : null));
+      const preview = data.preview?.checklist?.items?.length ? data.preview : null;
+      setChildren(body, ...bannerNotes, panel({ class: "panel-error", title: preview ? "Export preview: nothing was written" : status === "blocked" ? "The kit is not ready to upload" : "The kit could not be made" },
+        h("p", {}, blockedText(data, status)),
+        data.mock ? h("p", { class: "muted" }, demo ? "Demo mode is on, so this is the end of the road for a practice duo: you can look at everything, but it can never be uploaded. To make a duo you can upload, turn demo mode off, add your keys in Setup and start a new duo."
+          : "This duo was made with practice stand-ins, so it can be looked at but never uploaded. Use your real keys (Setup) and start a new duo to make one you can upload.") : null,
+        project?.stage === "gate3" && !data.mock ? startBtn("Try again") : null,
+        h("p", {}, h("a", { class: "btn", href: `#/p/${id}/gate3` }, "Back to the final pick"), " ", h("a", { class: "btn", href: `#/p/${id}` }, "Back to the duo"))),
+      preview ? panel({ title: "What the kit would contain", lead: "This is the checklist you would follow with a real duo. It is a preview: nothing can be ticked or uploaded." },
+        h("p", { class: "muted" }, plural(preview.items.length, "item"), ": ", [...new Set(/** @type {any[]} */ (preview.items).map((i) => `${String(i.character).toUpperCase()} ${humanize(i.type)}`))].join(", ")),
+        h("div", { class: "check-items" }, /** @type {any[]} */ (preview.checklist.items).map((it) => itemCard(it, true)))) : null);
       return;
     }
     const files = filesOf(data);
     const items = /** @type {any[]} */ (data.manifest?.items ?? []);
     const checklist = /** @type {any[]} */ (data.checklist?.items ?? []);
-    const version = Number(data.version ?? 0);
     const openFolder = h("button", { type: "button", class: "btn", onclick: async () => {
       try { await post("/api/os/open-folder", { kind: "export", id }); toast("Opened the folder in Explorer.", { kind: "ok" }); } catch (e) { toast(e instanceof ApiError && e.unavailable ? "Opening folders is not available yet in this build." : friendly(e), { kind: "warn" }); }
     } }, "Open the folder");
-
-    /** @param {any} it */
-    const itemCard = (it) => h("section", { class: "check-item", dataset: { itemId: it.item_id } },
-      h("h3", {}, it.character ? h("span", { class: `char-chip ${it.character}` }, String(it.character).toUpperCase()) : null, humanize(it.type)),
-      h("p", { class: "muted" }, it.channel_text ?? "", it.fee_robux ? ` Upload fee: ${it.fee_robux} Robux${it.fee_note ? ` (${it.fee_note})` : ""}.` : ""),
-      it.requirements?.length ? h("ul", { class: "plain-list small muted" }, it.requirements.map((/** @type {string} */ r) => h("li", {}, r))) : null,
-      h("ul", { class: "checklist" }, (it.steps ?? []).map((/** @type {any} */ s) => {
-        const cid = `ck-${it.item_id}-${s.step_id}`.replace(/[^A-Za-z0-9_-]/g, "_");
-        const cb = h("input", { type: "checkbox", id: cid, checked: Boolean(s.ticked), disabled: Boolean(s.locked) });
-        cb.addEventListener("change", async () => {
-          try { await patch(`/api/exports/${encodeURIComponent(id)}/checklist`, { item_id: it.item_id, step_id: s.step_id, ticked: cb.checked, expected_version: version }); await draw(); } catch (e) { cb.checked = !cb.checked; toast(friendly(e), { kind: "bad" }); await draw(); }
-        });
-        return h("li", { class: s.locked ? "locked" : "" }, cb, h("label", { for: cid }, String(s.text || humanize(s.step_id))), s.locked ? h("span", { class: "muted" }, " (locked until the step before it is ticked)") : null);
-      })),
-      it.notes?.length ? h("ul", { class: "plain-list small muted" }, it.notes.map((/** @type {string} */ n) => h("li", {}, n))) : null);
 
     setChildren(body,
       demo || data.mock ? note("Demo mode: practice pictures were used, so this kit can be looked at but not uploaded.", "warn") : null,
@@ -121,7 +145,7 @@ export async function render(ctx) {
       panel({ title: "What is in the kit", actions: openFolder }, files.length ? tree(files) : h("p", { class: "muted" }, "The file list is empty so far."),
         data.kit_dir ? h("p", { class: "muted" }, "Folder: ", h("code", {}, String(data.kit_dir))) : null, data.zip ? h("p", { class: "muted" }, "Zip: ", h("code", {}, String(data.zip))) : null),
       panel({ title: "Before you upload", lead: "Tick each step as you do it. A step stays locked until the one it depends on is ticked: the upload lines wait for the test in Roblox Studio." },
-        checklist.length ? h("div", { class: "check-items" }, checklist.map(itemCard)) : h("p", { class: "muted" }, "The checklist appears once the kit is made."),
+        checklist.length ? h("div", { class: "check-items" }, checklist.map((it) => itemCard(it))) : h("p", { class: "muted" }, "The checklist appears once the kit is made."),
         data.checklist?.notes?.length ? h("ul", { class: "plain-list small muted" }, data.checklist.notes.map((/** @type {string} */ n) => h("li", {}, n))) : null),
       items.length ? panel({ title: "Where everything came from" }, h("div", { class: "table-wrap" }, h("table", { class: "table" }, h("thead", {}, h("tr", {}, ["Item", "Licence", "Made from", "Triangles", "FBX"].map((t) => h("th", {}, t)))),
         h("tbody", {}, items.map((p) => h("tr", {}, h("td", {}, `${String(p.character || "").toUpperCase()} ${humanize(p.type || "")}`.trim()), h("td", {}, licenceLabel(p.license || "n/a")),

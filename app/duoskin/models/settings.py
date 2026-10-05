@@ -130,6 +130,20 @@ class Paths(Strict):
     exports_root: str = r"%USERPROFILE%\DuoSkin Exports"
     tripo_inbox: str = r"%USERPROFILE%\DuoSkin Exports\TripoPacks\inbox"
 
+    @field_validator("exports_root", "tripo_inbox")
+    @classmethod
+    def _a_local_folder(cls, v: str) -> str:
+        """The app reads and writes these folders, so they must be an ordinary local folder: no network share (``\\\\server\\share`` makes
+        Windows send the user's credentials to that server), no device namespace (``\\\\?\\``, ``\\\\.\\``), no ``..`` segment, no NUL."""
+        text = v.strip()
+        if not text or len(text) > 240 or "\x00" in text:
+            raise ValueError("the folder path is empty, too long or contains a NUL character")
+        if text.startswith(("\\\\", "//")):
+            raise ValueError("a network share or device path cannot be used here: choose a folder on this PC")
+        if ".." in text.replace("\\", "/").split("/"):
+            raise ValueError("a folder path may not contain '..'")
+        return text
+
 
 class Settings(Strict):
     schema_version: int = SETTINGS_SCHEMA_VERSION

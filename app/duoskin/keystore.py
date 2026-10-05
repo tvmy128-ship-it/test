@@ -26,7 +26,7 @@ from typing import Any, Literal
 
 from duoskin import winplat
 from duoskin.config import DataPaths
-from duoskin.logsetup import register_secret
+from duoskin.logsetup import redact, register_secret
 from duoskin.models.common import Strict, UtcDatetime, utcnow
 
 log = logging.getLogger("duoskin.keystore")
@@ -249,7 +249,7 @@ class KeyStore:
 
     def record_test(self, provider: str, ok: bool | None, message: str = "") -> KeyTestResult:
         _check_provider(provider)
-        result = KeyTestResult(ok=ok, at=utcnow(), message=message[:300])
+        result = KeyTestResult(ok=ok, at=utcnow(), message=redact(message)[:300])   # a provider's own words may repeat the key or a URL
         with self._lock:
             tests = self._load_tests()
             tests[provider] = json.loads(result.model_dump_json())

@@ -271,6 +271,13 @@ def load_gltf(path: str | Path) -> LoadedMesh:
     problems = check_extensions(doc)
     if problems:
         raise MeshError("unsupported_extension", " ".join(problems))
+    refs = gltf_io.external_references(doc, glb=sniff(p) == "glb")
+    if refs:       # before the loader sees the file: trimesh would read ../x.png or file:///... and turn it into this model's texture
+        raise MeshError("external_reference", "The model points at files outside itself (" + "; ".join(refs[:3]) + "). Export a single .glb with the "
+                        "texture inside it.")
+    heavy = gltf_io.complexity_problems(doc)
+    if heavy:
+        raise MeshError("too_complex", "The model is too heavy to read safely: " + "; ".join(heavy) + ". Export it with fewer triangles.")
     facts = gltf_io.gltf_structure_facts(p)
     if p.suffix.lower() == ".gltf":
         bad = gltf_io.check_gltf_files(p)

@@ -33,15 +33,20 @@ class LlmPrompt:
     schema_name: str
     sha256: str
     images: str = ""                 # what the caller must attach before the text (a note for the pipeline)
+    order_seed: int | None = None    # the seed of the shuffled <kit_inventory> / <structure_profiles> order, or None (sorted); logged by the caller
 
 
-_TAG_LIKE = re.compile(r"<(/?[A-Za-z_][A-Za-z0-9_]*\s*/?)>")
+# Anything that could start a tag, a closing tag (also ``< /x>``), a comment, CDATA, a processing instruction or a doctype, with or without
+# attributes (``</brief x="1">``), namespaces or hyphens, and with or without its closing ``>``. ``a < b``, ``3 <3`` and ``c > d`` stay as they are.
+_TAG_LIKE = re.compile(r"<(?=\s*/|[A-Za-z_!?])([^<>]*)(>?)")
+_ANGLE_LOOKALIKES = str.maketrans({"\uff1c": "<", "\uff1e": ">", "\ufe64": "<", "\ufe65": ">", "\u3008": "<", "\u3009": ">"})
 
 
 def neutralise_tags(text: str) -> str:
     """Data may not close or open one of the prompt's tags: ``</user_change_request>`` inside a value becomes plain text (``&lt;...&gt;``),
-    so a typed request cannot break out of its tag (bible §2: user text only ever appears inside its tag, as data)."""
-    return _TAG_LIKE.sub(lambda m: f"&lt;{m.group(1)}&gt;", text)
+    so a typed request cannot break out of its tag (bible §2: user text only ever appears inside its tag, as data). Full-width and other
+    look-alike angle brackets are folded to ASCII first, and a tag with attributes, spaces, a namespace or no closing ``>`` is neutralised too."""
+    return _TAG_LIKE.sub(lambda m: f"&lt;{m.group(1)}{'&gt;' if m.group(2) else ''}", text.translate(_ANGLE_LOOKALIKES))
 
 
 def as_text(value: Any) -> str:
@@ -55,9 +60,10 @@ def as_text(value: Any) -> str:
 
 
 def compile_llm(template_id: str, inputs: dict[str, Any] | None = None, *, inventory: KitInventory | None = None,
-                ttl_1h: bool = False) -> LlmPrompt:
+                ttl_1h: bool = False, order_seed: int | None = None) -> LlmPrompt:
     """Compile one LLM role template. Missing required inputs raise :class:`PromptBuildError`; ``flags`` are the booleans the user
-    text branches on (``wildcard``, ``replacement``)."""
+    text branches on (``wildcard``, ``replacement``). ``order_seed`` shows the kit inventory and the structure profiles in a seeded
+    order instead of sorted order (``system_blocks.order_seed(project_id, round)``): no kit id is listed first in every duo's prompt."""
     tpl = registry.get(template_id)
     meta = tpl.meta
     if meta.kind != "llm":
@@ -93,13 +99,13 @@ def compile_llm(template_id: str, inputs: dict[str, Any] | None = None, *, inven
         raise PromptBuildError(f"{meta.id}: slot {exc.args[0]!r} has no value") from exc
     route_name = meta.id.split(".")[0]
     plan_loop = bool(meta.cache.get("plan_loop"))
-    system = build_system(tpl.role_text, plan_loop=plan_loop, inventory=inventory, ttl_1h=ttl_1h) if meta.provider == "anthropic" else \
+    system = build_system(tpl.role_text, plan_loop=plan_loop, inventory=inventory, ttl_1h=ttl_1h, seed=order_seed) if meta.provider == "anthropic" else \
         [{"type": "text", "text": tpl.role_text}]
     sha = sha256_of({"id": meta.id, "version": meta.version, "role": tpl.role_text, "user": user, "route": meta.route,
-                     "plan_loop": plan_loop, "schema": meta.schema_name})
+                     "plan_loop": plan_loop, "schema": meta.schema_name, **({} if order_seed is None else {"order_seed": order_seed})})
     _ = route_name
     return LlmPrompt(template_id=meta.id, template_version=meta.version, system=system, user_text=user, route=dict(meta.route),
-                     schema_name=meta.schema_name, sha256=sha, images=str(meta.cache.get("images", "")))
+                     schema_name=meta.schema_name, sha256=sha, images=str(meta.cache.get("images", "")), order_seed=order_seed)
 
 
 def schema_class(prompt: LlmPrompt) -> type:

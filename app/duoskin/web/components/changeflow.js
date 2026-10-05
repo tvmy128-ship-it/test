@@ -10,7 +10,7 @@ import { get, tryGet, friendly } from "../api.js";
 import { h, money } from "../dom.js";
 import { on as onEvent } from "../events.js";
 import { openDialog } from "./modal.js";
-import { diffList, invalidationList, pathList } from "./diff.js";
+import { diffList, invalidationList, pathList, labelForPath } from "./diff.js";
 import { decide } from "./decisions.js";
 import { toast } from "./toast.js";
 import { warningText } from "./warnings.js";
@@ -103,6 +103,15 @@ function askClarify(gate) {
   return dlg.closed.then((v) => (v === "answered" ? "answered" : "cancelled"));
 }
 
+/** The palette of one plan (null when it cannot be read: the labels then fall back to colour numbers). @param {string} projectId @param {string | undefined} specId */
+async function paletteOf(projectId, specId) {
+  if (!projectId || !specId) return null;
+  try {
+    const rows = /** @type {any[]} */ (await get(`/api/projects/${encodeURIComponent(projectId)}/specs`));
+    return rows.find((r) => r.spec?.id === specId)?.spec?.spec?.palette ?? null;
+  } catch { return null; }
+}
+
 /** @param {any} gate @param {string | null} changeId @param {Record<string, string>} labels @returns {Promise<"applied" | "cancelled">} */
 async function confirmChange(gate, changeId, labels) {
   const tile = gate.tiles[0];
@@ -115,9 +124,14 @@ async function confirmChange(gate, changeId, labels) {
   const dnaPaths = facts.dna_diff ?? cr?.plan?.dna_diff ?? [];
   const estimate = cr?.estimate_usd ?? facts.estimate_usd;
   const warnings = /** @type {any[]} */ (facts.lint_warnings ?? facts.warnings ?? cr?.plan?.warnings ?? []);
+  // the palette of the plan being changed, so "/palette/2/hex" can be said as "Character B's main colour"
+  const palette = await paletteOf(gate.project_id, cr?.plan?.origin?.spec_id);
+  const shown = specChanges.length ? specChanges : dnaChanges;
+  // a card field that a listed change already explains is not listed twice
+  const extraPaths = /** @type {string[]} */ (dnaPaths).filter((p) => !shown.some((c) => labelForPath(c.path, palette) === labelForPath(p, palette)));
   const body = [
     h("p", {}, "Here is what would change. Nothing has been redone yet."),
-    h("section", {}, h("h3", {}, "What changes in the design"), diffList(specChanges.length ? specChanges : dnaChanges, { empty: "The design card itself does not change." }), dnaPaths.length ? pathList(dnaPaths) : null),
+    h("section", {}, h("h3", {}, "What changes in the design"), diffList(shown, { empty: "The design card itself does not change.", palette }), extraPaths.length ? pathList(extraPaths, palette) : null),
     h("section", {}, h("h3", {}, "Parts that will be redone"), invalidationList(cr?.invalidation ?? facts.invalidation ?? facts.redo ?? [], labels)),
     h("p", { class: "estimate" }, typeof estimate === "number" ? [h("strong", {}, `Estimated cost: ${money(estimate)}`), estimate === 0 ? " (nothing is charged: the program redoes this itself)" : " (an estimate; you will be asked again if a step would go over your cap)"] : "The cost estimate is not available yet."),
     warnings.length ? h("section", { class: "heads-up" }, h("p", { class: "heads-up-title" }, "Heads-up"), h("ul", {}, warnings.slice(0, 2).map((w) => h("li", {}, warningText(w))))) : null,
