@@ -40,8 +40,11 @@ def test_pack_ids_are_unique_per_pack(rt, board):
 def test_a_pack_needs_the_four_views(rt):
     p, rec = make_project(rt)
     parts.ensure_parts(rt, p.id, rec.spec)
-    with pytest.raises(ValueError, match="four views"):
+    from duoskin.engine.errors import StepFailure
+
+    with pytest.raises(StepFailure, match="four views") as err:                  # a plain failure the page can say, not an unexpected error
         manual_mesh.build_pack_for(rt, p.id, rt.repo.get_part(p.id, "a.acc.0"))
+    assert "approve or reimagine the part" in err.value.user_hint and not err.value.retryable
 
 
 def test_the_hair_pack_uses_the_hair_only_front(rt, board):

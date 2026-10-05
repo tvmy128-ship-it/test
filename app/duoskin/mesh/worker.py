@@ -391,7 +391,7 @@ def _op_validate(job: MeshJob, out_dir: Path) -> MeshResult:
     mq = avatar.load_mannequin(job.mannequin)
     ctx = ValidateContext(asset_type=job.asset_type, attachment=job.attachment, target_studs=job.target_studs, approved_views=_approved(job), mannequin=mq,
                           forward_axis=job.forward_axis or "+Z", expect_slab=bool(p.get("expect_slab", False)),
-                          expect_hair_register=bool(p.get("expect_hair_register", False)), asset_id=job.asset_id)
+                          expect_hair_register=bool(p.get("expect_hair_register", False)), code_built=bool(p.get("code_built", False)), asset_id=job.asset_id)
     hair_path = p.get("hair_mesh_path")
     if hair_path and Path(hair_path).is_file():
         hl = load.load_gltf(hair_path)

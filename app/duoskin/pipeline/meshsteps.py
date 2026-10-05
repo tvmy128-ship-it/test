@@ -310,7 +310,8 @@ def run_validate(ctx: StepContext, p: MeshStepParams, inputs: list[Any]) -> Step
     work = work_dir(ctx)
     gltf = materialise_set(ctx, prev["files"], work / "set")
     views = approved_views(ctx, part, work)
-    params = {"expect_slab": item.build == "sticker_slab", "expect_hair_register": item.is_hair and p.source.get("kind") != "kit", "roundtrip": False}
+    params = {"expect_slab": item.build == "sticker_slab", "expect_hair_register": item.is_hair and p.source.get("kind") != "kit", "roundtrip": False,
+              "code_built": p.source.get("kind") in ("slab", "primitive")}     # made by code: there are no approved 3D views to orient by or compare with
     job = MeshJob(op="validate", input_path=str(gltf), out_dir=str(work / "validate"), asset_type=item.asset_type, attachment=item.attachment,   # type: ignore[arg-type]
                   target_studs=item.target_studs, tris_target=item.tris_target, texture_px=item.texture_px, approved_views=views, params=params,
                   asset_id=part.id, forward_axis=forward_axis(rt), licence=prev.get("licence", "unknown"), blender_path=blender_path(rt))   # type: ignore[arg-type]

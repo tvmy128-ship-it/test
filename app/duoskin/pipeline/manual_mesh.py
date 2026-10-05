@@ -79,7 +79,11 @@ def build_pack_for(rt: Runtime, project_id: str, part: Part, *, acknowledged: bo
     item = itemspec.item_of(spec, part.id)
     views = {v: rt.cas.get(part.board_assets[f"view.{v}"]) for v in ("front", "left", "back", "right") if f"view.{v}" in part.board_assets}
     if len(views) < 4:
-        raise ValueError("the tile has no approved views yet: a pack needs the four views")
+        from duoskin.engine.errors import StepFailure
+
+        raise StepFailure("the tile has no approved views yet: a pack needs the four views", kind="bad_request", retryable=False,
+                          user_hint="This part has no approved pictures from all four sides, so there is nothing to put in a Tripo pack. "
+                                    "Open the part board and approve or reimagine the part first.")
     single_sha = part.board_assets.get("hair_only") if item.is_hair else part.board_assets.get("front")
     pack_id = tripo_pack.make_pack_id(project.slug, part.id)
     out = pack_root(rt, project.slug) / pack_id
