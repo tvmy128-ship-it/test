@@ -334,13 +334,15 @@ def _json_safe(v: Any) -> Any:
 
 
 def checks_summary(rt: Runtime, project_id: str) -> dict[str, Any]:
+    """``hard_failed_during_run`` counts every hard failure the run recorded, including the candidates that were regenerated or repaired afterwards;
+    the shipped files passed their own gate (CHK-E01 ... E09)."""
     hard_failed = 0
     for _cid, r in rt.repo.list_checks(project_id=project_id):
         if r.kind in ("hard", "assert") and r.ran and not r.passed:
             hard_failed += 1
     overrides = [d.warnings_overridden for g in rt.repo.list_gates(project_id) for d in rt.repo.list_decisions(g.id) if d.warnings_overridden]
     shown = sum(len(d.warnings_shown) for g in rt.repo.list_gates(project_id) for d in rt.repo.list_decisions(g.id))
-    return {"hard_failed": hard_failed, "soft_warnings_shown": shown, "overrides": [x for sub in overrides for x in sub]}
+    return {"hard_failed_during_run": hard_failed, "soft_warnings_shown": shown, "overrides": [x for sub in overrides for x in sub]}
 
 
 def cost_totals(rt: Runtime, project_id: str) -> dict[str, Any]:
@@ -604,7 +606,15 @@ def run_validate(ctx: StepContext, p: ExportParams, inputs: list[Any]) -> StepRe
                 bad.append(f"{f['path']}: missing or changed")
         if it["type"] in ("Shirt", "Pants"):
             data = (root / it["files"][0]["path"]).read_bytes()
-            r = V.validate_template(data, "shirt" if it["type"] == "Shirt" else "pants", None, None)
+            part = rt.repo.get_part(project_id, it["item_id"])
+            labels = None
+            if part.board_assets.get("label_map"):                      # the compositor's garment labels, as the Gate 2 checks used them
+                import io
+
+                import numpy as np
+
+                labels = np.load(io.BytesIO(rt.cas.get(part.board_assets["label_map"])))["labels"]
+            r = V.validate_template(data, "shirt" if it["type"] == "Shirt" else "pants", labels, None)
             bad += [f"{it['item_id']}: {x.check_id} {x.evidence}" for x in r if not x.passed and x.kind in ("hard", "assert")]
         elif it["type"] in ("Hair", "Hat", "Face", "Neck", "Shoulder", "Front", "Back", "Waist"):
             gltf = next((root / f["path"] for f in it["files"] if f["path"].endswith(".gltf")), None)

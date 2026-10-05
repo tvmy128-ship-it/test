@@ -504,8 +504,8 @@ def taste_tables(rt: Runtime, *, exclude_project: str | None = None) -> dict[str
             rec = json.loads(r["json"])
         except ValueError:
             continue
-        if rec.get("project_id") != exclude_project and rec.get("created_by") == "planner":
-            rejected.append({"id": rec.get("id", r["id"]), "spec": rec.get("spec", {})})
+        if rec.get("project_id") != exclude_project and rec.get("created_by") == "planner" and rec.get("rank") is not None:
+            rejected.append({"id": rec.get("id", r["id"]), "spec": rec.get("spec", {})})     # shown to the person and not chosen
 
     def fields_of(spec: dict[str, Any]) -> dict[str, list[str]]:
         w = spec.get("world", {})
@@ -668,6 +668,8 @@ def _apply_revisions(ctx: StepContext, p: LintParams) -> list[dict[str, Any]]:
         if rec is None or not rev.get("patch"):
             continue
         out = CH.apply_patch(rec.spec, rev["patch"], kind="reviser", finding_paths=rev.get("finding_paths", []), subject_sha=rec.sha256)
+        if out.check is not None:
+            ctx.record_checks([out.check])                      # CHK-G0-11: the patch stayed inside its findings
         if not out.ok or out.spec is None:
             notes.append({"spec_id": spec_id, "applied": False, "problems": out.problems})
             continue

@@ -180,11 +180,13 @@ async function renderCurrent() {
 /** Keyboard and screen-reader users land on the page heading after a navigation. @param {HTMLElement} root */
 function focusHeading(root) {
   const heading = /** @type {HTMLElement | null} */ (root.querySelector("h1"));
-  if (heading) {
+  const there = document.activeElement;
+  const userIsAlreadyInThePage = there && there !== document.body && there !== root && root.contains(there);   // a slow page must not steal the focus of someone already tabbing through it
+  if (heading && !userIsAlreadyInThePage) {
     heading.setAttribute("tabindex", "-1");
     heading.focus({ preventScroll: true });
   }
-  window.scrollTo({ top: 0 });
+  if (!userIsAlreadyInThePage) window.scrollTo({ top: 0 });
 }
 
 /** @param {HTMLElement} el the <main> element */

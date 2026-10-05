@@ -74,6 +74,7 @@ JUDGED = 2                         # Gate B looks at the two best drafts
 ALTERNATIVES = 3
 TIGHT_GROW_PX = 3                  # how far the tight mask grows the body boxes (A_SIL_GUIDE allows 3% of the body area outside)
 RULES_PER_CALL = 5
+NO_SHEET_IMAGE2 = "Image 2 = house style reference; match its rendering only."   # the I1e template's second image, dropped when no sheet exists
 ACK_TOKEN = "ack:CON-04"
 PALETTE_PLANNED = "palette:planned"
 CONCEPT_HARD_RULES = ("cn_blocky_body", "cn_front_face", "cn_back_view", "cn_views_match", "cn_flat_clothing",
@@ -422,15 +423,16 @@ def draw_rung(ctx: StepContext, p: CharParams, spec: dict[str, Any], mask_mode: 
             raise StepFailure("an edit of the picture needs the draft to edit", kind="bad_request", billed="no")
         orig_png = rt.cas.get(p.base_sha)
         cp = compile_concept(rt, spec, p.char, "i1e", p.fix_sentence, sheet is not None)
-        images = [orig_png, sheet or orig_png]
+        images = [orig_png] + ([sheet] if sheet else [])
     else:
         orig_png = guide.image_png()
         cp = compile_concept(rt, spec, p.char, "i1", "", sheet is not None)
         images = [orig_png] + ([sheet] if sheet else [])
     model, q = route_model(rt, project, cp.template_id, quality)
+    prompt = cp.text if sheet or p.mode != "i1e" else cp.text.replace(" " + NO_SHEET_IMAGE2, "")
     nonce = f"{ctx.step.nonce}:{rung}" if ctx.step.nonce else (f"r{rung}" if rung else "")
     req = ImageRequest(
-        model=model, prompt=cp.text, size=SIZE, quality=q, background="opaque", n=min(DRAFTS, n),
+        model=model, prompt=prompt, size=SIZE, quality=q, background="opaque", n=min(DRAFTS, n),
         images=tuple(named(b, f"image{i + 1}.png") for i, b in enumerate(images)), image1_role="edit_target",
         mask=named(masks.make_mask(editable), "mask.png"), nonce=nonce, tag=cp.template_id.split(".")[0].split("@")[0])
     raws, rid, cached = image_call(ctx, req, n)

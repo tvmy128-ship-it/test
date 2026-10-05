@@ -67,7 +67,7 @@ def plain_gates(live):
     from duoskin.models.gate import GateKind
 
     gs = live.rt.gates
-    for kind in (GateKind.PART_BOARD, GateKind.CONCEPT, GateKind.FINAL_PICK, GateKind.MANUAL_IMPORT):
+    for kind in (GateKind.PART_BOARD, GateKind.CONCEPT, GateKind.FINAL_PICK, GateKind.MANUAL_IMPORT, GateKind.CLARIFY, GateKind.CHANGE_CONFIRM):
         gs.register_applier(kind, gs._apply_default)
     return gs
 

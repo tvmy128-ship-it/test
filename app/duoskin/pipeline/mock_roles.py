@@ -154,7 +154,8 @@ def _lint_ready(spec: dict[str, Any], plan: int, inv: Any) -> None:
                                          "material": "plush" if c == "a" else "enamel_flat", "linked_to_partner": True, "description": desc})
         face = ch["face"]
         refs = [face["iris_ref"], face["iris_dark_ref"]]
-        best = max(pal, key=lambda pid: min(de2000_hex(pal[pid], pal[r]) for r in refs if r in pal))
+        shared = [c["id"] for c in spec["palette"] if c["role"] in ("neutral_light", "neutral_dark", "modesty")]     # never the partner's colours
+        best = max(shared, key=lambda pid: min(de2000_hex(pal[pid], pal[r]) for r in refs if r in pal))
         face["lash_ref"] = best
 
 

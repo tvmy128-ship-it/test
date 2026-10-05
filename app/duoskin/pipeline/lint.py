@@ -25,7 +25,7 @@ from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 from duoskin.checks import plan_rules as PR
-from duoskin.checks import policy, runner
+from duoskin.checks import policy, runner, thresholds
 from duoskin.checks.model import CheckResult
 from duoskin.checks.plan_rules import Finding, LintReport, PlanLintCtx
 from duoskin.models.common import sha256_of
@@ -229,7 +229,7 @@ def gate1_set_shape(shown: Sequence[Mapping[str, Any] | DuoSpec], *, wildcard_dr
         return SetShape(True, "", f"{len(specs)} plans, one wildcard")
     if wildcard_dropped or n_wild == 0:
         return SetShape(True, WILDCARD_NOTICE, f"{len(specs)} plans; {WILDCARD_NOTICE}")
-    why = "; ".join(dropped_reasons)[:200]
+    why = "; ".join(dropped_reasons)[:int(thresholds.tv("runner.evidence_max"))]
     return SetShape(True, f"only {len(specs)} plans could be built" + (f": {why}" if why else ""), f"{len(specs)} plans, {n_wild} wildcard(s)")
 
 
