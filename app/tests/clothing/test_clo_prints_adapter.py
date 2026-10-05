@@ -19,6 +19,12 @@ TEE = R.load_recipe("tee")
 JEANS = R.load_recipe("jeans_straight")
 
 
+def hard_failures(res):
+    """The test glyph is a capital letter, which real OCR (rapidocr, installed on Windows) reads at 0.99: the A_OCR verdict on a
+    print is covered in tests/imaging/test_img_ocr_glyph.py, so it is left out of these placement checks."""
+    return [c for c in V.failures(res.checks) if c.check_id != "A_OCR"]
+
+
 def spec(region="torso_b", scale="large", **kw):
     return PP.PrintSpec(kw.pop("part_id", "a.print.top.0"), region, scale, glyph_rgba(24), **kw)
 
@@ -50,7 +56,7 @@ def test_print_is_placed_inside_its_slot_without_mirroring_clo12():
     assert T.band_of_rows("torso_b", by0, by1) is not None
     sx0, sy0, sx1, sy1 = next(s.box for s in TEE.print_slots if s.region == "torso_b")
     assert sx0 <= bx0 and bx1 <= sx1 and sy0 <= by0 and by1 <= sy1                                           # inside the recipe slot
-    assert not V.failures(res.checks) and not V.warnings(res.checks)
+    assert not hard_failures(res) and not V.warnings(res.checks)
 
 
 def test_two_prints_on_front_and_back_are_identical_not_mirrored():
@@ -151,7 +157,7 @@ def test_wrap_print_on_a_cap_is_rejected_and_assert_clo16_on_plain_prints():
         PP.plan_prints([PP.PrintSpec("w", "torso_u", "small", glyph_rgba(24), wrap=True)], [])
     res = compose("tee", prints=[PP.PrintSpec("w", "torso_f", "large", glyph_rgba(40), wrap=True)], run_checks=True)
     assert {p.region for p in res.placements} == {"torso_f", "torso_l"}
-    assert (res.label_map == 3).any() and not V.failures(res.checks)
+    assert (res.label_map == 3).any() and not hard_failures(res)
     lm = res.label_map
     # the printed rows are the same on both sides of the seam where the glyph crosses it
     fr = np.nonzero(T.crop(lm, "torso_f")[:, -1] == 3)[0]
@@ -220,7 +226,7 @@ def test_compose_template_reads_a_character_like_object():
     res = C.compose_template("shirt", char(), PALETTE, prints)
     assert (res.label_map == 3).any() and (res.label_map == 5).any() and res.meta["recipe_id"] == "tee"
     assert res.meta["colours"]["base"] == [86, 150, 200] and res.meta["fabric_id"] == "jersey_plain"
-    assert not V.failures(res.checks)
+    assert not hard_failures(res)
     # attribute-style objects work as well as dicts
     obj = SimpleNamespace(top=SimpleNamespace(**{**char()["top"], "prints": [SimpleNamespace(**char()["top"]["prints"][0])]}))
     again = C.compose_template("shirt", obj, [SimpleNamespace(**c) for c in PALETTE], {"print.top.0": glyph_rgba(24)})
@@ -234,7 +240,7 @@ def test_compose_template_pants_with_shoes_legwear_and_motif():
     lm = res.label_map
     assert (lm == 6).any() and (lm == 7).any()
     assert {p.region for p in res.placements} == {"rlimb_r", "llimb_l"} and res.meta["fabric_id"] == "denim_classic"
-    assert not V.failures(res.checks)
+    assert not hard_failures(res)
     nm = C.compose_template("pants", c, PALETTE, {})
     assert nm.layer_stack_hash != res.layer_stack_hash                          # no art, no placements
 

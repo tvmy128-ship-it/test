@@ -45,7 +45,7 @@ const bannerTone = (t) => (/FBX not produced|off$|degraded|No Head|Standard Bloc
 /** What stopped the kit, in plain words (the gate's check ids and part ids stay in the log). @param {any} data @param {string} status */
 function blockedText(data, status) {
   const checks = /** @type {string[]} */ (data.checks ?? []);
-  if (data.mock || /mock source|DEMO/i.test(String(data.reason ?? ""))) return "The final checks stopped the kit, because this duo was made with practice (demo) pictures and models. Nothing here can be exported.";
+  if (data.mock || /mock source|DEMO/i.test(String(data.reason ?? ""))) return "The final checks stopped the kit, because this duo was made with practice (demo) services. Nothing here can be exported.";
   const WORDS = /** @type {Record<string, string>} */ ({
     "CHK-E01": "Some parts are missing or not finished, so there is nothing complete to hand over yet.",
     "CHK-E02": "A part changed after you approved it. Open the part board and approve it again.",
@@ -120,7 +120,7 @@ export async function render(ctx) {
       return;
     }
     if (status === "blocked" || status === "failed") {
-      const preview = data.preview?.checklist?.items?.length ? data.preview : null;
+      const preview = demo && data.preview?.checklist?.items?.length ? data.preview : null;      // only demo mode ends with a preview; in normal mode the block is the message
       setChildren(body, ...bannerNotes, panel({ class: "panel-error", title: preview ? "Export preview: nothing was written" : status === "blocked" ? "The kit is not ready to upload" : "The kit could not be made" },
         h("p", {}, blockedText(data, status)),
         data.mock ? h("p", { class: "muted" }, demo ? "Demo mode is on, so this is the end of the road for a practice duo: you can look at everything, but it can never be uploaded. To make a duo you can upload, turn demo mode off, add your keys in Setup and start a new duo."

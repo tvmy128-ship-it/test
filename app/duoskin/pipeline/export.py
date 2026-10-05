@@ -605,7 +605,7 @@ def export_preview(rt: Runtime, project_id: str, spec: dict[str, Any], *, mock: 
         return {"checklist": CL.to_json(checklist), "banners": banners,
                 "items": [{"item_id": i["item_id"], "character": i["character"], "type": i["type"], "category": i["category"],
                            "upload_channel": i["upload_channel"], "fee_robux": i["fee_robux"]} for i in shippable]}
-    except Exception:  # noqa: BLE001  (a preview is a courtesy; the block and its reason are what matter)
+    except Exception:  # a preview is a courtesy; the block and its reason are what matter
         log.exception("could not build the export preview")
         return None
 

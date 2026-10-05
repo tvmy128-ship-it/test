@@ -262,7 +262,7 @@ def board_gate(rt: Any, p: Project, *, warnings: int = 0, hard_fail_on: str | No
     return rt.gates.open_gate(Gate(id="", project_id=p.id, job_id=j.id, kind=GateKind.PART_BOARD, tiles=tiles, opened_at=utcnow()))
 
 
-def final_gate(rt: Any, p: Project, candidates: int = 1, glb_sha: str | None = None, *, similarity_on: bool = False) -> Gate:
+def final_gate(rt: Any, p: Project, candidates: int = 1, glb_sha: str | None = None, *, similarity_on: bool = False, facts_extra: dict | None = None, strip_width: int = 160) -> Gate:
     """Gate 3 as pipeline/duo.py builds it: ``a.front``-style pictures, one ``phone_strip`` and one ``face_poses`` picture, ``facts.judge``,
     ``facts.ip``, ``facts.similarity.on`` and the banners as badges."""
     j = job(rt, p.id, JobKind.DUO)
@@ -272,7 +272,7 @@ def final_gate(rt: Any, p: Project, candidates: int = 1, glb_sha: str | None = N
         for c, pal in (("a", "koi"), ("b", "teal")):
             for s in ("front", "back", "left", "right", "three_quarter"):
                 assets[f"{c}.{s}"] = put(rt, figure_png(pal, "back" if s == "back" else "front", (160, 240), skin=SKINS[1] if c == "b" else None))
-        strip = Image.new("RGBA", (160, 112), (0, 0, 0, 0))
+        strip = Image.new("RGBA", (strip_width, 112), (0, 0, 0, 0))
         strip.alpha_composite(Image.open(io.BytesIO(figure_png("koi", "front", (75, 112)))).convert("RGBA"), (0, 0))
         strip.alpha_composite(Image.open(io.BytesIO(figure_png("koi", "back", (75, 112)))).convert("RGBA"), (85, 0))
         buf = io.BytesIO()
@@ -292,5 +292,6 @@ def final_gate(rt: Any, p: Project, candidates: int = 1, glb_sha: str | None = N
                  "judge": {"levels": {"belong_together": "strong", "thumbnail_readability": "ok"}, "notes": ["The pair reads as a set from across the room.", "B's lantern is the clear focal point."]},
                  "ip": {"passed": True, "unsure": False}, "similarity": {"on": similarity_on}, "banners": banners, "clone_evidence": "no close match in your earlier duos",
                  "blocking": [], "ip_unsure": False, "rebuilt": [], "warnings": []}
+        facts.update(facts_extra or {})
         tiles.append(GateTile(tile_id=f"cand{i}", label=f"Candidate {i + 1}", state=TileState.READY, assets=assets, facts=facts, badges=banners, allowed_actions=allowed_actions_for(GateKind.FINAL_PICK)))
     return rt.gates.open_gate(Gate(id="", project_id=p.id, job_id=j.id, kind=GateKind.FINAL_PICK, tiles=tiles, opened_at=utcnow()))

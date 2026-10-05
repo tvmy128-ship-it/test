@@ -3961,7 +3961,7 @@
    "threshold_keys": [],
    "fm_ids": [],
    "title": "Gate B rule ip_age_appropriate",
-   "warn_text": "Clothing covers torso and hips as everyday casual wear; nothing is suggestive, revealing, violent, or crude, and no hate or drug symbols appear.",
+   "warn_text": "Torso and hips are covered by clothing or by a plain base layer, as everyday casual wear; nothing is suggestive, revealing, violent, or crude, and no hate or drug symbols appear.",
    "contract_ids": [],
    "requires": [],
    "demotable": false

@@ -148,5 +148,98 @@ def test_a_failed_required_check_is_said_in_words_not_as_a_check_code_or_a_measu
     assert got[1] == ["Face lines stand out on every skin tone", "The 2D face is complete"]
     assert got[2] == ["The shirt colour is too far from the palette."]
     assert got[3] == ["something specific"] and got[4] == ["A required check did not pass"]
-    for line in sum(got, []):
+    for line in [line for lines in got for line in lines]:
         assert "#" not in line and "dE" not in line and "_" not in line.replace("A required check did not pass", "")
+
+
+def test_gate_3_says_the_measured_facts_in_words_whatever_shape_the_pipeline_sends(ui, live, plain_gates):
+    p = seed.project(live.rt, "Night Market", "bg", Stage.GATE3)
+    seed.final_gate(live.rt, p, candidates=1, facts_extra={
+        "checks": {"total": 12, "passed": 11, "hard_failures": [{"id": "F_LINE_SKIN", "evidence": "lash on tone_1: dE 8.6 < 20"}]},
+        "clone_evidence": "tripped: none; nearest=0.31; degraded=true",
+        "ip": {"ok": False, "unsure": ["R_TEXT"], "fails": ["R_LOGO"]}})
+    ui.goto(f"/p/{p.id}/gate3")
+    reviews = ui.page.locator(".candidate .reviews").inner_text()
+    assert "11 of 12 required checks passed" in reviews and "Not passed: Face lines stand out on every skin tone" in reviews
+    assert "The two characters look different enough from each other." in reviews and "lighter version" in reviews
+    assert "Something in the pictures may look like a brand, a known character or writing." in reviews
+    for raw in ("tripped", "nearest=", "dE ", "F_LINE_SKIN", "R_LOGO", "hard_failures", "{", "}"):
+        assert raw not in reviews, raw
+    ui.shot("review_gate3_facts_in_words", full=False)
+    ui.no_errors()
+
+
+def _blocked_export(preview: bool) -> dict:
+    step = {"step_id": "confirm_final", "text": "Check the final pictures", "ticked": False, "locked": False}
+    item = {"item_id": "a_shirt", "character": "a", "type": "Shirt", "channel_text": "Upload as a shirt.", "steps": [step]}
+    return {"status": "blocked", "reason": "CHK-E01: a part still comes from a practice (mock) source", "mock": True, "banners": [], "version": 0,
+            "preview": {"checklist": {"items": [item]}, "items": [{"item_id": "a_shirt", "character": "a", "type": "Shirt"}]} if preview else None}
+
+
+def test_the_export_preview_lists_the_kit_in_demo_mode_and_says_why_it_cannot_be_uploaded(ui, live):
+    p = seed.project(live.rt, "Night Market", "bg", Stage.GATE3)
+    ui.page.route(re.compile(r"/api/exports/"), lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps(_blocked_export(True))))
+    ui.page.route(re.compile(r"/api/health$"), lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps({"ok": True, "demo": True})))
+    ui.goto(f"/p/{p.id}/export")
+    expect(ui.page.get_by_role("heading", name="Export preview: nothing was written")).to_be_visible()
+    main = ui.page.locator("main")
+    expect(main).to_contain_text("practice (demo) services")
+    expect(main).to_contain_text("Demo mode is on")
+    expect(main.get_by_role("heading", name="What the kit would contain")).to_be_visible()
+    expect(main.locator(".check-item")).to_have_count(1)
+    expect(main.locator(".check-item input[type=checkbox]")).to_be_disabled()                       # nothing was written: nothing can be ticked
+    expect(main.get_by_role("link", name="Back to the final pick")).to_be_visible()
+    expect(main.get_by_role("link", name="Back to the duo")).to_be_visible()
+    assert "CHK-E01" not in main.inner_text() and "a_shirt" not in main.inner_text()
+    ui.shot("review_export_preview_demo", full=False)
+
+
+def test_the_blocked_export_in_normal_mode_has_no_demo_wording_and_no_preview(ui, live):
+    p = seed.project(live.rt, "Night Market", "bg", Stage.GATE3)
+    ui.page.route(re.compile(r"/api/exports/"), lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps(_blocked_export(True))))
+    ui.page.route(re.compile(r"/api/health$"), lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps({"ok": True, "demo": False})))
+    ui.goto(f"/p/{p.id}/export")
+    expect(ui.page.get_by_role("heading", name="The kit is not ready to upload")).to_be_visible()
+    main = ui.page.locator("main")
+    expect(main).to_contain_text("practice stand-ins")
+    assert "Demo mode is on" not in main.inner_text() and ui.page.locator(".check-item").count() == 0
+
+
+def test_the_cost_bar_and_the_costs_page_call_demo_prices_pretend(ui, live):
+    ui.goto("/")
+    got = ui.page.evaluate("""async () => {
+        const { renderCostBar } = await import('/web/components/costbar.js');
+        const text = (demo) => { const host = document.createElement('div'); renderCostBar(host, { demo, todayUsd: 1.5, project: { name: 'x', spent_usd: 2, settings: { budget_usd: 15 } } }); return host.innerText || host.textContent; };
+        return [text(true), text(false)];
+    }""")
+    assert "Pretend spend on this duo" in got[0] and "Pretend spend today" in got[0] and "Spent on this duo" not in got[0]
+    assert "Spent on this duo" in got[1] and "Today, all duos" in got[1] and "Pretend" not in got[1]
+
+
+def test_a_finished_build_step_shows_no_log_line_and_a_thin_model_is_explained(ui, live):
+    from datetime import timedelta
+
+    from duoskin.models.job import JobKind, Step, StepState
+    p = seed.project(live.rt, "Moon Tea", "gg", Stage.BUILDING)
+    seed.board_gate(live.rt, p)
+    j = seed.job(live.rt, p.id, JobKind.BUILD)
+    now = utcnow()
+    live.rt.repo.insert_steps([
+        Step(id="stp_done", job_id=j.id, project_id=p.id, part_id="a.shirt", kind="clothing.compose", state=StepState.SUCCEEDED, progress=1.0, message="4 draft(s) by I5", created_at=now, finished_at=now),
+        Step(id="stp_wait", job_id=j.id, project_id=p.id, part_id="a.hair", kind="manual.wait", state=StepState.WAITING_USER, message="waiting_user: inbox", created_at=now, not_before=now + timedelta(hours=1))])
+    ui.goto(f"/p/{p.id}/build")
+    main = ui.page.locator("main").inner_text()
+    assert "4 draft(s) by I5" not in main and "waiting_user" not in main
+    expect(ui.page.locator(".build-part", has_text="A · Hair")).to_contain_text("Waiting for your 3D file.")
+
+
+def test_gate_3_does_not_scroll_sideways_on_a_narrow_window(ui, live, plain_gates):
+    p = seed.project(live.rt, "Night Market", "bg", Stage.GATE3)
+    seed.final_gate(live.rt, p, candidates=1, strip_width=600)             # shown at twice its size: 1200 px, wider than the window
+    ui.page.set_viewport_size({"width": 700, "height": 900})
+    ui.goto(f"/p/{p.id}/gate3")
+    expect(ui.page.locator(".candidate")).to_have_count(1)
+    ui.page.wait_for_timeout(400)
+    widths = ui.page.evaluate("[document.documentElement.scrollWidth, window.innerWidth, document.querySelector('.phone-strip').scrollWidth, document.querySelector('.phone-strip').clientWidth]")
+    assert widths[0] <= widths[1], f"the page scrolls sideways: {widths}"
+    assert widths[3] <= widths[1]

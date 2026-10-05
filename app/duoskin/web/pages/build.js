@@ -19,10 +19,18 @@ const FREE_BANNER = "This file came from Tripo's FREE plan, so the model is publ
 function stepNote(s) {
   // a finished step says nothing more: its message is the handler's own log line ("4 draft(s) by I5", "4/4 pass Gate A")
   if (["succeeded", "superseded", "cancelled"].includes(s.state)) return "";
+  if (s.state === "waiting_user") return "Waiting for your 3D file.";
   if (s.remote_state === "slow") return "Taking a bit longer than usual. That is normal for 3D models; it keeps checking by itself.";
   if (s.remote_state === "submission_uncertain") return "Checking whether Tripo received the job…";
   if (s.remote_state === "polling" || s.remote_state === "submitted") return "Tripo is working on it.";
   return s.message || "";
+}
+
+/** Why the automatic model was not used, without the check code: "CHK-M04: 6% of the surface is thinner than 0.05 stud" -> a sentence. @param {string} text */
+function plainReason(text) {
+  const t = String(text || "").replace(/^(CHK-[A-Z0-9]+|[A-Z]_[A-Z_]+):\s*/, "");
+  if (/thinner than/.test(t)) return `The automatic model was too thin in places (${t}). Roblox needs at least 0.05 stud.`;
+  return /^[A-Z]/.test(t) ? t : t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 /** @param {import("../router.js").PageContext} ctx */
@@ -115,7 +123,7 @@ function manualImportPanel(projectId, gate, refresh) {
   const folder = String(f.folder || f.pack_dir || "");
   const partId = tile.part_id || f.part_id || "";
   const slot = h("div", { class: "import-slot" });
-  const status = h("p", { class: "muted", role: "status" }, f.inbox_status ? String(f.inbox_status) : f.reason && f.reason !== "made by hand" ? String(f.reason) : "Waiting for your file. Drop it here, or save it in the pack's return folder.");
+  const status = h("p", { class: "muted", role: "status" }, f.inbox_status ? String(f.inbox_status) : f.reason && f.reason !== "made by hand" ? plainReason(f.reason) : "Waiting for your file. Drop it here, or save it in the pack's return folder.");
   const openFolder = h("button", { type: "button", class: "btn", onclick: async () => {
     try { await post("/api/os/open-folder", { kind: f.kind === "polish" ? "polish_pack" : "tripo_pack", id: packId }); toast("Opened the pack folder in Explorer.", { kind: "ok" }); } catch (e) {
       toast(e instanceof ApiError && e.unavailable ? "Opening folders is not available yet in this build. The folder path is shown above." : friendly(e), { kind: "warn" });

@@ -25,7 +25,7 @@
   {
    "id": "ip_age_appropriate",
    "group": "Always-on",
-   "statement": "Clothing covers torso and hips as everyday casual wear; nothing is suggestive, revealing, violent, or crude, and no hate or drug symbols appear.",
+   "statement": "Torso and hips are covered by clothing or by a plain base layer, as everyday casual wear; nothing is suggestive, revealing, violent, or crude, and no hate or drug symbols appear.",
    "hard": true,
    "used_by": "concept, garments on the render, duo"
   },

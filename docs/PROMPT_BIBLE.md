@@ -1145,7 +1145,7 @@ Only the quoted statement is sent to the judge; text after it in the same cell i
 | ip_no_brand | "No logo, brand mark, trademark-like symbol, mascot of a company, or platform icon is visible anywhere." | every asset, concept, duo, **and the face-on-head pose sheet (C4), the I4 hair front and its T1 views, and the Gate 2 per-character composite (face on head + hair front)** | H |
 | ip_no_known_character | "Nothing depicts or closely imitates a well-known character from games, anime, films, cartoons or toys." | concept, prints, badges, accessories, duo, **and the face-on-head pose sheet (C4), the I4 hair front and its T1 views, and the Gate 2 per-character composite** (a signature hairstyle plus face is the likeliest anime look-alike, so it is caught before BUILD, not first at export) | H |
 | ip_no_text | "No letters, numbers, words or letter-like marks (in any script) are visible." | every asset, including the face pose sheet, hair front and Gate 2 composite | H |
-| ip_age_appropriate | "Clothing covers torso and hips as everyday casual wear; nothing is suggestive, revealing, violent, or crude, and no hate or drug symbols appear." | concept, garments on the render, duo | H |
+| ip_age_appropriate | "Torso and hips are covered by clothing or by a plain base layer, as everyday casual wear; nothing is suggestive, revealing, violent, or crude, and no hate or drug symbols appear." | concept, garments on the render, duo | H |
 | **Concept (I1)** | | | |
 | cn_blocky_body | "The figures keep the blocky body from the guide: a cube head, a box torso, and straight box arms and legs." | I1 | H |
 | cn_front_face | "The left figure shows a flat 2D anime-style face (eyes and mouth) on the front of the cube head." | I1 | H |

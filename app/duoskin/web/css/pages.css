@@ -114,7 +114,8 @@
 .sides { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; padding: 10px 12px; background: var(--media); border-radius: var(--radius-sm); margin-bottom: 8px; }
 .sides .char-chip { align-self: center; }
 .sides .fig.small img { max-height: 190px; }
-.phone-strip { display: flex; gap: 20px; flex-wrap: wrap; }
+.candidate > * { min-width: 0; }                                  /* a wide picture must scroll inside its section, never widen the page */
+.phone-strip { display: flex; gap: 20px; flex-wrap: wrap; max-width: 100%; overflow-x: auto; }
 .phone-strip img { max-width: none; }
 .reviews { display: grid; gap: 12px; }
 .reviews h4 { margin: 0 0 4px; color: var(--muted); font-size: 14px; text-transform: uppercase; letter-spacing: .04em; }

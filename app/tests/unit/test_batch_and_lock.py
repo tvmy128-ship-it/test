@@ -332,7 +332,7 @@ def good_world(**over) -> World:
         'py -V:3.14 "tools\\probe_python.py"': 0, '"py" -V:3.14 --version': 0, 'py -V:3.14 --version': 0,
         'py -V:3.14 -m venv': 0,
         f"{VENV_PY} -m pip install --require-hashes": 0, f"{VENV_PY} -m duoskin selfcheck": 0,
-        f"{VENV_PY} -m duoskin doctor": 0, f"{VENV_PY} -m duoskin run": 0, f'{VENV_PY} "tools\\install_deps.py"': 0,
+        f"{VENV_PY} -m pip --version": 0, f"{VENV_PY} -m duoskin doctor": 0, f"{VENV_PY} -m duoskin run": 0, f'{VENV_PY} "tools\\install_deps.py"': 0,
         f'{VENV_PY} "tools\\probe_python.py"': 0,
     })
 
@@ -433,6 +433,14 @@ def test_setup_rebuilds_a_venv_that_is_broken_or_from_linux():
     w2.commands[f'{VENV_PY} "tools\\probe_python.py"'] = 1                           # its base Python was uninstalled
     assert run_bat("setup.bat", w2) == 0
     assert "RMDIR .venv" in w2.log and any(c.startswith("py -V:3.14 -m venv") for c in w2.log)
+
+
+def test_setup_rebuilds_a_venv_whose_first_run_was_closed_before_pip_was_installed():
+    w = good_world()
+    w.files.add(".venv\\Scripts\\python.exe")
+    w.commands[f"{VENV_PY} -m pip --version"] = 1
+    assert run_bat("setup.bat", w) == 0
+    assert "RMDIR .venv" in w.log and any(c.startswith("py -V:3.14 -m venv") for c in w.log)
 
 
 def test_setup_reports_a_venv_failure():

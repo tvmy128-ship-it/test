@@ -91,6 +91,8 @@ def register_mock_roles(register: Any) -> None:
     register("TasteProfile", taste_builder)
     register("ElementList", inventory_builder)
     register("ChangePlan", change_builder)
+    register("DuoReview", duo_review_builder)
+    register("IpCheck", ip_check_builder)
 
 
 # ---------------------------------------------------------------------------------------------------- helpers
@@ -199,8 +201,6 @@ def _lint_ready(spec: dict[str, Any], plan: int, inv: Any) -> None:
     """Touch up what the base generator leaves for the plan linter: real kit hair styles (never ``hair_custom``), a hair ornament in the
     hat category, no banned word in a description, and a lash colour at least 10 dE2000 away from both iris colours (the generator reuses
     the dark neutral for all three)."""
-    from duoskin.imaging.palette import de2000_hex
-
     ink = next(c for c in spec["palette"] if c["role"] == "neutral_dark")
     ink["hex"], ink["name"] = FACE_INK, "indigo"
     _separate_hair_colours(spec, inv)
@@ -284,6 +284,28 @@ def planner_builder(call: Any) -> dict[str, Any]:
     if not broken and not replacement:
         PlanSet.model_validate(out)                  # fail loudly here if a rule changed under this builder
     return out
+
+
+# ---------------------------------------------------------------------------------------------------- L12
+def duo_review_builder(call: Any) -> dict[str, Any]:
+    """``DuoReview`` (L12): a calm review with no defect. The generic answer put "Mock blocking defects" on the Gate 3 page as a judge's note."""
+    from typing import get_args
+
+    from duoskin.models.llm_io import DuoLevel
+
+    crits = get_args(DuoLevel.model_fields["criterion"].annotation) or ()
+    levels = ("strong", "ok", "ok", "strong")
+    return {"per_criterion": [{"criterion": c, "evidence": "Practice mode: the pair reads as one duo at a glance.", "level": levels[i % len(levels)]}
+                              for i, c in enumerate(crits)],
+            "blocking_defects": []}
+
+
+def ip_check_builder(call: Any) -> dict[str, Any]:
+    """``IpCheck`` (L13): every rule passes. The generic answer drew a random verdict, so a demo duo could be "unsure" about a brand it does not have
+    and the Gate 3 pick then asked for a note."""
+    rules = ("ip_no_brand", "ip_no_known_character", "ip_no_text", "ip_age_appropriate")
+    return {"items": [{"rule_id": r, "observation": "Practice mode: nothing here looks like a brand, a known character or writing.", "verdict": "pass",
+                       "resembles": "", "location": "none"} for r in rules]}
 
 
 # ---------------------------------------------------------------------------------------------------- L4, L5

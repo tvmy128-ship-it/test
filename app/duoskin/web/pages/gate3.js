@@ -14,7 +14,7 @@ import { openDialog } from "../components/modal.js";
 import { openGatePanels, failedStepsPanel } from "../components/gatepanels.js";
 import { warningList } from "../components/warnings.js";
 import { toast } from "../components/toast.js";
-import { nextAction, roleLabel } from "../text.js";
+import { nextAction, roleLabel, checkLabel } from "../text.js";
 
 const SIDES = ["front", "back", "left", "right", "three_quarter"];
 const SIDE_LABEL = /** @type {Record<string, string>} */ ({ front: "Front", back: "Back", left: "Left", right: "Right", three_quarter: "Three-quarter" });
@@ -87,15 +87,28 @@ function candidate(gate, t, i, project, parts, similarityOn, firstChoice, refres
   const viewer = glbs.length ? viewerPanel({ models: glbs.map(([r, sha]) => ({ url: casUrl(sha, extForRole(r)) })), height: 340, caption: "Both characters. Drag to turn, scroll to zoom." }) : null;
   if (viewer) viewers.push(viewer);
   const ip = facts.ip ?? facts.ip_result;
-  const ipOk = ip == null ? null : typeof ip === "object" ? ip.passed !== false && !ip.unsure && ip.ok !== false : Boolean(ip);
-  const ipNote = typeof ip === "object" && ip ? (ip.unsure ? "The check was not sure about this one." : String(ip.notes || ip.note || "")) : "";
+  // pipeline/duo.py stores {ok, fails: [], unsure: [], ocr: []}: an EMPTY list means nothing was found (an empty array is truthy in JS)
+  const list = (/** @type {any} */ v) => (Array.isArray(v) ? v : v ? [v] : []);
+  const ipUnsure = typeof ip === "object" && ip ? list(ip.unsure) : [];
+  const ipFails = typeof ip === "object" && ip ? [...list(ip.fails), ...list(ip.ocr)] : [];
+  const ipOk = ip == null ? null : typeof ip === "object" ? ip.passed !== false && ip.ok !== false && !ipUnsure.length && !ipFails.length : Boolean(ip);
+  const ipNote = typeof ip !== "object" || !ip ? "" : ipFails.length ? "Something in the pictures may look like a brand, a known character or writing." : ipUnsure.length ? "The check was not sure about this one." : String(ip.notes || ip.note || "");
   const sim = facts.similarity;
   const simOn = sim && typeof sim === "object" && "on" in sim ? Boolean(sim.on) : similarityOn;
   const simDone = sim && typeof sim === "object" ? Object.keys(sim).some((k) => k !== "on" && sim[k] != null) : Boolean(sim);
   const rebuilt = /** @type {string[]} */ ((facts.rebuilt ?? facts.rebuilt_parts ?? []).map((/** @type {string} */ x) => String(x).replace(/\./g, " ")));
   const judgeNotes = textLines(facts.judge_notes ?? facts.judge?.notes);
   const judgeLevels = Object.entries(/** @type {Record<string, string>} */ (facts.judge?.levels ?? {}));
-  const code = [...textLines(facts.code_facts), ...textLines(facts.checks), ...textLines(facts.clone_evidence)];
+  // the measured facts, in words: how many required checks passed (and which did not), and whether the two characters look different enough
+  const counted = facts.checks && typeof facts.checks === "object" && !Array.isArray(facts.checks) && ("total" in facts.checks || "hard_failures" in facts.checks);
+  const checks = counted ? facts.checks : null;                                  // {total, passed, hard_failures}; any other shape is shown as text
+  const failedChecks = checks ? list(checks.hard_failures).map((/** @type {any} */ x) => checkLabel(String(x?.id ?? x?.check_id ?? x), "A required check")) : [];
+  const cloneText = String(facts.clone_evidence || "");
+  const code = [...textLines(facts.code_facts),
+    ...(checks ? [Number(checks.total) ? `${checks.passed ?? 0} of ${checks.total} required checks passed` : "", ...failedChecks.map((c) => `Not passed: ${c}`)].filter(Boolean) : textLines(facts.checks)),
+    ...(!cloneText ? [] : !/[=;]|\d\.\d|tripped/.test(cloneText) ? [cloneText]      // a sentence already
+      : [/tripped:\s*none/i.test(cloneText) ? "The two characters look different enough from each other." : "The two characters may look too alike."]
+        .concat(/degraded/i.test(cloneText) ? ["A lighter version of this check was used (the optional picture-comparison model is not installed)."] : []))];
   const blocking = textLines(facts.blocking);
   const pick = h("button", { type: "button", class: "btn primary big", disabled: picked || blocking.length > 0, title: blocking.length ? "Something needs fixing before you can pick this duo." : "", "data-action": "pick", onclick: async () => {
     const r = await decide(gate, t, "pick", { what: `candidate ${i + 1}` });
@@ -116,7 +129,7 @@ function candidate(gate, t, i, project, parts, similarityOn, firstChoice, refres
     assets.sheet ? h("section", {}, h("h3", {}, "The whole duo"), h("div", { class: "hero" }, figure(assets.sheet, "sheet"))) : null,
     h("section", {}, h("h3", {}, "From every side"), sideRow("a"), sideRow("b")),
     phone.length ? h("section", {}, h("h3", {}, "On a phone screen"), h("div", { class: "phone-strip" }, phone.map(([r, sha]) => h("figure", { class: "fig" }, casImage(sha, { alt: roleLabel(r), className: "pixelated", onLoad: (img) => { img.style.width = `${img.naturalWidth * 2}px`; } }), h("figcaption", {}, roleLabel(r)))))) : null,
-    poses.length ? h("section", {}, h("h3", {}, "The face in five poses"), h("div", { class: "strip" }, poses.map(([r, sha]) => h("figure", { class: r === "face_poses" ? "fig" : "fig small" }, casImage(sha, { alt: r === "face_poses" ? "The face in five poses" : roleLabel(r) }), r === "face_poses" ? null : h("figcaption", {}, roleLabel(r)))))) : null,
+    poses.length ? h("section", {}, h("h3", {}, "The face in five poses"), h("div", { class: poses.some(([r]) => r === "face_poses") ? "hero" : "strip" }, poses.map(([r, sha]) => h("figure", { class: r === "face_poses" ? "fig" : "fig small" }, casImage(sha, { alt: r === "face_poses" ? "The face in five poses" : roleLabel(r) }), r === "face_poses" ? null : h("figcaption", {}, roleLabel(r)))))) : null,
     viewer ? h("section", {}, h("h3", {}, "In 3D"), viewer.el) : null,
     h("section", { class: "reviews" }, h("h3", {}, "What the checks say"),
       judgeNotes.length ? h("div", {}, h("h4", {}, "The judge's notes"), h("ul", {}, judgeNotes.map((l) => h("li", {}, l)))) : h("p", { class: "muted" }, "No judge's notes yet."),

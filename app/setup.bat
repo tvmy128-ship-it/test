@@ -45,6 +45,10 @@ if exist ".venv" if not exist ".venv\Scripts\python.exe" rmdir /s /q ".venv"
 if exist ".venv\Scripts\python.exe" (
   ".venv\Scripts\python.exe" "tools\probe_python.py" <nul >nul 2>&1 || rmdir /s /q ".venv"
 )
+rem    A first run that was closed half way can leave a .venv without pip: rebuild it too.
+if exist ".venv\Scripts\python.exe" (
+  ".venv\Scripts\python.exe" -m pip --version <nul >nul 2>&1 || rmdir /s /q ".venv"
+)
 if exist ".venv\Scripts\python.exe" goto :venv_ok
 echo Creating the virtual environment in .venv ...
 "%PYEXE%" %PYARG% -m venv ".venv"

@@ -11,7 +11,6 @@ friendly state a person can recover from.
 from __future__ import annotations
 
 import re
-import time
 from pathlib import Path
 
 import httpx
@@ -287,7 +286,16 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     panel = ui.page.locator(".gate-panel.manual")
     expect(panel).to_contain_text("Make")
     expect(panel).to_contain_text(facts["pack_id"])
-    expect(panel.get_by_role("button", name="Open the pack folder")).to_be_visible()
+    opened: list[dict] = []
+    ui.page.route(re.compile(r"/api/os/open-folder$"), lambda r: (opened.append(r.request.post_data_json), r.fulfill(status=204)))     # no file manager in a test
+    panel.get_by_role("button", name="Open the pack folder").click()
+    ui.wait_until(lambda: opened, 10, "the open-folder call")
+    assert opened[0]["kind"] == "tripo_pack" and opened[0]["id"] == facts["pack_id"]
+    settings_txt = (pack / "SETTINGS.txt").read_text(encoding="utf-8")                                 # the pack info: what to choose on Tripo's website
+    panel.locator("details", has_text="What to choose on Tripo").locator("summary").click()
+    shown = panel.locator("details", has_text="What to choose on Tripo").inner_text()
+    assert len(settings_txt) > 100 and any(line.strip() and line.strip() in shown for line in settings_txt.splitlines()[:12]), "the pack info is on the page too"
+    dismiss_toasts(ui)
     clean(ui, "manual import panel")
     ui.shot("18_build_manual_pack")
 
@@ -354,11 +362,11 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     rt = live.rt
     rt.provider_override = None
     rt.update_settings({"demo_mode": False, "providers": {"modes": {p: "mock" for p in ("anthropic", "openai", "recraft", "tripo", "gemini")}}})
-    ui.page.reload()
-    ui.page.get_by_role("link", name="Back to the final pick").click()
     ui.page.goto(f"{live.url}/#/p/{pid}/export")
+    ui.page.reload()
     expect(ui.page.locator("#demo-banner")).to_be_hidden()
-    expect(ui.page.get_by_role("heading", name=re.compile("Export preview|not ready to upload"))).to_be_visible()
+    expect(ui.page.get_by_role("heading", name="The kit is not ready to upload")).to_be_visible()
+    assert ui.page.locator(".check-item").count() == 0, "normal mode shows the block, not the preview"
     expect(ui.page.locator("main")).to_contain_text("Nothing here can be exported")
     expect(ui.page.locator("main")).to_contain_text("practice stand-ins")
     clean(ui, "export blocked, normal mode")
