@@ -117,50 +117,67 @@ def fit_camera(view: str, points: np.ndarray, width: int, height: int, margin: f
 # --------------------------------------------------------------------------------------------------------------------
 # triangle rasteriser
 # --------------------------------------------------------------------------------------------------------------------
+def _fragments(xy: np.ndarray, z: np.ndarray, width: int, height: int):
+    """Covered pixel centres of triangles ``xy`` (m,3,2) / ``z`` (m,3), generated per scanline span (no bounding-box waste).
+
+    Returns ``(pix, depth, local triangle index)`` or None. A pixel is covered when its centre lies inside the triangle.
+    """
+    m = len(xy)
+    if m == 0:
+        return None
+    x0, y0, x1, y1, x2, y2 = (xy[:, 0, 0], xy[:, 0, 1], xy[:, 1, 0], xy[:, 1, 1], xy[:, 2, 0], xy[:, 2, 1])
+    denom = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2)
+    ys = xy[:, :, 1]
+    row0 = np.maximum(np.ceil(ys.min(axis=1) - 0.5), 0).astype(np.int64)
+    row1 = np.minimum(np.floor(ys.max(axis=1) - 0.5), height - 1).astype(np.int64)
+    nrows = row1 - row0 + 1
+    nrows[(np.abs(denom) <= 1e-12) | (nrows < 0)] = 0
+    total_rows = int(nrows.sum())
+    if total_rows == 0:
+        return None
+    tri = np.repeat(np.arange(m), nrows)
+    first = np.cumsum(nrows) - nrows
+    row = row0[tri] + (np.arange(total_rows) - np.repeat(first, nrows))
+    yc = row + 0.5
+    xl = np.full(total_rows, np.inf)
+    xr = np.full(total_rows, -np.inf)
+    for a_, b_ in ((0, 1), (1, 2), (2, 0)):
+        ya, yb = xy[tri, a_, 1], xy[tri, b_, 1]
+        xa, xb = xy[tri, a_, 0], xy[tri, b_, 0]
+        cond = ((ya <= yc) & (yc < yb)) | ((yb <= yc) & (yc < ya))
+        dy = np.where(cond, yb - ya, 1.0)
+        xv = xa + (yc - ya) / dy * (xb - xa)
+        xl = np.where(cond, np.minimum(xl, xv), xl)
+        xr = np.where(cond, np.maximum(xr, xv), xr)
+    ok = np.isfinite(xl) & np.isfinite(xr)
+    eps = 1e-7
+    xs = np.maximum(np.ceil(np.where(ok, xl, 0) - 0.5 - eps), 0).astype(np.int64)
+    xe = np.minimum(np.floor(np.where(ok, xr, -1) - 0.5 + eps), width - 1).astype(np.int64)
+    cnt = np.where(ok, np.maximum(xe - xs + 1, 0), 0)
+    total = int(cnt.sum())
+    if total == 0:
+        return None
+    seg = np.repeat(np.arange(total_rows), cnt)
+    start = np.cumsum(cnt) - cnt
+    px = xs[seg] + (np.arange(total) - np.repeat(start, cnt))
+    py = row[seg]
+    g = tri[seg]
+    d = denom[g]
+    cx, cy = px + 0.5 - x2[g], py + 0.5 - y2[g]
+    l0 = ((y1 - y2)[g] * cx + (x2 - x1)[g] * cy) / d
+    l1 = ((y2 - y0)[g] * cx + (x0 - x2)[g] * cy) / d
+    l2 = 1.0 - l0 - l1
+    depth = l0 * z[g, 0] + l1 * z[g, 1] + l2 * z[g, 2]
+    return py * width + px, depth, g
+
+
 def _resolve_chunk(xy: np.ndarray, z: np.ndarray, tri_ids: np.ndarray, width: int, height: int,
                    zbuf: np.ndarray, tbuf: np.ndarray) -> None:
-    """Rasterise triangles ``xy`` (m,3,2) / ``z`` (m,3) and merge the nearest fragment per pixel into the buffers."""
-    x0, y0 = xy[:, 0, 0], xy[:, 0, 1]
-    x1, y1 = xy[:, 1, 0], xy[:, 1, 1]
-    x2, y2 = xy[:, 2, 0], xy[:, 2, 1]
-    denom = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2)
-    ok = np.abs(denom) > 1e-12
-    xmin = np.floor(np.minimum(np.minimum(x0, x1), x2) - 0.5).astype(np.int64)
-    xmax = np.ceil(np.maximum(np.maximum(x0, x1), x2) - 0.5).astype(np.int64)
-    ymin = np.floor(np.minimum(np.minimum(y0, y1), y2) - 0.5).astype(np.int64)
-    ymax = np.ceil(np.maximum(np.maximum(y0, y1), y2) - 0.5).astype(np.int64)
-    xmin, ymin = np.maximum(xmin, 0), np.maximum(ymin, 0)
-    xmax, ymax = np.minimum(xmax, width - 1), np.minimum(ymax, height - 1)
-    w = xmax - xmin + 1
-    h = ymax - ymin + 1
-    ok &= (w > 0) & (h > 0)
-    if not ok.any():
+    """Rasterise triangles and merge the nearest fragment per pixel into the buffers."""
+    frag = _fragments(xy, z, width, height)
+    if frag is None:
         return
-    sel = np.nonzero(ok)[0]
-    w, h = w[sel], h[sel]
-    counts = w * h
-    total = int(counts.sum())
-    if total == 0:
-        return
-    tri = np.repeat(np.arange(len(sel)), counts)
-    starts = np.cumsum(counts) - counts
-    local = np.arange(total) - np.repeat(starts, counts)
-    wt = w[tri]
-    px = xmin[sel][tri] + local % wt
-    py = ymin[sel][tri] + local // wt
-    cx, cy = px + 0.5, py + 0.5
-    g = sel[tri]
-    d = denom[g]
-    l0 = ((y1[g] - y2[g]) * (cx - x2[g]) + (x2[g] - x1[g]) * (cy - y2[g])) / d
-    l1 = ((y2[g] - y0[g]) * (cx - x2[g]) + (x0[g] - x2[g]) * (cy - y2[g])) / d
-    l2 = 1.0 - l0 - l1
-    eps = -1e-7
-    inside = (l0 >= eps) & (l1 >= eps) & (l2 >= eps)
-    if not inside.any():
-        return
-    px, py, g = px[inside], py[inside], g[inside]
-    depth = (l0[inside] * z[g, 0] + l1[inside] * z[g, 1] + l2[inside] * z[g, 2])
-    pix = py * width + px
+    pix, depth, g = frag
     order = np.lexsort((depth, pix))
     pix_s = pix[order]
     first = np.ones(len(order), bool)
@@ -176,28 +193,46 @@ def _resolve_chunk(xy: np.ndarray, z: np.ndarray, tri_ids: np.ndarray, width: in
     tf[wp] = tri_ids[wg]
 
 
-def rasterise(xy: np.ndarray, z: np.ndarray, width: int, height: int, max_fragments: int = 3_000_000) -> tuple[np.ndarray, np.ndarray]:
-    """Nearest-triangle buffers for projected triangles. Returns ``(zbuf (H,W) float32 [inf = empty], tri (H,W) int32 [-1])``."""
-    zbuf = np.full((height, width), np.inf, np.float64)
-    tbuf = np.full((height, width), -1, np.int64)
+def _chunks(xy: np.ndarray, width: int, height: int, max_fragments: int):
+    """Triangle index ranges whose bounding boxes sum to at most ``max_fragments`` pixels."""
     m = len(xy)
-    if m == 0:
-        return zbuf.astype(np.float32), tbuf.astype(np.int32)
     xmin = np.maximum(np.floor(xy[:, :, 0].min(axis=1) - 0.5), 0)
     xmax = np.minimum(np.ceil(xy[:, :, 0].max(axis=1) - 0.5), width - 1)
     ymin = np.maximum(np.floor(xy[:, :, 1].min(axis=1) - 0.5), 0)
     ymax = np.minimum(np.ceil(xy[:, :, 1].max(axis=1) - 0.5), height - 1)
     area = np.maximum(xmax - xmin + 1, 0) * np.maximum(ymax - ymin + 1, 0)
     cum = np.cumsum(area)
-    ids = np.arange(m)
     start = 0
     while start < m:
         base = cum[start - 1] if start else 0
         end = int(np.searchsorted(cum, base + max_fragments, side="right"))
-        end = max(end, start + 1)
-        end = min(end, m)
-        _resolve_chunk(xy[start:end], z[start:end], ids[start:end], width, height, zbuf, tbuf)
+        end = min(max(end, start + 1), m)
+        yield start, end
         start = end
+
+
+def rasterise_coverage(xy: np.ndarray, width: int, height: int, max_fragments: int = 3_000_000) -> np.ndarray:
+    """Boolean pixel coverage of projected triangles (no depth test, no sort: much cheaper than ``rasterise``)."""
+    cover = np.zeros(height * width, bool)
+    if len(xy) == 0:
+        return cover.reshape(height, width)
+    z = np.zeros(xy.shape[:2])
+    for a, b in _chunks(xy, width, height, max_fragments):
+        frag = _fragments(xy[a:b], z[a:b], width, height)
+        if frag is not None:
+            cover[frag[0]] = True
+    return cover.reshape(height, width)
+
+
+def rasterise(xy: np.ndarray, z: np.ndarray, width: int, height: int, max_fragments: int = 3_000_000) -> tuple[np.ndarray, np.ndarray]:
+    """Nearest-triangle buffers for projected triangles. Returns ``(zbuf (H,W) float32 [inf = empty], tri (H,W) int32 [-1])``."""
+    zbuf = np.full((height, width), np.inf, np.float64)
+    tbuf = np.full((height, width), -1, np.int64)
+    if len(xy) == 0:
+        return zbuf.astype(np.float32), tbuf.astype(np.int32)
+    ids = np.arange(len(xy))
+    for a, b in _chunks(xy, width, height, max_fragments):
+        _resolve_chunk(xy[a:b], z[a:b], ids[a:b], width, height, zbuf, tbuf)
     return zbuf.astype(np.float32), tbuf.astype(np.int32)
 
 
@@ -286,8 +321,11 @@ def _raster_pass(meshes: list[RenderMesh], cam: Camera, width: int, height: int)
 def silhouette(meshes: list[RenderMesh] | RenderMesh, cam: Camera, width: int, height: int) -> np.ndarray:
     """Boolean coverage mask only (no shading)."""
     ms = [meshes] if isinstance(meshes, RenderMesh) else list(meshes)
-    _, _, _, zbuf, _, _, _ = _raster_pass(ms, cam, width, height)
-    return np.isfinite(zbuf)
+    v, f, _ = _stack(ms)
+    if len(f) == 0:
+        return np.zeros((height, width), bool)
+    xy, _ = cam.project(v, width, height)
+    return rasterise_coverage(xy[f], width, height)
 
 
 def _shade_pass(meshes, cam, width, height, *, nearest: bool, want_labels: bool):

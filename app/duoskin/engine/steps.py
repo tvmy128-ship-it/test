@@ -104,6 +104,8 @@ class StepOps:
         with self.db.tx() as c:
             known = {s.id for s in steps}
             for s in steps:
+                if s.state == StepState.WAITING_USER:     # a placeholder (pool "none") that holds a gate open
+                    continue
                 unfinished = []
                 for d in s.deps:
                     if d in known:
@@ -144,7 +146,9 @@ class StepOps:
             extra += f" AND (project_id IS NULL OR project_id NOT IN ({','.join('?' for _ in projects)}))"
             args += projects
         attempt_expr = "json_extract(json,'$.attempt')" if polls else "json_extract(json,'$.attempt')+1"
-        remote_state = "'polling'" if polls else "json_extract(json,'$.remote_state')"
+        remote_state = (
+            "CASE WHEN json_extract(json,'$.remote_state')='submission_uncertain' THEN 'submission_uncertain' ELSE 'polling' END"
+            if polls else "json_extract(json,'$.remote_state')")
         sql = (
             "UPDATE steps SET state='running', lease_until=?, lease_owner=?, "
             "json=json_set(json,'$.state','running','$.lease_until',?,'$.lease_owner',?,"
@@ -291,12 +295,15 @@ class StepOps:
         return job
 
     def cancel_step(self, step_id: str, *, refresh: bool = True) -> Step | None:
+        """Cancel one step. The state is persisted *first*, then the worker is signalled and its child processes killed,
+        so a result that arrives a moment later is fenced off (its guarded transition no longer matches)."""
         step = self.repo.get_step(step_id)
         if step.state in TERMINAL_STEP_STATES:
             return step
+        new = self.transition(step_id, StepState.CANCELLED, expect=tuple(s for s in StepState if s not in TERMINAL_STEP_STATES),
+                              update=lambda s: setattr(s, "message", "cancelled"), refresh=refresh)
         self.rt.scheduler.signal_cancel(step_id)
-        return self.transition(step_id, StepState.CANCELLED, expect=tuple(s for s in StepState if s not in TERMINAL_STEP_STATES),
-                               update=lambda s: setattr(s, "message", "cancelled"), refresh=refresh)
+        return new
 
     def retry_step(self, step_id: str) -> Step:
         """FAILED -> READY with attempts reset; dependents cancelled because of it go back to PENDING."""

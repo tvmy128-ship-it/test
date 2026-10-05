@@ -164,7 +164,32 @@ def build_body(req: VectorRequest, *, response_format: str = "b64_json", style_m
     return body
 
 
-def _check_image_input(png: bytes, what: str) -> None:
+def ensure_svg(raw: bytes) -> bytes:
+    """Magic-byte sniff of a vector result (shared with the mock): ``<svg`` is fine, a PNG or anything else is a
+    ``validation`` error (``billed="yes"``: the call was paid)."""
+    kind = sniff_kind(raw)
+    if kind != "svg":
+        raise ProviderError(PROVIDER, "validation", f"expected SVG bytes, got {kind}", code=f"not_svg_{kind}", billed="yes",
+                            user_hint="Recraft returned a picture instead of a vector. A raster style may have been used on a vector model.")
+    return raw
+
+
+def validate_style_inputs(pngs: list[bytes], model: str, style: str) -> None:
+    """Pre-flight of ``create_style`` (shared with the mock)."""
+    if model not in STYLE_MODELS:
+        raise ProviderError(PROVIDER, "bad_request", f"model {model!r} cannot create styles", code="bad_model", billed="no")
+    if (model.endswith("_vector")) != (style == "vector_illustration"):
+        raise ProviderError(PROVIDER, "bad_request", "a vector style model needs style='vector_illustration' and a raster one 'any'",
+                            code="style_model_mismatch", billed="no")
+    if not 1 <= len(pngs) <= MAX_STYLE_REFS or sum(len(p) for p in pngs) > MAX_STYLE_BYTES:
+        raise ProviderError(PROVIDER, "bad_request", f"1..{MAX_STYLE_REFS} images and at most 10 MB in total", code="style_refs_limits", billed="no")
+    for p in pngs:
+        if sniff_kind(p) != "png":
+            raise ProviderError(PROVIDER, "bad_request", "style references must be PNG (SVG is not accepted: rasterise first)",
+                                code="style_ref_not_png", billed="no")
+
+
+def check_image_input(png: bytes, what: str) -> None:
     size = png_size(png)
     if size is None:
         raise ProviderError(PROVIDER, "bad_request", f"{what} must be a PNG", code="input_not_png", billed="no")
@@ -296,12 +321,7 @@ class RecraftProvider:
         rid = resp.headers.get("x-request-id")
         svgs: list[bytes] = []
         for it in items:
-            raw = self._bytes_of(it, ctx)
-            kind = sniff_kind(raw)
-            if kind != "svg":
-                raise ProviderError(PROVIDER, "validation", f"expected SVG bytes, got {kind}", code=f"not_svg_{kind}", billed="yes",
-                                    user_hint="Recraft returned a picture instead of a vector. A raster style may have been used on a vector model.")
-            svgs.append(raw)
+            svgs.append(ensure_svg(self._bytes_of(it, ctx)))
         if not svgs:
             raise ProviderError(PROVIDER, "validation", "Recraft returned no images", code="no_images", billed="unknown", request_id=rid)
         credits = data.get("credits")
@@ -320,17 +340,7 @@ class RecraftProvider:
         """``POST /styles`` from 1..10 rasterised PNGs (SVG is not accepted). Returns the style id and registers it
         in the matching (raster or vector) registry under ``"style:<id>"``."""
         ctx = ctx or CallCtx.null()
-        if model not in STYLE_MODELS:
-            raise ProviderError(PROVIDER, "bad_request", f"model {model!r} cannot create styles", code="bad_model", billed="no")
-        if (model.endswith("_vector")) != (style == "vector_illustration"):
-            raise ProviderError(PROVIDER, "bad_request", "a vector style model needs style='vector_illustration' and a raster one 'any'",
-                                code="style_model_mismatch", billed="no")
-        if not 1 <= len(pngs) <= MAX_STYLE_REFS or sum(len(p) for p in pngs) > MAX_STYLE_BYTES:
-            raise ProviderError(PROVIDER, "bad_request", f"1..{MAX_STYLE_REFS} images and at most 10 MB in total", code="style_refs_limits", billed="no")
-        for p in pngs:
-            if sniff_kind(p) != "png":
-                raise ProviderError(PROVIDER, "bad_request", "style references must be PNG (SVG is not accepted: rasterise first)",
-                                    code="style_ref_not_png", billed="no")
+        validate_style_inputs(pngs, model, style)
         files = [(f"file{i + 1}", (f"ref{i + 1}.png", p, "image/png")) for i, p in enumerate(pngs)]
         resp = self._request("POST", "/styles", ctx, files=files, data={"style": style, "model": model})
         data = self._json(resp)
@@ -365,7 +375,7 @@ class RecraftProvider:
     def vectorize(self, png: bytes, *, max_num_shapes: int | None = None, ctx: CallCtx | None = None) -> bytes:
         """PNG to SVG ($0.01)."""
         ctx = ctx or CallCtx.null()
-        _check_image_input(png, "vectorize input")
+        check_image_input(png, "vectorize input")
         extra: dict[str, str] = {}
         if max_num_shapes is not None:
             if max_num_shapes < 1:
@@ -381,7 +391,7 @@ class RecraftProvider:
     def remove_background(self, png: bytes, *, ctx: CallCtx | None = None) -> bytes:
         """PNG with its background removed ($0.01); the result is RGBA PNG."""
         ctx = ctx or CallCtx.null()
-        _check_image_input(png, "removeBackground input")
+        check_image_input(png, "removeBackground input")
         data = self._file_endpoint("/images/removeBackground", png, {}, ctx)
         raw = self._bytes_of(data.get("image"), ctx)
         if sniff_kind(raw) != "png":
@@ -399,5 +409,6 @@ class RecraftProvider:
 
 __all__ = [
     "BASE_URL", "PRO_MODELS", "STYLES_MODELS", "V4_PRO_SIZES", "V4_SIZES", "VECTOR_MODELS", "RecraftProvider", "StyleRegistry",
-    "VectorGenProvider", "VectorRequest", "VectorResult", "build_body", "style_kind_for_model", "validate_request",
+    "VectorGenProvider", "VectorRequest", "VectorResult", "build_body", "check_image_input", "ensure_svg", "style_kind_for_model",
+    "validate_request", "validate_style_inputs",
 ]

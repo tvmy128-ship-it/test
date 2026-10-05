@@ -390,6 +390,32 @@
   "open_side_bleed_px": [
    2,
    4
+  ],
+  "torso_bands": [
+   [
+    74,
+    168
+   ],
+   [
+    172,
+    201
+   ]
+  ],
+  "limb_forbidden": [
+   [
+    417,
+    420
+   ],
+   [
+    466,
+    468
+   ]
+  ],
+  "torso_forbidden": [
+   [
+    169,
+    171
+   ]
   ]
  },
  "seams": [

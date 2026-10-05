@@ -125,18 +125,19 @@ def hair_texture(size: int = 256, hair_rgb=(90, 50, 30), guide=GUIDE_GREY) -> Im
     return Image.fromarray(arr, "RGB")
 
 
-def hair_with_head_fixture(*, fused: bool = True, head: float = 1.2, texture_px: int = 256, hair_rgb=(90, 50, 30)) -> MeshData:
+def hair_with_head_fixture(*, fused: bool = True, head: float = 1.2, texture_px: int = 256, hair_rgb=(90, 50, 30), bangs: float = 0.2) -> MeshData:
     """A hair cap wrapped around a ``head`` stud guide cube, like a Tripo result of the "hair with head" front view.
 
     The cube sits centred at the origin (HairAttachment frame is applied by ``hair.register``). ``fused=True`` gives one
     closed surface (union of the cube and the hair); ``fused=False`` keeps two shells (hair shell around a cube shell).
-    UVs: cube faces map into the right half of the texture (guide grey), hair into the left half.
+    UVs: cube faces map into the right half of the texture (guide grey), hair into the left half. ``bangs`` is the share of the
+    face's height the hair covers from the top.
     """
     h = head / 2
     cube = box_mesh([-h, -h, -h], [h, h, h], uv=(0.75, 0.5))
     t = 0.18        # hair thickness
     # hair = a rounded shell: box slightly larger on top/back/sides, open at the face-bottom (kept simple: a box cap)
-    hair = box_mesh([-h - t, -h + 0.45, -h - t], [h + t, h + t + 0.25, h + t * 0.5], uv=(0.25, 0.5))
+    hair = box_mesh([-h - t, h - bangs * head, -h - t], [h + t, h + t + 0.25, h + t * 0.5], uv=(0.25, 0.5))   # bangs cover the top `bangs` of the face
     back = box_mesh([-h - t, -h - 0.2, -h - t], [h + t, h + t, -h + 0.05], uv=(0.25, 0.4))   # hair falling down the back
     if fused:
         mesh = union_all([cube, hair, back])

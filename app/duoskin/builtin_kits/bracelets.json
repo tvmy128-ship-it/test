@@ -1,0 +1,405 @@
+{
+ "version": 1,
+ "_notes": "Bracelets, wristbands and gloves (Shirt arms; bible \u00a76.2). Names are the character's own side (CLO-06). Every piece lies fully inside ONE limb band (355-416, 421-465 or 469-482; assert_rule band, CLO-07), so the R15 elbow (418.5) and wrist (467) splits never cut it. Colour roles: bracelet, glove.",
+ "pieces": {
+  "bracelet_char_right": {
+   "title": "Bracelet (character's right wrist)",
+   "layers": [
+    {
+     "id": "band",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "bracelet",
+     "label": 5,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        450,
+        584,
+        455
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_[fblr]"
+     ],
+     "assert_rule": "band"
+    },
+    {
+     "id": "band_light",
+     "stage": "kit",
+     "op": "shade",
+     "dL": 14,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        450,
+        584,
+        450
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_[fblr]"
+     ]
+    },
+    {
+     "id": "charm",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": {
+      "role": "bracelet",
+      "dL": -6
+     },
+     "label": 5,
+     "shapes": [
+      {
+       "ellipse": [
+        32,
+        458,
+        3.2,
+        3.2
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_f"
+     ],
+     "frame": "local_x",
+     "assert_rule": "band"
+    }
+   ]
+  },
+  "bracelet_char_left": {
+   "title": "Bracelet (character's left wrist)",
+   "layers": [
+    {
+     "id": "band",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "bracelet",
+     "label": 5,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        450,
+        584,
+        455
+       ]
+      }
+     ],
+     "regions": [
+      "llimb_[fblr]"
+     ],
+     "assert_rule": "band"
+    },
+    {
+     "id": "band_light",
+     "stage": "kit",
+     "op": "shade",
+     "dL": 14,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        450,
+        584,
+        450
+       ]
+      }
+     ],
+     "regions": [
+      "llimb_[fblr]"
+     ]
+    },
+    {
+     "id": "charm",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": {
+      "role": "bracelet",
+      "dL": -6
+     },
+     "label": 5,
+     "shapes": [
+      {
+       "ellipse": [
+        32,
+        458,
+        3.2,
+        3.2
+       ]
+      }
+     ],
+     "regions": [
+      "llimb_f"
+     ],
+     "frame": "local_x",
+     "assert_rule": "band"
+    }
+   ]
+  },
+  "wristband_char_right": {
+   "title": "Wristband (character's right wrist)",
+   "layers": [
+    {
+     "id": "band",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "bracelet",
+     "label": 5,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        448,
+        584,
+        456
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_[fblr]"
+     ],
+     "assert_rule": "band"
+    },
+    {
+     "id": "stripe",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": {
+      "role": "bracelet",
+      "dL": 22
+     },
+     "label": 5,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        451,
+        584,
+        452
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_[fblr]"
+     ]
+    },
+    {
+     "id": "edge",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -10,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        456,
+        584,
+        456
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_[fblr]"
+     ]
+    }
+   ]
+  },
+  "wristband_char_left": {
+   "title": "Wristband (character's left wrist)",
+   "layers": [
+    {
+     "id": "band",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "bracelet",
+     "label": 5,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        448,
+        584,
+        456
+       ]
+      }
+     ],
+     "regions": [
+      "llimb_[fblr]"
+     ],
+     "assert_rule": "band"
+    },
+    {
+     "id": "stripe",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": {
+      "role": "bracelet",
+      "dL": 22
+     },
+     "label": 5,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        451,
+        584,
+        452
+       ]
+      }
+     ],
+     "regions": [
+      "llimb_[fblr]"
+     ]
+    },
+    {
+     "id": "edge",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -10,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        456,
+        584,
+        456
+       ]
+      }
+     ],
+     "regions": [
+      "llimb_[fblr]"
+     ]
+    }
+   ]
+  },
+  "gloves": {
+   "title": "Gloves (cuff 452-465, hand 469-482 + D)",
+   "layers": [
+    {
+     "id": "cuff",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "glove",
+     "label": 5,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        452,
+        584,
+        465
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ],
+     "assert_rule": "band"
+    },
+    {
+     "id": "cuff_rib",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -8,
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "x",
+        "from": 0,
+        "to": 584,
+        "step": 2,
+        "w": 1,
+        "span": [
+         452,
+         465
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "hand",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "glove",
+     "label": 5,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        469,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ],
+     "assert_rule": "band"
+    },
+    {
+     "id": "hand_sole",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "glove",
+     "label": 5,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        0,
+        63,
+        63
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    },
+    {
+     "id": "knuckle",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -9,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        472,
+        584,
+        472
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    }
+   ]
+  }
+ }
+}

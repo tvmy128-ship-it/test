@@ -23,7 +23,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from duoskin.checks.model import CheckResult
 from duoskin.models.common import Strict
@@ -49,13 +49,13 @@ class CheckMeta(Strict):
     demotable: bool                     # may be auto-demoted to warning when miscalibrated (DES/UNV thresholds only)
     # ---- additive fields (not in the APP_SPEC sketch; all have defaults) ----
     title: str = ""
-    fm_ids: list[str] = []              # FAILURE_MODES ids this check covers
-    contract_ids: list[str] = []        # the other id of the same check (A_* <-> CHK-A*)
-    requires: list[Requires] = []       # kit that must be present, else the check is not_applicable
+    fm_ids: list[str] = Field(default_factory=list)              # FAILURE_MODES ids this check covers
+    contract_ids: list[str] = Field(default_factory=list)        # the other id of the same check (A_* <-> CHK-A*)
+    requires: list[Requires] = Field(default_factory=list)       # kit that must be present, else the check is not_applicable
     registered: bool = True
 
     @model_validator(mode="after")
-    def _policy_rules(self) -> "CheckMeta":
+    def _policy_rules(self) -> CheckMeta:
         if not self.registered:
             return self
         if self.policy_class in SOFT_CLASSES and self.kind != "soft":

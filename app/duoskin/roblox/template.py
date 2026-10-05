@@ -69,6 +69,9 @@ LIMB_BANDS: tuple[tuple[int, int], ...] = tuple(tuple(b) for b in _ROWS["limb_ba
 DASHED_ROWS: tuple[int, int] = tuple(_ROWS["dashed"])                  # type: ignore[assignment]  # official guides 407, 446
 SHOE_TOP_ROW_RANGE: tuple[int, int] = tuple(_ROWS["shoe_top_row_range"])   # type: ignore[assignment]
 HIDDEN_LEG_ROWS: tuple[int, int] = tuple(_ROWS["hidden_leg_rows"])     # type: ignore[assignment]  # [UNVERIFIED] FM-T1
+TORSO_BANDS: tuple[tuple[int, int], ...] = tuple(tuple(b) for b in _ROWS["torso_bands"])  # type: ignore[misc]  # >=2 px off row 170
+FORBIDDEN_ROWS_TORSO: tuple[int, int] = tuple(_ROWS["torso_forbidden"][0])  # type: ignore[assignment]  # edges/details may not lie here
+FORBIDDEN_ROWS_LIMB: tuple[tuple[int, int], ...] = tuple(tuple(b) for b in _ROWS["limb_forbidden"])  # type: ignore[misc]
 SPLIT_MARGIN_PX: int = int(_ROWS["split_margin_px"])
 BEVEL_INSET_PX: int = int(_ROWS["bevel_inset_px"])
 OPEN_SIDE_BLEED_PX: tuple[int, int] = tuple(_ROWS["open_side_bleed_px"])   # type: ignore[assignment]  # (2, 4)
@@ -929,3 +932,34 @@ def iter_region_pixels(img: np.ndarray, regions: Iterable[str] | None = None) ->
     """Yield ``(region, crop view)`` for the given regions (all by default)."""
     for k in (REGION_ORDER if regions is None else regions):
         yield k, crop(img, k)
+
+
+def bands_of(region: str) -> tuple[tuple[int, int], ...]:
+    """Row bands of ``region`` in which a print, trim or code-placed piece must lie entirely: torso faces 74-168 and
+    172-201 (>= 2 px off row 170), limb side faces 355-416, 421-465 and 469-482 (off 418/419 and 467); cap faces have a
+    single band covering the whole region."""
+    x0, y0, x1, y1 = REGIONS[region]
+    if FACE_OF[region] in ("u", "d"):
+        return ((y0, y1),)
+    return TORSO_BANDS if PART_OF[region] == "torso" else LIMB_BANDS
+
+
+def band_of_rows(region: str, y0: int, y1: int) -> tuple[int, int] | None:
+    """The band of ``region`` that contains rows y0..y1 entirely, or None when they cross a split row."""
+    for b in bands_of(region):
+        if b[0] <= y0 and y1 <= b[1]:
+            return b
+    return None
+
+
+def strip_layout(part: str) -> tuple[dict[str, float], float]:
+    """Perimeter offsets (template px) of the four side faces of ``part`` in wrap order, and the strip length.
+
+    The side faces of a part form one continuous strip (CLO-04): fabric, hem stitches and rib lines are laid out on it so a
+    pattern keeps its phase across every vertical seam, including the wrap from the last face back to the first."""
+    off: dict[str, float] = {}
+    pos = 0.0
+    for region in SIDE_CYCLE[part]:
+        off[region] = pos
+        pos += SIZE[region][0]
+    return off, pos

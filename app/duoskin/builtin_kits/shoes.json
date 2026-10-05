@@ -1,0 +1,1119 @@
+{
+ "version": 1,
+ "_notes": "Painted shoes (bible \u00a76.2 shared kit pieces): rows 446-482 at most (low shoes 460-482) plus the D sole. Colour roles: shoe_base, shoe_sole, shoe_accent. assert_rule shoe_top: the top painted row must lie in rows 446-465 (CLO-07). Same layer schema as recipes (imaging/recipes.py).",
+ "styles": {
+  "sneaker_low": {
+   "title": "Low sneaker",
+   "top_row": 462,
+   "layers": [
+    {
+     "id": "upper",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_base",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        462,
+        584,
+        478
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ],
+     "assert_rule": "shoe_top"
+    },
+    {
+     "id": "sole",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        479,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "collar_line",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -14,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        462,
+        584,
+        463
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "toe_cap",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -10,
+     "shapes": [
+      {
+       "ellipse": [
+        32,
+        478,
+        22,
+        11
+       ]
+      }
+     ],
+     "minus": [
+      {
+       "rect": [
+        0,
+        479,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_f",
+      "llimb_f"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "laces",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": {
+      "role": "shoe_base",
+      "dL": 24
+     },
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "y",
+        "from": 465,
+        "to": 471,
+        "step": 3,
+        "w": 1,
+        "span": [
+         22,
+         41
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "rlimb_f",
+      "llimb_f"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "accent_stripe",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": "shoe_accent",
+     "shapes": [
+      {
+       "rect": [
+        8,
+        468,
+        55,
+        472
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_r",
+      "llimb_l"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "sole_bottom",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        0,
+        63,
+        63
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    },
+    {
+     "id": "tread",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -12,
+     "label": null,
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "y",
+        "from": 6,
+        "to": 54,
+        "step": 8,
+        "w": 2,
+        "span": [
+         6,
+         57
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    }
+   ]
+  },
+  "sneaker_high": {
+   "title": "High-top sneaker",
+   "top_row": 450,
+   "layers": [
+    {
+     "id": "upper",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_base",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        450,
+        584,
+        478
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ],
+     "assert_rule": "shoe_top"
+    },
+    {
+     "id": "sole",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        479,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "collar_band",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": "shoe_accent",
+     "shapes": [
+      {
+       "rect": [
+        0,
+        450,
+        584,
+        452
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "toe_cap",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -10,
+     "shapes": [
+      {
+       "ellipse": [
+        32,
+        478,
+        22,
+        11
+       ]
+      }
+     ],
+     "minus": [
+      {
+       "rect": [
+        0,
+        479,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_f",
+      "llimb_f"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "laces",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": {
+      "role": "shoe_base",
+      "dL": 24
+     },
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "y",
+        "from": 455,
+        "to": 473,
+        "step": 3,
+        "w": 1,
+        "span": [
+         22,
+         41
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "rlimb_f",
+      "llimb_f"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "ankle_patch",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": "shoe_accent",
+     "shapes": [
+      {
+       "ellipse": [
+        32,
+        460,
+        6,
+        6
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_r",
+      "llimb_l"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "sole_bottom",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        0,
+        63,
+        63
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    },
+    {
+     "id": "tread",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -12,
+     "label": null,
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "y",
+        "from": 6,
+        "to": 54,
+        "step": 8,
+        "w": 2,
+        "span": [
+         6,
+         57
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    }
+   ]
+  },
+  "boot": {
+   "title": "Boot",
+   "top_row": 448,
+   "layers": [
+    {
+     "id": "upper",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_base",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        448,
+        584,
+        478
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ],
+     "assert_rule": "shoe_top"
+    },
+    {
+     "id": "sole",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        478,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "shaft_shade",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -8,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        453,
+        584,
+        466
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "cuff",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": "shoe_accent",
+     "shapes": [
+      {
+       "rect": [
+        0,
+        448,
+        584,
+        452
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "heel",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        10,
+        474,
+        53,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_b",
+      "llimb_b"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "toe_cap",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -12,
+     "shapes": [
+      {
+       "ellipse": [
+        32,
+        478,
+        24,
+        12
+       ]
+      }
+     ],
+     "minus": [
+      {
+       "rect": [
+        0,
+        478,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_f",
+      "llimb_f"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "sole_bottom",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        0,
+        63,
+        63
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    },
+    {
+     "id": "tread",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -12,
+     "label": null,
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "y",
+        "from": 6,
+        "to": 54,
+        "step": 8,
+        "w": 2,
+        "span": [
+         6,
+         57
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    }
+   ]
+  },
+  "loafer": {
+   "title": "Loafer",
+   "top_row": 464,
+   "layers": [
+    {
+     "id": "upper",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_base",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        464,
+        584,
+        478
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ],
+     "assert_rule": "shoe_top"
+    },
+    {
+     "id": "sole",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        479,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "vamp",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -10,
+     "shapes": [
+      {
+       "ellipse": [
+        32,
+        478,
+        26,
+        12
+       ]
+      }
+     ],
+     "minus": [
+      {
+       "rect": [
+        0,
+        479,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_f",
+      "llimb_f"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "penny_strap",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": "shoe_accent",
+     "shapes": [
+      {
+       "rect": [
+        14,
+        468,
+        49,
+        470
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_f",
+      "llimb_f"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "heel",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        10,
+        476,
+        53,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_b",
+      "llimb_b"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "sole_bottom",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        0,
+        63,
+        63
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    },
+    {
+     "id": "tread",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -12,
+     "label": null,
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "y",
+        "from": 6,
+        "to": 54,
+        "step": 8,
+        "w": 2,
+        "span": [
+         6,
+         57
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    }
+   ]
+  },
+  "sandal_strap": {
+   "title": "Strap sandal",
+   "top_row": 462,
+   "layers": [
+    {
+     "id": "ankle_strap",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_base",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        462,
+        584,
+        464
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ],
+     "assert_rule": "shoe_top"
+    },
+    {
+     "id": "sole",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        479,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "toe_strap",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_base",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        8,
+        470,
+        55,
+        473
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_f",
+      "llimb_f"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "heel_strap",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_base",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        8,
+        468,
+        55,
+        470
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_b",
+      "llimb_b"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "buckle",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_accent",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        28,
+        462,
+        34,
+        464
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_r",
+      "llimb_l"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "sole_bottom",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        0,
+        63,
+        63
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    },
+    {
+     "id": "tread",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -12,
+     "label": null,
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "y",
+        "from": 6,
+        "to": 54,
+        "step": 8,
+        "w": 2,
+        "span": [
+         6,
+         57
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    }
+   ]
+  },
+  "mary_jane": {
+   "title": "Mary Jane",
+   "top_row": 462,
+   "layers": [
+    {
+     "id": "upper",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_base",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        462,
+        584,
+        478
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ],
+     "assert_rule": "shoe_top"
+    },
+    {
+     "id": "sole",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        479,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "strap",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": "shoe_accent",
+     "shapes": [
+      {
+       "rect": [
+        0,
+        468,
+        584,
+        470
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "button",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": {
+      "role": "shoe_accent",
+      "dL": 18
+     },
+     "shapes": [
+      {
+       "ellipse": [
+        48,
+        469,
+        2.5,
+        2.5
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_r",
+      "llimb_l"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "toe_cap",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -10,
+     "shapes": [
+      {
+       "ellipse": [
+        32,
+        478,
+        22,
+        10
+       ]
+      }
+     ],
+     "minus": [
+      {
+       "rect": [
+        0,
+        479,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_f",
+      "llimb_f"
+     ],
+     "frame": "local_x"
+    },
+    {
+     "id": "sole_bottom",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "add",
+     "colour": "shoe_sole",
+     "label": 6,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        0,
+        63,
+        63
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    },
+    {
+     "id": "tread",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -12,
+     "label": null,
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "y",
+        "from": 6,
+        "to": 54,
+        "step": 8,
+        "w": 2,
+        "span": [
+         6,
+         57
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    }
+   ]
+  }
+ }
+}

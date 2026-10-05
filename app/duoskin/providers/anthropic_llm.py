@@ -455,6 +455,34 @@ def map_sdk_error(e: BaseException) -> ProviderError:
     return ProviderError(PROVIDER, "other", f"{type(e).__name__}: {scrub(e)}")
 
 
+def finish_call(*, route: str, cfg: RouteCfg, out: type[T], text: str | None, stop: str | None, rid: str | None, usage: dict[str, int],
+                served: str, cost: dict[str, Any], schema_hash: str, prompt_version: int, thinking_summary: str = "",
+                stop_details: Any = None) -> LLMResult[T]:
+    """Everything after the model answered (shared with the mock): branch on ``stop_reason`` first, then take the text
+    block, then validate. Raises ``refusal`` / ``truncated`` / ``validation``; the call's ``cost`` rides on the error."""
+    if stop == "refusal":                                    # branch on stop_reason, never on stop_details
+        raise refusal_error(stop_details, rid, cost)
+    if stop in ("max_tokens", "model_context_window_exceeded"):
+        raise truncated_error(stop, rid, cost)
+    if text is None:
+        raise ProviderError(PROVIDER, "truncated", "the response has no text block", code="no_text", retryable=True,
+                            request_id=rid, billed="yes", cost=cost)
+    try:
+        parsed = out.model_validate_json(text)               # enums are lowercased by the models' BeforeValidator
+    except ValidationError as ve:
+        raw = ve.json(include_url=False)
+        err = ProviderError(PROVIDER, "validation", raw, request_id=rid, billed="yes", cost=cost, code="schema_violation")
+        try:
+            err.context["errors"] = json.loads(raw)
+        except ValueError:
+            pass
+        err.context["raw_text"] = text
+        raise err from None
+    return LLMResult(parsed=parsed, stop_reason=stop or "end_turn", raw_text=text, usage=usage, request_id=rid,
+                     requested_model=cfg.model, served_model=served, thinking_summary=thinking_summary[:8000],
+                     schema_hash=schema_hash, prompt_version=prompt_version, cost=cost, route=route)
+
+
 class AnthropicProvider:
     """Real Claude provider. Build it with a key (or an injected ``client``) and call ``call()``.
 
@@ -620,31 +648,13 @@ class AnthropicProvider:
         cost = claude_cost(served, usage, operation=f"messages.stream:{route}", request_id=rid, cache_ttl=self._cache_ttl(system))
         self._record(cost)
         self.monitor.observe(route, usage, ttl=self._cache_ttl(system))
-        stop = getattr(r, "stop_reason", None)
-        if stop == "refusal":                                    # branch on stop_reason, never on stop_details
-            raise refusal_error(getattr(r, "stop_details", None), rid, cost)
-        if stop in ("max_tokens", "model_context_window_exceeded"):
-            raise truncated_error(stop, rid, cost)
         text = next((b.text for b in r.content if getattr(b, "type", "") == "text"), None)   # thinking blocks come first
-        if text is None:
-            raise ProviderError(PROVIDER, "truncated", "the response has no text block", code="no_text", retryable=True,
-                                request_id=rid, billed="yes", cost=cost)
-        try:
-            parsed = out.model_validate_json(text)               # enums are lowercased by the models' BeforeValidator
-        except ValidationError as ve:
-            raw = ve.json(include_url=False)
-            err = ProviderError(PROVIDER, "validation", raw, request_id=rid, billed="yes", cost=cost, code="schema_violation")
-            try:
-                err.context["errors"] = json.loads(raw)
-            except ValueError:
-                pass
-            err.context["raw_text"] = text
-            raise err from None
+        result = finish_call(route=route, cfg=cfg, out=out, text=text, stop=getattr(r, "stop_reason", None), rid=rid, usage=usage,
+                             served=served, cost=cost, schema_hash=schema_hash, prompt_version=prompt_version,
+                             thinking_summary="".join(thinking_parts), stop_details=getattr(r, "stop_details", None))
         if not self.flags.is_set(f"anthropic.schema_ok.{route}"):
             self.flags.set(f"anthropic.schema_ok.{route}", True)
-        return LLMResult(parsed=parsed, stop_reason=stop or "end_turn", raw_text=text, usage=usage, request_id=rid,
-                         requested_model=cfg.model, served_model=served, thinking_summary="".join(thinking_parts)[:8000],
-                         schema_hash=schema_hash, prompt_version=prompt_version, cost=cost, route=route)
+        return result
 
     # ----- fan-out ------------------------------------------------------------------------------------------
     def call_fanout(self, route: str, requests: Sequence[dict[str, Any]], *, ctx: CallCtx,
@@ -831,6 +841,6 @@ def provider_from_key(api_key: str, **kw: Any) -> AnthropicProvider:
 __all__ = [
     "FALLBACK_BETA", "ROUTES", "SCHEMA_CACHE", "AnthropicProvider", "BatchItem", "BatchItemResult", "CacheMonitor",
     "LLMProvider", "LLMResult", "Route", "RouteCfg", "SchemaCache", "build_routes", "check_content_images",
-    "count_unions_and_optionals", "file_image_block", "image_block", "make_all_required", "map_sdk_error",
+    "count_unions_and_optionals", "file_image_block", "finish_call", "image_block", "make_all_required", "map_sdk_error",
     "prepare_judge_images", "provider_from_key", "refusal_error", "text_block", "truncated_error", "with_cache_control",
 ]

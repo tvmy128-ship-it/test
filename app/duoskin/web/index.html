@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="duoskin-token" content="__DUOSKIN_TOKEN__">
+<title>DuoSkin Studio</title>
+<link rel="stylesheet" href="/web/shell.css">
+</head>
+<body>
+<header class="bar">
+  <h1>DuoSkin Studio</h1>
+  <span id="health" class="pill">checking...</span>
+  <span id="queue" class="pill hidden"></span>
+  <span class="spacer"></span>
+  <button id="quit" type="button" class="danger">Quit</button>
+</header>
+<div id="banner" class="banner hidden" role="status"></div>
+<main id="app" aria-live="polite">
+  <section id="projects" aria-labelledby="h-projects"><h2 id="h-projects">Projects</h2></section>
+  <section id="jobs" aria-labelledby="h-jobs"><h2 id="h-jobs">Jobs</h2></section>
+  <section id="keys" aria-labelledby="h-keys"><h2 id="h-keys">API keys</h2></section>
+  <section id="settings" aria-labelledby="h-settings"><h2 id="h-settings">Settings</h2></section>
+  <section id="doctor" aria-labelledby="h-doctor"><h2 id="h-doctor">Doctor</h2></section>
+</main>
+<script type="module" src="/web/app.js"></script>
+</body>
+</html>

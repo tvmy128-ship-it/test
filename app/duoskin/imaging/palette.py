@@ -39,7 +39,7 @@ def hex_to_rgb(h: str) -> tuple[int, int, int]:
 
 
 def rgb_to_hex(rgb: Sequence[float]) -> str:
-    r, g, b = (int(round(min(255.0, max(0.0, float(c))))) for c in rgb[:3])
+    r, g, b = (round(min(255.0, max(0.0, float(c)))) for c in rgb[:3])
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
@@ -296,7 +296,7 @@ def extract_palette(im: Image.Image, *, k: int = 6, mask: np.ndarray | None = No
         if share < min_share:
             continue
         out.append(ColourCluster(lab=(float(c[0]), float(c[1]), float(c[2])), hex=rgb_to_hex(lab_to_srgb(c)), share=float(share),
-                                 count=int(round(share * total))))
+                                 count=round(share * total)))
     return out
 
 
@@ -312,7 +312,7 @@ def palette_overlap(a: Sequence[ColourCluster], b: Sequence[ColourCluster], de_m
     d = deltaE2000(la[:, None, :], lb[None, :, :])
     sa = [c.share for c in a]
     sb = [c.share for c in b]
-    pairs = sorted(((d[i, j], i, j) for i in range(len(a)) for j in range(len(b)) if d[i, j] <= de_match))
+    pairs = sorted((d[i, j], i, j) for i in range(len(a)) for j in range(len(b)) if d[i, j] <= de_match)
     used_a: set[int] = set()
     used_b: set[int] = set()
     total = 0.0
@@ -374,9 +374,9 @@ def snap_to_palette(im: Image.Image, palette_hex: Sequence[str], *, interior_onl
     stats.changed_px = int(moved.sum())
     stats.max_de_moved = float(per_px_d.max()) if len(per_px_d) else 0.0
     stats.mean_de_moved = float(per_px_d[moved].mean()) if moved.any() else 0.0
-    stats.colours_before = int(len(uniq))
+    stats.colours_before = len(uniq)
     packed_new = (new_u[:, 0].astype(np.uint32) << 16) | (new_u[:, 1].astype(np.uint32) << 8) | new_u[:, 2].astype(np.uint32)
-    stats.colours_after = int(len(np.unique(packed_new)))
+    stats.colours_after = len(np.unique(packed_new))
     for i in np.unique(idx):
         stats.per_colour_de[pal[int(i)]] = float(d[idx == i].max())
     out = Image.fromarray(arr, "RGBA")

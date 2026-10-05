@@ -65,9 +65,10 @@ def test_valid_size(w, h, legal):
     assert O.valid_size(w, h) is legal
 
 
-def test_split_batches_is_ceil_n_over_4():
-    assert O.split_batches(1) == [1] and O.split_batches(4) == [4] and O.split_batches(5) == [4, 1]
-    assert O.split_batches(6) == [4, 2] and O.split_batches(8) == [4, 4] and O.split_batches(9) == [4, 4, 1]
+def test_plan_batches_is_ceil_n_over_4_balanced():
+    assert O.plan_batches(1) == [1] and O.plan_batches(4) == [4] and O.plan_batches(5) == [3, 2]
+    assert O.plan_batches(6) == [3, 3] and O.plan_batches(7) == [4, 3] and O.plan_batches(8) == [4, 4] and O.plan_batches(9) == [3, 3, 3]
+    assert O.plan_batches(10) == [4, 3, 3] and O.plan_batches(6, per_request=2) == [2, 2, 2] and O.plan_batches(5, per_request=2) == [2, 2, 1]
 
 
 def test_pinned_snapshot_detection():
@@ -139,7 +140,7 @@ def test_generate_rejects_images_and_edit_requires_them():
 @pytest.mark.parametrize(("kw", "code"), [
     ({"size": "585x559"}, "illegal_size"), ({"size": "auto"}, "bad_size"), ({"size": "1024x1030"}, "illegal_size"),
     ({"quality": "auto"}, "bad_quality"), ({"model": "gpt-image-1.5"}, "model_not_pinned"), ({"model": "dall-e-2"}, "model_not_pinned"),
-    ({"n": 0}, "bad_n"), ({"n": 99}, "bad_n"), ({"background": "auto"}, "bad_background"), ({"user": "me@example.com"}, "bad_user"),
+    ({"n": 0}, "bad_n"), ({"n": 5}, "n_exceeds_request_cap"), ({"background": "auto"}, "bad_background"), ({"user": "me@example.com"}, "bad_user"),
     ({"prompt": "  "}, "empty_prompt"), ({"output_format": "jpeg"}, "bad_output_format"),
 ])
 def test_preflight_rejects_code_bugs_without_sending(kw, code):
@@ -181,7 +182,7 @@ def test_mask_alpha_must_be_binary_and_polarity_means_alpha_zero_is_editable():
 def test_too_many_input_images_and_non_png_input():
     imgs = tuple(O.NamedPng(f"{i}.png", img(64, 64)) for i in range(17))
     with pytest.raises(ProviderError) as ei:
-        make(Spy()).edit(req(images=imgs, edit_target=False), CTX)
+        make(Spy()).edit(req(images=imgs, image1_role="reference"), CTX)
     assert ei.value.code == "too_many_images"
     with pytest.raises(ProviderError) as e2:
         make(Spy()).edit(req(images=(O.NamedPng("a.jpg", b"\xff\xd8junk"),)), CTX)
@@ -190,14 +191,14 @@ def test_too_many_input_images_and_non_png_input():
 
 def test_edit_target_must_match_requested_size_but_reference_image1_may_not():
     small = O.NamedPng("crop.png", img(400, 300))
-    with pytest.raises(ProviderError) as ei:             # mask present => Image 1 is the edit target => must be legal
+    with pytest.raises(ProviderError) as ei:             # the default role is edit_target: Image 1 must itself be the requested size
         make(Spy()).edit(req(images=(small,), mask=O.NamedPng("m.png", mask_png(400, 300))), CTX)
     assert ei.value.code == "image1_size_mismatch"
-    spy = Spy(ok())                                      # I2/I5/I6: a reference crop as Image 1, no mask: allowed
-    r = make(spy).edit(req(images=(small,)), CTX)
+    with pytest.raises(ProviderError):
+        make(Spy()).edit(req(images=(small,)), CTX)
+    spy = Spy(ok())                                      # I2/I5/I6/I10: a reference crop as Image 1 is checked against the request only
+    r = make(spy).edit(req(images=(small,), image1_role="reference"), CTX)
     assert r.size == "1024x1024"
-    with pytest.raises(ProviderError):                   # explicit edit_target=True enforces it again
-        make(Spy()).edit(req(images=(small,), edit_target=True), CTX)
 
 
 # ----- mask + several images, RGBA Image 1 (capability flags) --------------------------------------------------------
@@ -242,7 +243,7 @@ def test_rgba_image1_with_explicit_mask_is_sent_untouched():
 
 # ----- batching and limiter -------------------------------------------------------------------------------------
 
-def test_n_6_is_two_requests_each_through_the_ipm_limiter():
+def test_run_many_6_is_two_requests_of_3_each_through_the_ipm_limiter():
     now = [0.0]
     slept = []
 
@@ -251,24 +252,59 @@ def test_n_6_is_two_requests_each_through_the_ipm_limiter():
         now[0] += s
 
     lim = RateLimiter(ipm=5, concurrent=1, clock=lambda: now[0], sleep=sleep)
-    spy = Spy(ok(n=4, request_id="r1"), ok(n=2, request_id="r2"))
-    r = make(spy, limiter=lim).generate(req(n=6), CTX)
+    spy = Spy(ok(n=3, request_id="r1"), ok(n=3, request_id="r2"))
+    r = make(spy, limiter=lim).run_many(req(n=1, nonce="N"), 6, CTX)
     spy.assert_hit(2)
-    assert [b["n"] for b in spy.bodies] == [4, 2] and len(r.images) == 6
+    assert [b["n"] for b in spy.bodies] == [3, 3] and len(r.images) == 6 and r.n_total == 6 and r.batch_sizes == [3, 3]
     assert r.request_ids == ["r1", "r2"] and [b["batch_index"] for b in r.batches] == [0, 1]
-    assert sum(slept) > 0, "the second request must wait for images-per-minute tokens (4 + 2 > 5)"
+    assert sum(slept) > 0, "the second request must wait for images-per-minute tokens (3 + 3 > 5)"
+    assert r.cost["usd"] > 0 and len(r.raw_sha256) == 6
 
 
-def test_partial_batch_failure_hands_back_the_paid_images():
-    spy = Spy(ok(n=4), openai_error(400, "Your request was rejected by the safety system.", "moderation_blocked"))
+def test_run_many_respects_the_ipm_setting_per_request():
+    now = [0.0]
+
+    def sleep(s):
+        now[0] += s
+
+    spy = Spy(ok(n=2), ok(n=2), ok(n=2))
+    r = make(spy, limiter=RateLimiter(ipm=2, concurrent=1, clock=lambda: now[0], sleep=sleep)).run_many(req(), 6, CTX)
+    assert [b["n"] for b in spy.bodies] == [2, 2, 2] and len(r.images) == 6
+    with pytest.raises(ProviderError) as ei:       # CHK-P02: n <= min(IPM, 4) per request
+        make(Spy(), limiter=RateLimiter(ipm=2, concurrent=1)).generate(req(n=3), CTX)
+    assert ei.value.code == "n_exceeds_request_cap"
+
+
+def test_run_many_sub_requests_carry_nonce_and_batch_index():
+    seen = []
+
+    class Spying(O.OpenAIImages):
+        def _single(self, r, ctx, *, edit):
+            seen.append((r.nonce, r.n))
+            return super()._single(r, ctx, edit=edit)
+
+    spy = Spy(ok(n=4), ok(n=4))
+    Spying(client=make_openai_client(spy), limiter=RateLimiter(concurrent=1, ipm=100), sleep=noop_sleep).run_many(req(nonce="abc"), 8, CTX)
+    assert seen == [("abc#0", 4), ("abc#1", 4)]
+
+
+def test_run_many_partial_failure_hands_back_the_paid_images():
+    spy = Spy(ok(n=3), openai_error(400, "Your request was rejected by the safety system.", "moderation_blocked"))
     with pytest.raises(ProviderError) as ei:
-        make(spy).generate(req(n=6), CTX)
-    assert ei.value.kind == "moderation" and ei.value.partial is not None and len(ei.value.partial.images) == 4
+        make(spy).run_many(req(), 6, CTX)
+    assert ei.value.kind == "moderation" and ei.value.partial is not None and len(ei.value.partial.images) == 3
 
 
 def test_fewer_images_than_asked_is_a_warning_not_an_error():
     r = make(Spy(ok(n=3))).generate(req(n=4), CTX)
     assert len(r.images) == 3 and r.warnings and "asked for 4" in r.warnings[0]
+
+
+def test_run_many_validates_n_total():
+    for bad in (0, 33, True):
+        with pytest.raises(ProviderError) as ei:
+            make(Spy()).run_many(req(), bad, CTX)
+        assert ei.value.code == "bad_n"
 
 
 # ----- size drift ---------------------------------------------------------------------------------------------------
@@ -413,8 +449,8 @@ def test_sdk_client_has_no_retries_and_long_timeout():
 
 def test_cost_sink_gets_each_request():
     seen = []
-    spy = Spy(ok(n=4), ok(n=1))
-    make(spy, cost_sink=seen.append).generate(req(n=5), CTX)
+    spy = Spy(ok(n=3), ok(n=2))
+    make(spy, cost_sink=seen.append).run_many(req(), 5, CTX)
     assert len(seen) == 2 and all(c["provider"] == "openai" for c in seen)
 
 

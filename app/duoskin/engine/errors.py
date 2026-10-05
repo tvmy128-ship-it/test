@@ -19,6 +19,8 @@ ERROR_KINDS = frozenset({
     "network", "submission_uncertain", "remote_failed", "other",
 })
 RETRY_BACKOFF_KINDS = frozenset({"rate_limit", "overloaded", "server", "network", "timeout", "concurrency"})
+NEVER_BILLED = frozenset({"rate_limit", "concurrency", "auth", "permission", "not_found", "bad_request", "billing",
+                          "overloaded", "server", "schema_too_complex", "moderation"})
 FAIL_KINDS = frozenset({"refusal", "moderation", "bad_request", "permission", "auth", "not_found", "recitation",
                         "billing", "schema_too_complex", "other"})
 
@@ -109,7 +111,9 @@ def classify(exc: BaseException, step: Step, handler_provider: str | None = None
     kind = _kind_of(exc)
     billed = getattr(exc, "billed", None)
     if billed not in ("no", "yes", "unknown"):
-        billed = "no" if kind == "other" else "unknown"
+        billed = "no" if kind in NEVER_BILLED or kind == "other" else "unknown"
+    elif billed == "unknown" and kind in NEVER_BILLED:
+        billed = "no"   # a rejected request never bills, whatever the adapter defaulted to
     retryable = bool(getattr(exc, "retryable", kind in RETRY_BACKOFF_KINDS))
     hint = getattr(exc, "user_hint", "") or USER_HINTS.get(kind, "")
     message = str(exc) or type(exc).__name__

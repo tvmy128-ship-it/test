@@ -2888,6 +2888,24 @@
    "demotable": false
   },
   {
+   "check_id": "F_BLUSH",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.blush_l_max",
+    "face.blush_alpha_max"
+   ],
+   "fm_ids": [
+    "FACE-07"
+   ],
+   "title": "Blush darkens every skin tone",
+   "warn_text": "The blush may look lighter than the darkest skin tones.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
    "check_id": "F_CATCHLIGHT",
    "kind": "assert",
    "policy_class": "buildability",
@@ -2993,6 +3011,23 @@
    "warn_text": "Some face lines are hard to see on at least one skin tone.",
    "contract_ids": [],
    "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "F_LUT_KEY",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "FACE-05"
+   ],
+   "title": "The UV warp LUT is keyed by the head-mesh hash",
+   "warn_text": "The UV warp LUT is keyed by the head-mesh hash did not pass.",
+   "contract_ids": [],
+   "requires": [
+    "head_base"
+   ],
    "demotable": false
   },
   {
@@ -3285,8 +3320,8 @@
   },
   {
    "check_id": "ac_matches_concept",
-   "kind": "hard",
-   "policy_class": "consistency",
+   "kind": "soft",
+   "policy_class": "taste",
    "stage": "gate2",
    "threshold_keys": [],
    "fm_ids": [],
@@ -3805,8 +3840,8 @@
   },
   {
    "check_id": "hr_matches_concept",
-   "kind": "hard",
-   "policy_class": "consistency",
+   "kind": "soft",
+   "policy_class": "taste",
    "stage": "gate2",
    "threshold_keys": [],
    "fm_ids": [],

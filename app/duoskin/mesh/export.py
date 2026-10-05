@@ -132,9 +132,25 @@ def png_for_export(mesh: MeshData) -> bytes:
     return tx.png_bytes(tx.as_pil(mesh.texture))
 
 
+def to_export_frame_mesh(mesh: MeshData, forward_axis: str = "+Z") -> MeshData:
+    """A copy in the export frame whose object front faces ``forward_axis`` (the Studio calibration; ``+Z`` is the identity).
+
+    ``meta['front']`` records the axis so the validator can rotate back; the attachment offset is rotated with the mesh.
+    """
+    from duoskin.mesh.orient import forward_rotation, to_export_frame
+
+    out = mesh.copy()
+    if forward_axis.strip().upper() not in ("+Z", "Z"):
+        out.vertices = to_export_frame(mesh.vertices, forward_axis)
+        if "attachment_offset" in out.meta:
+            out.meta["attachment_offset"] = (np.asarray(out.meta["attachment_offset"], float) @ forward_rotation(forward_axis).T).round(6).tolist()
+    out.meta["front"] = forward_axis.strip().upper().replace("Z", "Z")
+    return out
+
+
 def default_extras(mesh: MeshData, extras: dict[str, Any] | None) -> dict[str, Any]:
-    e = {"units": "studs", "up": "+Y", "front": "+Z", "scale_type": "Classic"}
-    for key in ("attachment_offset", "attachment", "asset_type", "asset_id"):
+    e = {"units": "studs", "up": "+Y", "front": mesh.meta.get("front", "+Z"), "scale_type": "Classic"}
+    for key in ("attachment_offset", "attachment", "asset_type", "asset_id", "kind", "slab", "hair_register", "primitive_kind"):
         if key in mesh.meta:
             val = mesh.meta[key]
             e[key] = np.asarray(val).tolist() if isinstance(val, np.ndarray) else val

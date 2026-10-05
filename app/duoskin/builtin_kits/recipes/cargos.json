@@ -1,0 +1,260 @@
+{
+ "_notes": "Generated recipe (bible §6.2). See imaging/recipes.py for the schema.",
+ "recipe_id": "cargos",
+ "extends": "jeans_straight",
+ "template": "pants",
+ "family": "cargos",
+ "title": "Cargo pants",
+ "version": 1,
+ "fold_set": "cargo_folds",
+ "layers_remove": [
+  "back_pocket",
+  "back_pocket_v",
+  "front_pocket_l",
+  "front_pocket_r",
+  "front_pocket_leg",
+  "knee_fade"
+ ],
+ "layers_extra": [
+  {
+   "id": "cargo_pocket",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "line": [
+      [
+       10,
+       384
+      ],
+      [
+       54,
+       384
+      ],
+      [
+       54,
+       412
+      ],
+      [
+       10,
+       412
+      ],
+      [
+       10,
+       384
+      ]
+     ],
+     "w": 1
+    }
+   ],
+   "regions": [
+    "rlimb_r",
+    "llimb_l"
+   ],
+   "frame": "local_x"
+  },
+  {
+   "id": "cargo_flap",
+   "stage": "details",
+   "op": "paint",
+   "coverage": "within",
+   "colour": {
+    "role": "base",
+    "dL": -7
+   },
+   "shapes": [
+    {
+     "rect": [
+      10,
+      384,
+      54,
+      389
+     ]
+    }
+   ],
+   "label": 1,
+   "regions": [
+    "rlimb_r",
+    "llimb_l"
+   ],
+   "frame": "local_x"
+  },
+  {
+   "id": "cargo_flap_edge",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "rect": [
+      10,
+      389,
+      54,
+      389
+     ]
+    }
+   ],
+   "regions": [
+    "rlimb_r",
+    "llimb_l"
+   ],
+   "frame": "local_x"
+  },
+  {
+   "id": "knee_patch",
+   "stage": "details",
+   "op": "shade",
+   "dL": -6,
+   "shapes": [
+    {
+     "rect": [
+      14,
+      424,
+      50,
+      444
+     ]
+    }
+   ],
+   "regions": [
+    "rlimb_f",
+    "llimb_f"
+   ],
+   "frame": "local_x"
+  },
+  {
+   "id": "knee_patch_stitch",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "line": [
+      [
+       14,
+       424
+      ],
+      [
+       50,
+       424
+      ],
+      [
+       50,
+       444
+      ],
+      [
+       14,
+       444
+      ],
+      [
+       14,
+       424
+      ]
+     ],
+     "w": 1,
+     "dash": [
+      3,
+      2
+     ]
+    }
+   ],
+   "regions": [
+    "rlimb_f",
+    "llimb_f"
+   ],
+   "frame": "local_x"
+  },
+  {
+   "id": "front_pocket_curve",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "line": [
+      [
+       236,
+       180
+      ],
+      [
+       244,
+       186
+      ],
+      [
+       250,
+       194
+      ],
+      [
+       252,
+       200
+      ]
+     ],
+     "w": 1
+    },
+    {
+     "line": [
+      [
+       353,
+       180
+      ],
+      [
+       345,
+       186
+      ],
+      [
+       339,
+       194
+      ],
+      [
+       337,
+       200
+      ]
+     ],
+     "w": 1
+    }
+   ]
+  }
+ ],
+ "print_slots": [
+  {
+   "region": "rlimb_r",
+   "role": "flap",
+   "box": [
+    158,
+    394,
+    207,
+    410
+   ]
+  },
+  {
+   "region": "llimb_l",
+   "role": "flap",
+   "box": [
+    381,
+    394,
+    430,
+    410
+   ]
+  },
+  {
+   "region": "rlimb_r",
+   "role": "shoe",
+   "box": [
+    156,
+    469,
+    209,
+    477
+   ]
+  },
+  {
+   "region": "llimb_l",
+   "role": "shoe",
+   "box": [
+    379,
+    469,
+    432,
+    477
+   ]
+  }
+ ]
+}

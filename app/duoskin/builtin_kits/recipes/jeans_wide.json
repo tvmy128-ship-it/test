@@ -1,0 +1,63 @@
+{
+ "_notes": "Generated recipe (bible §6.2). See imaging/recipes.py for the schema.",
+ "recipe_id": "jeans_wide",
+ "extends": "jeans_straight",
+ "template": "pants",
+ "family": "jeans",
+ "title": "Wide-leg jeans",
+ "version": 1,
+ "layers_replace": [
+  {
+   "id": "hem_cuff",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      "$leg_hem-9",
+      570,
+      "$leg_hem"
+     ]
+    }
+   ],
+   "label": 4
+  }
+ ],
+ "layers_extra": [
+  {
+   "id": "turn_up_edge",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "rect": [
+      19,
+      "$leg_hem-9",
+      570,
+      "$leg_hem-9"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "turn_up_shadow",
+   "stage": "details",
+   "op": "shade",
+   "dL": -6,
+   "shapes": [
+    {
+     "rect": [
+      19,
+      "$leg_hem-8",
+      570,
+      "$leg_hem-7"
+     ]
+    }
+   ]
+  }
+ ]
+}

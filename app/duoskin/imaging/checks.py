@@ -110,7 +110,7 @@ def checker_peak_ratio(im: Image.Image, *, block: int | None = None, k_min: int 
         diag_ok = False
         for i in range(2):
             iy, ix = np.unravel_index(np.argmax(work), work.shape)
-            fy = int(round(fy_all[iy]))
+            fy = round(fy_all[iy])
             y0, y1, x0, x1 = max(0, iy - 1), min(b, iy + 2), max(0, ix - 1), min(work.shape[1], ix + 2)
             e = float(spec[y0:y1, x0:x1].sum())
             taken += e

@@ -1,0 +1,302 @@
+{
+ "version": 1,
+ "_notes": "Legwear (bible \u00a76.2): socks_ankle 452+, socks_crew 430+, socks_knee 407+, tights over the full leg. Painted UNDER the pants (coverage under: only where nothing covers yet), colour role legwear.",
+ "styles": {
+  "socks_ankle": {
+   "title": "Ankle socks",
+   "top_row": 452,
+   "layers": [
+    {
+     "id": "sock",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "under",
+     "colour": "legwear",
+     "label": 7,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        452,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "sock_sole",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "under",
+     "colour": "legwear",
+     "label": 7,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        0,
+        63,
+        63
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    },
+    {
+     "id": "rib_top",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -7,
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "x",
+        "from": 0,
+        "to": 584,
+        "step": 2,
+        "w": 1,
+        "span": [
+         452,
+         455
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    }
+   ]
+  },
+  "socks_crew": {
+   "title": "Crew socks",
+   "top_row": 430,
+   "layers": [
+    {
+     "id": "sock",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "under",
+     "colour": "legwear",
+     "label": 7,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        430,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "sock_sole",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "under",
+     "colour": "legwear",
+     "label": 7,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        0,
+        63,
+        63
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    },
+    {
+     "id": "rib_top",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -7,
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "x",
+        "from": 0,
+        "to": 584,
+        "step": 2,
+        "w": 1,
+        "span": [
+         430,
+         433
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    }
+   ]
+  },
+  "socks_knee": {
+   "title": "Knee socks",
+   "top_row": 407,
+   "layers": [
+    {
+     "id": "sock",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "under",
+     "colour": "legwear",
+     "label": 7,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        407,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "sock_sole",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "under",
+     "colour": "legwear",
+     "label": 7,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        0,
+        63,
+        63
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    },
+    {
+     "id": "rib_top",
+     "stage": "kit",
+     "op": "shade",
+     "dL": -7,
+     "shapes": [
+      {
+       "stripes": {
+        "axis": "x",
+        "from": 0,
+        "to": 584,
+        "step": 2,
+        "w": 1,
+        "span": [
+         407,
+         410
+        ]
+       }
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "knee_stripe",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "within",
+     "colour": {
+      "role": "legwear",
+      "dL": 14
+     },
+     "label": 7,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        411,
+        584,
+        412
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    }
+   ]
+  },
+  "tights": {
+   "title": "Tights",
+   "top_row": 355,
+   "layers": [
+    {
+     "id": "sock",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "under",
+     "colour": "legwear",
+     "label": 7,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        355,
+        584,
+        482
+       ]
+      }
+     ],
+     "regions": [
+      "?limb_[fblr]"
+     ]
+    },
+    {
+     "id": "sock_sole",
+     "stage": "kit",
+     "op": "paint",
+     "coverage": "under",
+     "colour": "legwear",
+     "label": 7,
+     "shapes": [
+      {
+       "rect": [
+        0,
+        0,
+        63,
+        63
+       ]
+      }
+     ],
+     "regions": [
+      "rlimb_d",
+      "llimb_d"
+     ],
+     "frame": "local"
+    }
+   ]
+  }
+ }
+}

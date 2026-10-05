@@ -1,0 +1,101 @@
+{
+ "_notes": "Generated recipe (bible §6.2). See imaging/recipes.py for the schema.",
+ "recipe_id": "cargo_joggers",
+ "extends": "cargos",
+ "template": "pants",
+ "family": "cargos",
+ "title": "Cargo joggers",
+ "version": 1,
+ "layers_remove": [
+  "belt_loops",
+  "hem_cuff",
+  "hem_stitch"
+ ],
+ "layers_extra": [
+  {
+   "id": "elastic_cuff",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      455,
+      570,
+      "$leg_hem"
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "elastic_cuff_ribs",
+   "stage": "details",
+   "op": "shade",
+   "dL": -8,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "x",
+      "from": 1,
+      "to": 256,
+      "step": 4,
+      "w": 1,
+      "span": [
+       455,
+       "$leg_hem"
+      ]
+     }
+    }
+   ],
+   "regions": [
+    "?limb_[fblr]"
+   ],
+   "frame": "strip"
+  },
+  {
+   "id": "jogger_string_l",
+   "stage": "details",
+   "op": "paint",
+   "coverage": "within",
+   "colour": {
+    "role": "trim",
+    "dL": 10
+   },
+   "shapes": [
+    {
+     "rect": [
+      288,
+      "$waist_top+9",
+      289,
+      192
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "jogger_string_r",
+   "stage": "details",
+   "op": "paint",
+   "coverage": "within",
+   "colour": {
+    "role": "trim",
+    "dL": 10
+   },
+   "shapes": [
+    {
+     "rect": [
+      300,
+      "$waist_top+9",
+      301,
+      192
+     ]
+    }
+   ],
+   "label": 4
+  }
+ ]
+}

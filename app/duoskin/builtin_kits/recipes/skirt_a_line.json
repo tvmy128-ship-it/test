@@ -1,0 +1,13 @@
+{
+ "_notes": "Generated recipe (bible §6.2). See imaging/recipes.py for the schema.",
+ "recipe_id": "skirt_a_line",
+ "extends": "skirt_pleated",
+ "template": "pants",
+ "family": "skirt",
+ "title": "A-line skirt",
+ "version": 1,
+ "fold_set": "skirt_drape",
+ "defaults": {
+  "fold_style": "plain"
+ }
+}

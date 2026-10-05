@@ -6,13 +6,14 @@ Rules enforced here (CHK-P02, CHK-P08, GEN-01..GEN-08):
   ``size``, ``n`` and ``user``; never sends ``moderation``, ``input_fidelity``, ``output_compression`` or ``stream``.
 * ``generate`` takes no input images; anything with a reference, guide or mask uses ``edit`` (Image 1 is the image
   being edited and the mask applies to it).
-* ``n_total > 4`` becomes ``ceil(n / 4)`` separate requests of at most four images; every request passes the
-  images-per-minute limiter (``ImageResult.batches`` lists them; the cache key of each carries the nonce plus
-  its batch index, which is the engine's business, not sent to OpenAI).
+* ``n`` is at most ``min(IPM, 4)`` per request (CHK-P02). ``run_many(req, n_total, ctx)`` splits ``n_total`` into
+  ``ceil(n_total / 4)`` requests (``plan_batches(6) == [3, 3]``) with the same prompt; request ``k`` carries the nonce
+  ``<nonce>#k`` and each passes the images-per-minute limiter on its own (``ImageResult.batches`` lists them).
 * The SDK client is built with ``max_retries=0`` and ``timeout=900``: a timeout followed by an SDK retry could bill
   twice. The adapter retries only 5xx (twice, with backoff); timeouts go back to the queue.
 * The decoded size of every image must equal the REQUESTED size, always; it must also equal Image 1's size when
-  Image 1 is the edit target (a mask is present, or ``edit_target=True``). A mismatch is a size-drift failure: the
+  ``image1_role == "edit_target"`` (I0, I1, I1e, I3, I4, I8, I11); I2, I5, I6 and I10 send a reference crop as Image 1
+  and are checked against the request alone. A mismatch is a size-drift failure: the
   result is rejected (``kind="validation"``, ``code="size_drift"``), never resized.
 * ``background="transparent"`` may come back opaque: the caller must verify alpha (``ImageResult.alpha_present``
   and ``has_real_alpha`` help). ``mask`` is guidance only (the model re-renders the whole image); paste-back and the
@@ -27,7 +28,7 @@ import hashlib
 import io
 import re
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal, Protocol
 
 from duoskin.providers.base import (
@@ -75,15 +76,15 @@ class ImageRequest:
     size: str                                     # "WxH"; valid_size() asserted before sending
     quality: Quality
     background: Literal["opaque", "transparent"]
-    n: int                                        # n > 4 is split into ceil(n/4) requests
+    n: int                                        # 1..4 PER REQUEST and <= the images-per-minute setting; more: run_many()
     images: tuple[NamedPng, ...] = ()             # edit only; images[0] is the image being edited; <=16
+    image1_role: Literal["edit_target", "reference"] = "edit_target"   # decides the size assert (from the template front matter)
     mask: NamedPng | None = None                  # RGBA PNG, same size as images[0], alpha 0 = editable, <4 MB
     output_format: Literal["png"] = "png"
     user: str = "duoskin-local"                   # a fixed hashed identifier; never the user's email
     # ---- additive fields (not sent to OpenAI) ----
     nonce: str = ""                               # "Reimagine" changes only the nonce; part of the cache key and mock seed
     tag: str = ""                                 # step template id (I1..I11), used by mock fault selectors and logs
-    edit_target: bool | None = None               # None = auto: Image 1 is the edit target iff a mask is present
 
 
 @dataclass
@@ -102,11 +103,14 @@ class ImageResult:
     warnings: list[str] = field(default_factory=list)
     cost: dict[str, Any] | None = None            # CostEntry-like; basis "usage" or "estimate" (when usage is None)
     usage_present: bool = False
+    n_total: int = 0                              # run_many: the total asked for (provenance records n_total and the batch sizes)
+    batch_sizes: list[int] = field(default_factory=list)
 
 
 class ImageGenProvider(Protocol):
     def generate(self, req: ImageRequest, ctx: CallCtx) -> ImageResult: ...   # req.images must be empty
     def edit(self, req: ImageRequest, ctx: CallCtx) -> ImageResult: ...       # req.images non-empty
+    def run_many(self, req: ImageRequest, n_total: int, ctx: CallCtx) -> ImageResult: ...   # n_total > 4: see plan_batches
     def probe(self) -> dict[str, bool]: ...                                   # FM-T6 capability probes
 
 
@@ -127,10 +131,14 @@ def parse_size(size: str) -> tuple[int, int]:
     return int(m.group(1)), int(m.group(2))
 
 
-def split_batches(n: int) -> list[int]:
-    """``ceil(n/4)`` requests of at most four images each: 6 -> [4, 2]; 4 -> [4]; 1 -> [1]."""
-    full, rest = divmod(max(1, int(n)), MAX_N_PER_REQUEST)
-    return [MAX_N_PER_REQUEST] * full + ([rest] if rest else [])
+def plan_batches(n_total: int, per_request: int = MAX_N_PER_REQUEST) -> list[int]:
+    """Split ``n_total`` into ``ceil(n_total / per_request)`` requests of balanced size: 6 -> [3, 3], 8 -> [4, 4],
+    5 -> [3, 2], 7 -> [4, 3], 4 -> [4], 1 -> [1]."""
+    n_total = max(1, int(n_total))
+    per_request = max(1, min(MAX_N_PER_REQUEST, int(per_request)))
+    k = -(-n_total // per_request)
+    base, rem = divmod(n_total, k)
+    return [base + 1] * rem + [base] * (k - rem)
 
 
 def is_pinned_snapshot(model: str) -> bool:
@@ -173,8 +181,11 @@ def _bad(msg: str, code: str, hint: str = "") -> ProviderError:
     return ProviderError(PROVIDER, "bad_request", msg, code=code, billed="no", user_hint=hint)
 
 
-def validate_request(req: ImageRequest, *, edit: bool, flags: CapabilityFlags | None = None) -> tuple[int, int]:
-    """Pre-flight (CHK-P02). Raises ``ProviderError(kind="bad_request")`` for a code bug; returns the (W, H)."""
+def validate_request(req: ImageRequest, *, edit: bool, flags: CapabilityFlags | None = None,
+                     per_request_cap: int = MAX_N_PER_REQUEST) -> tuple[int, int]:
+    """Pre-flight (CHK-P02). Raises ``ProviderError(kind="bad_request")`` for a code bug; returns the (W, H).
+
+    ``per_request_cap`` is ``min(IPM, 4)``: a request with more images must go through ``run_many``."""
     if not MODEL_RE.match(req.model):
         raise _bad(f"model {req.model!r} is not a pinned GPT Image model (edit would default to gpt-image-1.5)", "model_not_pinned")
     if req.quality not in QUALITIES:
@@ -187,8 +198,11 @@ def validate_request(req: ImageRequest, *, edit: bool, flags: CapabilityFlags | 
     if not valid_size(w, h):
         raise _bad(f"size {req.size} is not a legal GPT Image size (multiples of 16, <=3:1, 655,360..8,294,400 px)", "illegal_size",
                    "The app asked for an illegal image size. This is a bug; nothing was sent.")
-    if not isinstance(req.n, int) or req.n < 1 or req.n > MAX_N_TOTAL:
-        raise _bad(f"n={req.n!r} must be 1..{MAX_N_TOTAL}", "bad_n")
+    if not isinstance(req.n, int) or isinstance(req.n, bool) or req.n < 1:
+        raise _bad(f"n={req.n!r} must be a positive integer", "bad_n")
+    if req.n > per_request_cap:
+        raise _bad(f"n={req.n} exceeds {per_request_cap} images per request (min of the images-per-minute setting and 4); use run_many()",
+                   "n_exceeds_request_cap", "The app asked for too many images in one request. This is a bug; use run_many for more than four.")
     if not req.user or "@" in req.user:
         raise _bad("user must be the fixed hashed app id, never an email", "bad_user")
     if req.prompt is None or not req.prompt.strip():
@@ -204,8 +218,9 @@ def validate_request(req: ImageRequest, *, edit: bool, flags: CapabilityFlags | 
             raise _bad(f"input image {im.name!r} is not a PNG", "input_not_png")
     if req.mask is not None:
         _validate_mask(req, w, h)
-    target = req.edit_target if req.edit_target is not None else req.mask is not None
-    if edit and target:
+    if edit and req.image1_role not in ("edit_target", "reference"):
+        raise _bad("image1_role must be 'edit_target' or 'reference'", "bad_image1_role")
+    if edit and req.image1_role == "edit_target":
         s1 = png_size(bytes(req.images[0].data))
         if s1 != (w, h):
             raise _bad(f"Image 1 is {s1} but the request asks for {w}x{h}: an edit target must itself be a legal output size",
@@ -349,7 +364,94 @@ def sum_usage(usages: list[dict | None]) -> dict | None:
     return total
 
 
-class OpenAIImages:
+def prepare_inputs(req: ImageRequest, flags: CapabilityFlags) -> tuple[list[NamedPng], NamedPng | None, list[str]]:
+    """Apply the mask/multi-image rule and the Image 1 alpha rule (shared with the mock).
+
+    * mask AND several images while ``openai.mask_multi_ok`` is false: opaque Image 1 -> drop the mask (paste-back and the
+      ring check still run); transparent Image 1 -> drop the extra images (bible D17);
+    * an RGBA Image 1 with transparent pixels and no mask is flattened on ``#F2F2F2`` unless ``openai.rgba_image1_ok``
+      (bible U26).
+    Returns (images, mask, adjustments)."""
+    images, mask, notes = list(req.images), req.mask, []
+    if not images:
+        return images, mask, notes
+    transparent1 = alpha_stats(bytes(images[0].data))[1] > 0
+    if mask is not None and len(images) > 1 and not flags.get("openai.mask_multi_ok"):
+        if transparent1:
+            images = images[:1]
+            notes.append("extra_images_dropped:mask_multi_ok=false")
+        else:
+            mask = None
+            notes.append("mask_dropped:mask_multi_ok=false")
+    if mask is None and transparent1 and not flags.get("openai.rgba_image1_ok"):
+        images[0] = NamedPng(images[0].name, flatten_on(bytes(images[0].data)))
+        notes.append("image1_flattened_on_F2F2F2:rgba_image1_ok=false")
+    return images, mask, notes
+
+
+def aggregate_results(results: list[ImageResult], req: ImageRequest, n_total: int) -> ImageResult:
+    """Merge the results of the sub-requests of one ``run_many`` call."""
+    images = [im for r in results for im in r.images]
+    batches: list[dict[str, Any]] = []
+    for k, r in enumerate(results):
+        for b in r.batches:
+            batches.append({**b, "batch_index": k})
+    usage = sum_usage([r.usage for r in results])
+    adjustments: list[str] = []
+    for r in results:
+        for a in r.adjustments:
+            if a not in adjustments:
+                adjustments.append(a)
+    warnings = [w for r in results for w in r.warnings]
+    return ImageResult(
+        images=images, size=req.size, usage=usage, request_id=results[0].request_id if results else None, model=req.model,
+        raw_sha256=[x for r in results for x in r.raw_sha256], alpha_present=[x for r in results for x in r.alpha_present],
+        batches=batches, request_ids=[x for r in results for x in r.request_ids], adjustments=adjustments, warnings=warnings,
+        cost=_merge_costs([r.cost for r in results if r.cost]), usage_present=usage is not None,
+        n_total=n_total, batch_sizes=[len(r.images) for r in results])
+
+
+class ImageProviderBase:
+    """``run_many`` for any image provider (the real adapter and the mock share it)."""
+
+    flags: CapabilityFlags
+    limiter: RateLimiter
+
+    def per_request_cap(self) -> int:
+        """``min(IPM, 4)``."""
+        cap = getattr(self.limiter, "ipm_capacity", None)
+        return max(1, min(MAX_N_PER_REQUEST, int(cap))) if cap else MAX_N_PER_REQUEST
+
+    def _single(self, req: ImageRequest, ctx: CallCtx, *, edit: bool) -> ImageResult:  # pragma: no cover - abstract
+        raise NotImplementedError
+
+    def generate(self, req: ImageRequest, ctx: CallCtx) -> ImageResult:
+        return self._single(req, ctx, edit=False)
+
+    def edit(self, req: ImageRequest, ctx: CallCtx) -> ImageResult:
+        return self._single(req, ctx, edit=True)
+
+    def run_many(self, req: ImageRequest, n_total: int, ctx: CallCtx) -> ImageResult:
+        """``n_total`` images as ``ceil(n_total / min(IPM, 4))`` requests with the same prompt. Request ``k`` carries the nonce
+        ``<nonce>#k``; each passes the limiter on its own. If a later request fails, the exception's ``partial`` holds the
+        images that were already paid for."""
+        if not isinstance(n_total, int) or isinstance(n_total, bool) or not 1 <= n_total <= MAX_N_TOTAL:
+            raise _bad(f"n_total={n_total!r} must be 1..{MAX_N_TOTAL}", "bad_n")
+        sizes = plan_batches(n_total, self.per_request_cap())
+        edit = bool(req.images)
+        results: list[ImageResult] = []
+        for k, n in enumerate(sizes):
+            sub = replace(req, n=n, nonce=f"{req.nonce}#{k}")
+            try:
+                results.append(self._single(sub, ctx, edit=edit))
+            except ProviderError as pe:
+                if results and pe.partial is None:
+                    pe.partial = aggregate_results(results, req, n_total)
+                raise
+        return aggregate_results(results, req, n_total)
+
+
+class OpenAIImages(ImageProviderBase):
     """Real GPT Image provider on the official SDK (injectable ``client`` / ``http_client`` for tests)."""
 
     name = PROVIDER
@@ -378,31 +480,9 @@ class OpenAIImages:
     def __repr__(self) -> str:
         return "OpenAIImages()"
 
-    # ----- public API ---------------------------------------------------------------------------------------
-    def generate(self, req: ImageRequest, ctx: CallCtx) -> ImageResult:
-        return self._run(req, ctx, edit=False)
-
-    def edit(self, req: ImageRequest, ctx: CallCtx) -> ImageResult:
-        return self._run(req, ctx, edit=True)
-
-    # ----- internals ----------------------------------------------------------------------------------------
+    # ----- public API (generate / edit / run_many come from ImageProviderBase) -------------------------------
     def _prepare_inputs(self, req: ImageRequest) -> tuple[list[NamedPng], NamedPng | None, list[str]]:
-        """Apply the mask/multi-image rule and the Image 1 alpha rule. Returns (images, mask, adjustments)."""
-        images, mask, notes = list(req.images), req.mask, []
-        if not images:
-            return images, mask, notes
-        transparent1 = alpha_stats(bytes(images[0].data))[1] > 0
-        if mask is not None and len(images) > 1 and not self.flags.get("openai.mask_multi_ok"):
-            if transparent1:                                        # transparent Image 1 templates (bible D17): drop the extras
-                images = images[:1]
-                notes.append("extra_images_dropped:mask_multi_ok=false")
-            else:                                                   # opaque Image 1 templates: paste-back + ring check still run
-                mask = None
-                notes.append("mask_dropped:mask_multi_ok=false")
-        if mask is None and transparent1 and not self.flags.get("openai.rgba_image1_ok"):
-            images[0] = NamedPng(images[0].name, flatten_on(bytes(images[0].data)))
-            notes.append("image1_flattened_on_F2F2F2:rgba_image1_ok=false")
-        return images, mask, notes
+        return prepare_inputs(req, self.flags)
 
     def _kwargs(self, req: ImageRequest, n: int, images: list[NamedPng], mask: NamedPng | None, edit: bool) -> dict[str, Any]:
         kw: dict[str, Any] = {"model": req.model, "prompt": req.prompt, "size": req.size, "quality": req.quality,
@@ -440,55 +520,36 @@ class OpenAIImages:
                     continue
                 raise err from None
 
-    def _run(self, req: ImageRequest, ctx: CallCtx, *, edit: bool) -> ImageResult:
-        w, h = validate_request(req, edit=edit, flags=self.flags)
+    def _single(self, req: ImageRequest, ctx: CallCtx, *, edit: bool) -> ImageResult:
+        w, h = validate_request(req, edit=edit, flags=self.flags, per_request_cap=self.per_request_cap())
         if self.require_snapshot and not is_pinned_snapshot(req.model):
             raise _bad(f"model {req.model!r} is not a dated snapshot", "model_not_pinned")
         images, mask, adjustments = self._prepare_inputs(req) if edit else ([], None, [])
-        target = req.edit_target if req.edit_target is not None else req.mask is not None
-        image1_size = png_size(bytes(images[0].data)) if (edit and target and images) else None
-        out_images: list[bytes] = []
-        usages: list[dict | None] = []
-        batches: list[dict[str, Any]] = []
-        costs: list[dict[str, Any]] = []
+        image1_size = png_size(bytes(images[0].data)) if (edit and req.image1_role == "edit_target" and images) else None
+        ctx.tick()
+        kw = self._kwargs(req, req.n, images, mask, edit)
+        resp = self._send(kw, edit, ctx, req.n)
+        got, usage, rid, cost = self._decode(req, resp, req.n, image1_size, edit=edit, n_input=len(images))
         warnings: list[str] = []
-        rids: list[str | None] = []
-        for idx, n in enumerate(split_batches(req.n)):
-            ctx.tick()
-            kw = self._kwargs(req, n, images, mask, edit)
+        if len(got) < req.n:
+            warnings.append(f"asked for {req.n} images, got {len(got)}")
+        if self.cost_sink is not None:
             try:
-                resp = self._send(kw, edit, ctx, n)
-                got, usage, rid, cost = self._decode(req, resp, n, image1_size, ctx_tag=idx, edit=edit, n_input=len(images))
-            except ProviderError as pe:
-                if out_images and pe.partial is None:    # earlier batches were paid for: hand them to the engine
-                    pe.partial = ImageResult(images=out_images, size=req.size, usage=sum_usage(usages), request_id=rids[0] if rids else None,
-                                             model=req.model, raw_sha256=[hashlib.sha256(b).hexdigest() for b in out_images],
-                                             batches=batches, request_ids=rids, adjustments=adjustments, cost=_merge_costs(costs))
-                raise
-            if len(got) < n:
-                warnings.append(f"batch {idx}: asked for {n} images, got {len(got)}")
-            out_images += got
-            usages.append(usage)
-            rids.append(rid)
-            costs.append(cost)
-            batches.append({"batch_index": idx, "n": n, "returned": len(got), "request_id": rid, "usage": usage})
-            if self.cost_sink is not None:
-                try:
-                    self.cost_sink(cost)
-                except Exception:  # noqa: BLE001, S110 - a ledger failure must not hide the images that were paid for
-                    pass
-        alpha = [has_real_alpha(b) for b in out_images]
+                self.cost_sink(cost)
+            except Exception:  # noqa: BLE001, S110 - a ledger failure must not hide the images that were paid for
+                pass
+        alpha = [has_real_alpha(b) for b in got]
         if req.background == "transparent" and not any(alpha):
             warnings.append("transparent_requested_but_opaque")
-        total_usage = sum_usage(usages)
-        if total_usage is not None:
+        if usage is not None:
             self.flags.set("openai.usage_present", True)
-        return ImageResult(images=out_images, size=f"{w}x{h}", usage=total_usage, request_id=rids[0] if rids else None, model=req.model,
-                           raw_sha256=[hashlib.sha256(b).hexdigest() for b in out_images], alpha_present=alpha, batches=batches,
-                           request_ids=rids, adjustments=adjustments, warnings=warnings, cost=_merge_costs(costs),
-                           usage_present=total_usage is not None)
+        return ImageResult(images=got, size=f"{w}x{h}", usage=usage, request_id=rid, model=req.model,
+                           raw_sha256=[hashlib.sha256(b).hexdigest() for b in got], alpha_present=alpha,
+                           batches=[{"batch_index": 0, "n": req.n, "returned": len(got), "request_id": rid, "usage": usage}],
+                           request_ids=[rid], adjustments=adjustments, warnings=warnings, cost=cost, usage_present=usage is not None,
+                           n_total=req.n, batch_sizes=[len(got)])
 
-    def _decode(self, req: ImageRequest, resp: Any, n: int, image1_size: tuple[int, int] | None, *, ctx_tag: int, edit: bool,
+    def _decode(self, req: ImageRequest, resp: Any, n: int, image1_size: tuple[int, int] | None, *, edit: bool,
                 n_input: int) -> tuple[list[bytes], dict | None, str | None, dict[str, Any]]:
         rid = getattr(resp, "_request_id", None)
         usage_obj = getattr(resp, "usage", None)
@@ -608,8 +669,8 @@ def estimate_call(req: ImageRequest) -> float:
 
 
 __all__ = [
-    "MAX_N_PER_REQUEST", "QUALITIES", "ImageGenProvider", "ImageRequest", "ImageResult", "NamedPng", "OpenAIImages",
+    "MAX_N_PER_REQUEST", "QUALITIES", "ImageGenProvider", "ImageProviderBase", "ImageRequest", "ImageResult", "NamedPng", "OpenAIImages",
     "Quality", "alpha_stats", "check_response_sizes", "estimate_call", "flatten_on", "has_real_alpha", "is_pinned_snapshot",
-    "map_openai_error", "moderation_error", "parse_size", "size_drift_error", "split_batches", "sum_usage", "valid_size",
+    "map_openai_error", "moderation_error", "parse_size", "plan_batches", "prepare_inputs", "size_drift_error", "sum_usage", "valid_size",
     "validate_request",
 ]

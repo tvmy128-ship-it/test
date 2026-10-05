@@ -57,7 +57,7 @@ class Repo:
         return p
 
     def list_projects(self, *, include_archived: bool = False) -> list[Project]:
-        rows = self.db.conn().execute("SELECT json FROM projects ORDER BY updated_at DESC, id DESC").fetchall()
+        rows = self.db.conn().execute("SELECT json FROM projects ORDER BY updated_at DESC, rowid DESC").fetchall()
         out = [Project.model_validate_json(r["json"]) for r in rows]
         return out if include_archived else [p for p in out if not p.archived]
 
@@ -122,7 +122,7 @@ class Repo:
         return SpecRecord.model_validate_json(row["json"])
 
     def list_specs(self, project_id: str) -> list[SpecRecord]:
-        rows = self.db.conn().execute("SELECT json FROM specs WHERE project_id=? ORDER BY created_at, id",
+        rows = self.db.conn().execute("SELECT json FROM specs WHERE project_id=? ORDER BY created_at, rowid",
                                       (project_id,)).fetchall()
         return [SpecRecord.model_validate_json(r["json"]) for r in rows]
 
@@ -196,7 +196,7 @@ class Repo:
             if val is not None:
                 sql += f" AND {col}=?"
                 args.append(val)
-        rows = self.db.conn().execute(sql + " ORDER BY created_at, id", args).fetchall()
+        rows = self.db.conn().execute(sql + " ORDER BY created_at, rowid", args).fetchall()
         return [AssetLink.model_validate_json(r["json"]) for r in rows]
 
     def set_link_status(self, link_id: str, status: str) -> None:
@@ -239,7 +239,7 @@ class Repo:
         if state is not None:
             sql += " AND state=?"
             args.append(state)
-        rows = self.db.conn().execute(sql + " ORDER BY created_at DESC, id DESC LIMIT ?", (*args, limit)).fetchall()
+        rows = self.db.conn().execute(sql + " ORDER BY created_at DESC, rowid DESC LIMIT ?", (*args, limit)).fetchall()
         return [Job.model_validate_json(r["json"]) for r in rows]
 
     # ----------------------------------------------------------------------------------------------- steps
@@ -294,7 +294,7 @@ class Repo:
             if val is not None:
                 sql += f" AND {col}=?"
                 args.append(val)
-        rows = self.db.conn().execute(sql + " ORDER BY created_at, id LIMIT ?", (*args, limit)).fetchall()
+        rows = self.db.conn().execute(sql + " ORDER BY created_at, rowid LIMIT ?", (*args, limit)).fetchall()
         return [Step.model_validate_json(r["json"]) for r in rows]
 
     def step_counts(self, *, job_id: str | None = None, project_id: str | None = None) -> dict[str, int]:
@@ -339,7 +339,7 @@ class Repo:
         if state is not None:
             sql += " AND state=?"
             args.append(state)
-        rows = self.db.conn().execute(sql + " ORDER BY opened_at, id", args).fetchall()
+        rows = self.db.conn().execute(sql + " ORDER BY opened_at, rowid", args).fetchall()
         return [Gate.model_validate_json(r["json"]) for r in rows]
 
     def insert_decision(self, d: GateDecision) -> GateDecision:
@@ -367,7 +367,7 @@ class Repo:
             c.execute("DELETE FROM decisions WHERE id=?", (decision_id,))
 
     def list_decisions(self, gate_id: str) -> list[GateDecision]:
-        rows = self.db.conn().execute("SELECT json FROM decisions WHERE gate_id=? ORDER BY decided_at, id", (gate_id,)).fetchall()
+        rows = self.db.conn().execute("SELECT json FROM decisions WHERE gate_id=? ORDER BY decided_at, rowid", (gate_id,)).fetchall()
         return [GateDecision.model_validate_json(r["json"]) for r in rows]
 
     # ----------------------------------------------------------------------------------------------- approvals
@@ -426,7 +426,7 @@ class Repo:
             if val is not None:
                 sql += f" AND {col}=?"
                 args.append(val)
-        rows = self.db.conn().execute(sql + " ORDER BY created_at, id", args).fetchall()
+        rows = self.db.conn().execute(sql + " ORDER BY created_at, rowid", args).fetchall()
         return [(r["id"], CheckResult.model_validate_json(r["json"])) for r in rows]
 
     # ----------------------------------------------------------------------------------------------- labels, kv, procs

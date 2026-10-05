@@ -39,7 +39,7 @@ class CheckResult(BaseModel):
     thresholds_version: str = "v1"
 
     @model_validator(mode="after")
-    def _consistent(self) -> "CheckResult":
+    def _consistent(self) -> CheckResult:
         if not self.ran:
             # fail closed: a check that did not run can never pass
             self.passed = False

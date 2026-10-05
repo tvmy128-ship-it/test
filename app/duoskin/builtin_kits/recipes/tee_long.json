@@ -1,0 +1,60 @@
+{
+ "_notes": "Generated recipe (bible §6.2). See imaging/recipes.py for the schema.",
+ "recipe_id": "tee_long",
+ "extends": "tee",
+ "template": "shirt",
+ "family": "tee",
+ "title": "Long-sleeve tee",
+ "version": 1,
+ "cut": {
+  "sleeve": [
+   "three_quarter",
+   "long"
+  ]
+ },
+ "defaults": {
+  "sleeve": "long"
+ },
+ "print_slots": [
+  {
+   "region": "torso_f",
+   "role": "hero",
+   "box": [
+    243,
+    92,
+    346,
+    160
+   ]
+  },
+  {
+   "region": "torso_b",
+   "role": "back",
+   "box": [
+    439,
+    92,
+    542,
+    160
+   ]
+  },
+  {
+   "region": "rlimb_r",
+   "role": "sleeve",
+   "box": [
+    158,
+    364,
+    207,
+    412
+   ]
+  },
+  {
+   "region": "llimb_l",
+   "role": "sleeve",
+   "box": [
+    381,
+    364,
+    430,
+    412
+   ]
+  }
+ ]
+}

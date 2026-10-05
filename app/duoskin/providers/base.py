@@ -399,6 +399,11 @@ class RateLimiter:
         return self._limit
 
     @property
+    def ipm_capacity(self) -> int | None:
+        """Size of the images-per-minute bucket (``None`` when there is no such limit)."""
+        return int(self._ipm.capacity) if self._ipm else None
+
+    @property
     def in_flight(self) -> int:
         return self._in_flight
 

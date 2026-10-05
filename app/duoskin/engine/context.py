@@ -267,6 +267,8 @@ class StepContext:
             if proc.poll() is None:
                 kill_process_tree(proc.pid)
             self.rt.repo.remove_child_proc(proc.pid, create_time)
+        if self.cancelled:
+            raise Cancelled(self.step.id)
         result: dict[str, Any] | None = None
         try:
             parsed = json.loads(Path(result_path).read_text(encoding="utf-8"))

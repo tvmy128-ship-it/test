@@ -385,12 +385,7 @@ def check_fabric_tile(tile: np.ndarray, fabric_id: str = "") -> list[CheckResult
 # --------------------------------------------------------------------------------------------------------------------
 def strip_layout(part: str) -> tuple[dict[str, float], float]:
     """Perimeter offsets (template px) of the four side faces of ``part`` in wrap order and the total strip length."""
-    off: dict[str, float] = {}
-    pos = 0.0
-    for region in T.SIDE_CYCLE[part]:
-        off[region] = pos
-        pos += T.SIZE[region][0]
-    return off, pos
+    return T.strip_layout(part)
 
 
 def _bilinear(tile: np.ndarray, tu: np.ndarray, tv: np.ndarray) -> np.ndarray:
