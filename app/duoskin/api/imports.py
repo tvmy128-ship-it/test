@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from duoskin.api import RT
 from duoskin.engine.runtime import Runtime
@@ -17,7 +17,7 @@ class AssignIn(BaseModel):
     project_id: str
     part_id: str
     tripo_plan: Literal["free", "paid", "not_tripo"]
-    task_link: str = ""
+    task_link: str = Field(default="", max_length=500)      # stored in the part's provenance and in the export kit: short, and scrubbed of keys there
 
 
 @router.post("/imports")

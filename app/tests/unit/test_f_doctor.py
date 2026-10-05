@@ -452,3 +452,29 @@ def test_the_report_never_contains_key_values(tmp_path):
         assert "sk-ant-api03" not in text
     finally:
         rt.shutdown()
+
+
+def test_s04_a_missing_pymeshlab_only_warns_but_a_missing_ocr_or_opencv_blocks(ctx, monkeypatch):
+    """pymeshlab is optional in the code (the built-in decimator takes over), so it must not block paid features."""
+    ctx.quick = False
+
+    def fake_run_py(broken):
+        def run_py(code, **kw):
+            if "ctypes.WinDLL" in code:
+                return 0, "ok", ""
+            if "TEST" in code and "RapidOCR" in code:
+                return (1, "", "ModuleNotFoundError: rapidocr") if "ocr" in broken else (0, '{"ok": true, "best": 0.99, "txts": ["TEST"]}', "")
+            for name in ("pymeshlab", "cv2", "onnxruntime", "resvg_py", "trimesh"):
+                if f"import {name}" in code:
+                    return (1, "", f"ImportError: {name}") if name in broken else (0, "ok", "")
+            return 0, "ok", ""
+        return run_py
+
+    monkeypatch.setattr(dc, "run_py", fake_run_py({"pymeshlab"}))
+    out = run(ctx, "CHK-S04")
+    assert out.status == "warn" and "pymeshlab" in out.message
+    monkeypatch.setattr(dc, "run_py", fake_run_py(set()))
+    assert run(ctx, "CHK-S04").status == "pass"
+    for broken in ({"cv2"}, {"onnxruntime"}, {"ocr"}, {"pymeshlab", "cv2"}):
+        monkeypatch.setattr(dc, "run_py", fake_run_py(broken))
+        assert run(ctx, "CHK-S04").status == "fail", broken

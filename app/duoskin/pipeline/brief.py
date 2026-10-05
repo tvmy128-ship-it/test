@@ -246,6 +246,21 @@ def structure_suggestion(rt: Runtime, project: Project, *, seed: int) -> list[st
     return order[:3]
 
 
+def reference_for_planner(analysis: Any, seed: int) -> Any:
+    """The L1 reference analysis with its lists in a seeded order (the same analysis is read from the store for every duo of a project, and
+    its first rule would otherwise always come first). Content is unchanged; anything that is not a mapping is returned as it is."""
+    if not isinstance(analysis, Mapping):
+        return analysis
+    rng = random.Random(seed + 5)
+    out = dict(analysis)
+    for key in ("rules", "duo_devices", "quality_bar"):
+        if isinstance(out.get(key), list):
+            items = list(out[key])
+            rng.shuffle(items)
+            out[key] = items
+    return out
+
+
 def brief_names_colours(brief: str, must_include: Sequence[str] = ()) -> bool:
     """True when the brief or a must-include line names a colour or a palette mood ("teal", "pastel"): the person's colours come first, so the
     palette rotation is withheld."""
@@ -356,7 +371,7 @@ def planner_inputs(rt: Runtime, project: Project, *, reference_analysis: Any = N
         "structure_request": project.structure_request or "auto",
         "must_include": "\n".join(project.must_include) if project.must_include else NONE,
         "combo": project.combo,
-        "reference_analysis": _json_or(reference_analysis),
+        "reference_analysis": _json_or(reference_for_planner(reference_analysis, seed)),
         "taste_profile": _json_or(taste_for_planner(taste_profile, seed)),
         "recent_cards": _json_or(recent_cards_json(cards, RECENT_CARDS)),
         "recently_used": _json_or({k: v for k, v in used.items() if v}),

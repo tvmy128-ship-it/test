@@ -298,9 +298,55 @@ def load_gltf(path: str | Path) -> LoadedMesh:
     return LoadedMesh(mesh, facts, messages)
 
 
+_MTL_TEXTURE_KEYS = ("map_", "bump", "disp", "decal", "refl")
+
+
+def _bare_name(ref: str) -> bool:
+    """A file name next to the model: no folder, drive, UNC, ``..``, URL, percent-escape or control character."""
+    ref = ref.strip().strip('"')
+    return bool(ref) and not any(c in ref for c in "/\\:%?#\x00") and not ref.startswith(".") and all(ord(c) >= 32 for c in ref)
+
+
+def obj_external_references(path: str | Path) -> list[str]:
+    """References in an OBJ (``mtllib``) and in the MTL files next to it (``map_Kd``, ``bump`` ...) that are not bare file names. Both loaders (trimesh and
+    Blender) follow them, so ``map_Kd ../../Users/me/secret.png`` would pull an arbitrary local image into the model's texture."""
+    p = Path(path)
+    bad: list[str] = []
+    mtls: list[str] = []
+    try:
+        with open(p, "rb") as fh:
+            text = fh.read(MAX_FILE_BYTES + 1).decode("utf-8", errors="replace")
+    except OSError:
+        return bad
+    for line in text.splitlines():
+        low = line.strip()
+        if low.lower().startswith("mtllib"):
+            words = low.split()[1:]
+            for ref in words:
+                (mtls if _bare_name(ref) else bad).append(ref)
+    for name in mtls:
+        mtl = p.with_name(name)
+        if not mtl.is_file():
+            continue
+        try:
+            body = mtl.read_bytes()[:MAX_FILE_BYTES].decode("utf-8", errors="replace")
+        except OSError:
+            continue
+        for line in body.splitlines():
+            parts = line.strip().split()
+            if parts and parts[0].lower().startswith(_MTL_TEXTURE_KEYS) and len(parts) > 1:
+                ref = parts[-1]                        # the file name is the last word (options such as -s 1 1 1 come first)
+                if not _bare_name(ref):
+                    bad.append(ref)
+    return [b[:120] for b in bad]
+
+
 def load_obj(path: str | Path) -> LoadedMesh:
     """Plain OBJ (+ MTL + texture next to it) through trimesh. Used only when Blender is not available."""
     p = Path(path)
+    refs = obj_external_references(p)
+    if refs:
+        raise MeshError("external_reference", "The model points at files outside its folder (" + "; ".join(refs[:3]) + "). Put the texture next to the OBJ.")
     scene = _load_trimesh_scene(p, "obj")
     messages = ["read with the built-in OBJ reader (Blender not used); check the texture and orientation"]
     parts = _scene_parts(scene) if hasattr(scene, "graph") else []
@@ -344,6 +390,9 @@ def load_mesh(path: str | Path, *, blender: str | None = None, workdir: str | Pa
     if kind == "obj":
         from duoskin.mesh import blender as bl
 
+        refs = obj_external_references(p)
+        if refs:
+            raise MeshError("external_reference", "The model points at files outside its folder (" + "; ".join(refs[:3]) + "). Put the texture next to the OBJ.")
         exe = bl.find_blender(blender or "")
         if exe is None:
             return load_obj(p)

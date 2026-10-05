@@ -87,7 +87,7 @@ def test_make_her_jacket_teal_goes_from_the_typed_text_to_an_edit_prompt_without
     assert CH.prescreen_request(text) == []
     plan = mock_l7(spec, text)
     assert plan.patch and not plan.needs_clarification and "teal" in plan.image_fixes[0].fix_sentence.lower()
-    new_spec, fixes, cp = through_the_gates(spec, plan)
+    _, fixes, cp = through_the_gates(spec, plan)
     assert fixes[0].character == "a", "her jacket is the girl's (character A in a girl-and-boy duo): her picture is edited first"
     assert all(f.route == "i1e" for f in fixes), "an edit of the chosen draft, never a redraw"
     assert "teal" in cp.text.lower() and cp.text.count("MUST:") == 1 and cp.dna_fields == []
@@ -98,7 +98,7 @@ def test_make_her_jacket_teal_goes_from_the_typed_text_to_an_edit_prompt_without
                                       "Shorten the skirt a little.", "Make the hair a little longer."])
 def test_a_little_shorter_survives_l7_and_the_fix_sentence_lint(spec, sentence):
     plan = scripted("/a/bottom/leg", "mini", sentence)
-    new_spec, fixes, cp = through_the_gates(spec, plan)
+    _, fixes, cp = through_the_gates(spec, plan)
     assert fixes[0].fix_sentence == sentence and sentence in cp.text and cp.template_id == "I1e.concept_edit"
 
 

@@ -267,6 +267,9 @@ def _single_file(src: Path, work: Path, notes: list[str], issues: list[ImportIss
             if blender_available is False:
                 issues.append(ImportIssue("blender_missing", BLENDER_MISSING))
             return kind, dst, True
+        refs = load.obj_external_references(dst)
+        if refs:
+            issues.append(ImportIssue("external_reference", "The model points at files outside its folder (" + "; ".join(refs[:3]) + "). Put the texture next to the OBJ."))
         notes.append("OBJ carries no PBR data: it is read with Blender when present, else with the built-in reader")
         return kind, dst, blender_available is not False
     if kind in ("stl", "ply"):

@@ -60,7 +60,7 @@ MUST:
 2. Left figure: a flat 2D anime-style face on the front of the cube head, {face_phrase}. Right figure: the same character seen from directly behind, showing the back of the hair and clothing.
 3. Take hair, clothing and shoe colours from the matching areas and swatches of Image 1; both figures match in every detail.
 4. {shape_language_line}
-5. Signature detail: {motif_object}, clearly visible in both views where it appears.
+5. Signature detail: the motif {motif_object} as a print, patch or charm on the figure, never a separate object.
 STYLE: {style_block}
 KEEP: the light grey background, the colour swatches and the spacing of Image 1.
 EXCLUDE: text, letters, numbers, logos, watermark, additional people, floor shadow, background objects, background scenery.

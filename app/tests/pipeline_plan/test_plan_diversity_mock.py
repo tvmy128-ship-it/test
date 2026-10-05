@@ -203,7 +203,7 @@ def test_the_hints_never_block_anything(unit_rt, demo_inv):
 
 
 def test_the_taste_profile_is_shown_as_a_seeded_handful_not_the_same_text_every_time():
-    rule = lambda i: {"field": "hair_style", "tendency": f"likes style {i}", "evidence_ids": ["a", "b"], "strength": "moderate"}   # noqa: E731
+    rule = lambda i: {"field": "hair_style", "tendency": f"likes style {i}", "evidence_ids": ["a", "b"], "strength": "moderate"}
     doc = {"profile": {"likes": [rule(i) for i in range(8)], "dislikes": [rule(100), rule(101)], "open_questions": ["q"],
                        "explore": ["a calmer palette", "a different structure", "an unusual accessory"]},
            "reference_rules": [{"axis": "line_weight", "rule": f"r{i}"} for i in range(5)]}
@@ -216,6 +216,15 @@ def test_the_taste_profile_is_shown_as_a_seeded_handful_not_the_same_text_every_
     assert len(liked) == 8 and share(liked) <= 0.30, "no single like is in every plan"
     assert BR.taste_for_planner(None, 1) is None and BR.taste_for_planner({"profile": {"likes": [], "dislikes": [], "explore": []}}, 1) is None
     assert BR.taste_for_planner("free text", 1) == "free text"
+
+
+def test_the_reference_analysis_is_read_in_a_seeded_order_with_its_content_unchanged():
+    analysis = {"rules": [{"axis": "line_weight", "observation": "o", "rule": f"r{i}"} for i in range(6)], "duo_devices": ["a", "b", "c"],
+                "quality_bar": ["x", "y"], "do_not_copy": ["z"], "brand_or_character_flags": []}
+    orders = {tuple(r["rule"] for r in BR.reference_for_planner(analysis, seed)["rules"]) for seed in range(12)}
+    assert len(orders) >= 8 and all(sorted(o) == [f"r{i}" for i in range(6)] for o in orders)
+    assert BR.reference_for_planner(analysis, 1)["do_not_copy"] == ["z"] and analysis["rules"][0]["rule"] == "r0"
+    assert BR.reference_for_planner("free text", 1) == "free text" and BR.reference_for_planner(None, 1) is None
 
 
 def test_the_wildcard_does_not_see_the_taste_profile_downstream():
@@ -253,7 +262,7 @@ def test_every_claude_call_of_one_project_round_shares_one_logged_order_seed(uni
     from duoskin.pipeline import plan as PL
 
     p, q = db_project(unit_rt, name="One"), db_project(unit_rt, name="Two")
-    ctx = lambda pid: types.SimpleNamespace(rt=unit_rt, project_id=pid, step=types.SimpleNamespace(project_id=pid))    # noqa: E731
+    ctx = lambda pid: types.SimpleNamespace(rt=unit_rt, project_id=pid, step=types.SimpleNamespace(project_id=pid)) 
     first = PL.kit_order_seed(ctx(p.id))
     assert first == BR.seed_for(unit_rt, p.id) == PL.kit_order_seed(ctx(p.id)) and first != PL.kit_order_seed(ctx(q.id))
     BR.remember_rejected(unit_rt, p.id, [specfix.load_dict("spec_mirror_gg")], "again")

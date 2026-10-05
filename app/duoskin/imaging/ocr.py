@@ -13,6 +13,7 @@ otherwise it falls back to the glyph-shape detector in ``imaging/glyph.py`` and 
 from __future__ import annotations
 
 import importlib.util
+import threading
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -32,6 +33,7 @@ MIN_OCR_SIDE = 320                      # smaller images are upscaled before OCR
 
 _ENGINE: Any = None
 _ENGINE_ERROR: str = ""
+_OCR_LOCK = threading.Lock()            # one RapidOCR instance, used by one step thread at a time (APP_SPEC 4.3, SYS-17)
 
 
 @dataclass(frozen=True)
@@ -144,7 +146,9 @@ def run_ocr(im: Image.Image, engine: Callable[..., Any]) -> list[TextBox]:
     found: list[TextBox] = []
     for arr in _flatten_variants(im):
         sx, sy = w0 / arr.shape[1], h0 / arr.shape[0]
-        for pts, text, score in _parse(engine(arr)):
+        with _OCR_LOCK:
+            raw = engine(arr)
+        for pts, text, score in _parse(raw):
             if score < min_score or not text.strip():
                 continue
             xs = [p[0] * sx for p in pts]

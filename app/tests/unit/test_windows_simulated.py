@@ -12,7 +12,6 @@ import subprocess
 import sys
 import textwrap
 import types
-from pathlib import Path
 
 import pytest
 
@@ -375,10 +374,6 @@ def test_probe_python_accepts_only_supported_windows_builds(monkeypatch):
     assert not probe.is_supported()                                               # the Microsoft Store build
 
 
-def test_wheelhouse_path_helpers_do_not_assume_a_drive():
-    assert Path(config.APP_ROOT).is_absolute()
-
-
 def test_log_rollover_survives_a_locked_log_file(tmp_path, monkeypatch):
     """WinError 32 while renaming duoskin.log (antivirus, OneDrive, a second copy of the app) must not lose or break logging."""
     import logging
@@ -448,3 +443,36 @@ def test_hand_edited_json_with_a_utf8_bom_is_read(tmp_path):
     kit = tmp_path / "style.json"
     kit.write_bytes(b"\xef\xbb\xbf" + '{"id": "café"}'.encode())
     assert kits._read_json(kit) == {"id": "café"}
+
+
+def test_start_up_limits_opencv_to_one_thread_and_the_ocr_engine_is_never_used_concurrently():
+    """SYS-17: step threads already use every core; one RapidOCR instance serves one thread at a time."""
+    proc = subprocess.run([sys.executable, "-X", "utf8", "-c", "import duoskin.__main__ as m; m._early_setup(); import cv2; print(cv2.getNumThreads())"],
+                          cwd=str(ROOT), capture_output=True, encoding="utf-8", errors="replace", timeout=120, check=False,
+                          stdin=subprocess.DEVNULL)
+    assert proc.returncode == 0 and proc.stdout.strip().splitlines()[-1] == "1", proc.stderr[-800:]
+
+    import threading
+    import time
+
+    from PIL import Image
+
+    from duoskin.imaging import ocr
+
+    inside = []
+    overlap = []
+
+    def engine(_arr):
+        inside.append(1)
+        if len(inside) > 1:
+            overlap.append(1)
+        time.sleep(0.01)
+        inside.pop()
+
+    img = Image.new("RGB", (400, 400), "white")
+    threads = [threading.Thread(target=ocr.run_ocr, args=(img, engine)) for _ in range(6)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not overlap

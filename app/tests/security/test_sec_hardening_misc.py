@@ -225,3 +225,39 @@ def test_a_huge_declared_body_is_refused_before_it_is_read(client):
 def test_the_largest_legitimate_upload_still_passes_the_size_guard(client):
     r = client.post("/api/imports", files={"file": ("m.glb", b"glTF" + b"\0" * 1024, "model/gltf-binary")})
     assert r.status_code in (200, 422)
+
+
+def test_a_network_share_is_never_touched_for_a_kit_or_a_head_base(rt_bare, client):
+    from duoskin.pipeline import library
+    from duoskin.security import is_network_path
+
+    for path in ("\\\\attacker\\share\\kit", "//attacker/share/kit", "\\\\?\\UNC\\attacker\\share", "\\\\.\\pipe\\x", "  \\\\attacker\\share"):
+        assert is_network_path(path)
+        with pytest.raises(library.KitError, match="on this PC"):
+            library.add_kit(rt_bare, path, "fabric", origin(), "user_made")
+        r = client.post("/api/library/head-base/build", json={"source_path": path, "variant": "v1"})
+        assert r.status_code == 422 and r.json()["error"] == "network_path"
+    assert not is_network_path("C:\\Users\\me\\kit") and not is_network_path("/home/me/kit") and not is_network_path("relative/kit")
+
+
+def test_nothing_deserialises_untrusted_bytes_into_objects():
+    """Static audit: no ``allow_pickle=True``, no ``pickle``/``marshal``/``shelve``/``dill`` import, no ``yaml.load`` (only ``safe_load``)."""
+    import ast
+
+    root = Path(__file__).resolve().parents[2] / "duoskin"
+    bad: list[str] = []
+    for path in sorted(root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        rel = path.relative_to(root.parent).as_posix()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
+                if any(n.split(".")[0] in ("pickle", "cPickle", "marshal", "shelve", "dill", "cloudpickle", "joblib") for n in names):
+                    bad.append(f"{rel}:{node.lineno} imports a pickle-like module")
+            if isinstance(node, ast.Call):
+                for kw in node.keywords:
+                    if kw.arg == "allow_pickle" and not (isinstance(kw.value, ast.Constant) and kw.value.value is False):
+                        bad.append(f"{rel}:{node.lineno} allow_pickle")
+                if ast.unparse(node.func) in ("yaml.load", "yaml.unsafe_load", "yaml.full_load"):
+                    bad.append(f"{rel}:{node.lineno} unsafe yaml")
+    assert bad == []

@@ -49,6 +49,17 @@ def test_a_draw_that_no_rung_can_save_ends_as_needs_human(rt, planned, monkeypat
     pid, rec = planned
     monkeypatch.setattr(CO, "blocking_failures", lambda results: [r for r in results if r.check_id == "A_SIL_GUIDE"] or [r for r in results if r.check_id == "A_SIZE"] or
                         [type("R", (), {"check_id": "A_OCR", "passed": False})()])
+    real_gate_a = CO.gate_a
+
+    def failing_gate_a(*args, **kw):
+        """Every draft fails the silhouette check, whatever colours the mock happened to paint for this plan (the planner's answer, and so the
+        mock picture, changes with the prompt text; the test is about the ladder, not about one seeded picture)."""
+        results, close, de = real_gate_a(*args, **kw)
+        results = [r for r in results if r.check_id != "A_SIL_GUIDE"]
+        results.append(CO.runner.build_result("A_SIL_GUIDE", passed=False, subject_sha=args[4], metric="forced", evidence="forced by the test"))
+        return results, close, de
+
+    monkeypatch.setattr(CO, "gate_a", failing_gate_a)
     step, state = run_char(rt, pid, rec, 8)
     assert state["chosen"] is None and state["failed"]["checks"] and len(state["rungs"]) == 2, "head mask, then eight drafts"
     assert step.result["failed"] is True

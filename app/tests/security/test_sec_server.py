@@ -420,3 +420,25 @@ def test_the_settings_api_refuses_network_and_device_folders(client, rt):
             assert r.status_code == 422, (key, path, r.status_code)
     ok = client.put("/api/settings", json={"paths": {"exports_root": "C:\\Users\\me\\DuoSkin Exports"}})
     assert ok.status_code == 200 and ok.json()["paths"]["exports_root"] == "C:\\Users\\me\\DuoSkin Exports"
+
+
+def test_no_get_route_changes_state():
+    """A GET needs no token (the page loads data with it), so a GET that wrote something could be triggered by any web page. Static audit of every
+    ``@router.get`` handler: no store write, no job, no setting, no key, no file removal (the inbox poll is the one allowed read-side effect)."""
+    mutators = ("kv_set", "mutate_", "save_", "insert_", "submit_job", "emit", "update_settings", "set_key", "delete_key", "write_", "set_part_state",
+                "start_", "spawn", "pause", "resume", "cancel", "decide", "retry", "unlink", "rmtree", "remove", "rename", "replace")
+    allowed = {("imports.py", "inbox", "manual_mesh.watcher(rt).poll_once")}
+    found: list[tuple[str, str, str]] = []
+    for path in sorted((APP_ROOT / "duoskin" / "api").glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if not any(isinstance(d, ast.Call) and getattr(d.func, "attr", "") == "get" for d in node.decorator_list):
+                continue
+            for call in ast.walk(node):
+                if isinstance(call, ast.Call):
+                    name = ast.unparse(call.func)
+                    if any(name.split(".")[-1].startswith(m) for m in mutators):
+                        found.append((path.name, node.name, name))
+    assert set(found) <= allowed, found

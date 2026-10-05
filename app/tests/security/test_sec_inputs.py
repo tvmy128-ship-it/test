@@ -748,3 +748,58 @@ def test_the_mesh_worker_applies_the_pixel_limit_before_it_decodes_a_glb_texture
     res = subprocess.run([_sys.executable, "-c", code], capture_output=True, text=True, cwd=str(APP_ROOT), timeout=120, check=False)
     assert "MemoryError" not in res.stderr
     assert res.returncode != 0 or "TEX" in res.stdout and "(60000, 60000)" not in res.stdout, (res.stdout, res.stderr[-300:])
+
+
+# ================================================================================================= OBJ / MTL
+OBJ = "mtllib {mtl}\nusemtl m0\nv 0 0 0\nv 1 0 0\nv 0 1 0\nvt 0 0\nvt 1 0\nvt 0 1\nf 1/1 2/2 3/3\n"
+
+
+def write_obj(tmp_path: Path, mtl_ref: str, texture_ref: str) -> Path:
+    work = tmp_path / "work"
+    work.mkdir(exist_ok=True)
+    buf = io.BytesIO()
+    Image.new("RGB", (4, 4), (0, 0, 255)).save(buf, "PNG")
+    (work / "tex.png").write_bytes(buf.getvalue())
+    (tmp_path / "secret.png").write_bytes(buf.getvalue())
+    (work / "m.mtl").write_text(f"newmtl m0\nKd 1 1 1\nmap_Kd {texture_ref}\n", encoding="utf-8")
+    p = work / "m.obj"
+    p.write_text(OBJ.format(mtl=mtl_ref), encoding="utf-8")
+    return p
+
+
+@pytest.mark.parametrize("mtl_ref,texture_ref", [("m.mtl", "../secret.png"), ("m.mtl", "..\\secret.png"), ("m.mtl", "C:\\Windows\\win.ini"), ("m.mtl", "/etc/passwd"),
+                                                  ("m.mtl", "file:///etc/passwd"), ("m.mtl", "\\\\srv\\share\\x.png"), ("m.mtl", "-s 1 1 1 ../secret.png"),
+                                                  ("../secret.mtl", "tex.png"), ("C:\\x.mtl", "tex.png"), ("/etc/x.mtl", "tex.png")])
+def test_an_obj_or_mtl_that_names_a_file_outside_its_folder_is_refused(tmp_path, mtl_ref, texture_ref):
+    from duoskin.mesh import load
+    from duoskin.mesh.types import MeshError
+
+    p = write_obj(tmp_path, mtl_ref, texture_ref)
+    assert load.obj_external_references(p)
+    with pytest.raises(MeshError) as e:
+        load.load_obj(p)
+    assert e.value.code == "external_reference"
+    with pytest.raises(MeshError) as e2:
+        load.load_mesh(p)
+    assert e2.value.code == "external_reference"
+
+
+def test_an_obj_with_its_texture_next_to_it_still_loads(tmp_path):
+    from duoskin.mesh import load
+
+    p = write_obj(tmp_path, "m.mtl", "tex.png")
+    assert not load.obj_external_references(p)
+    assert load.load_obj(p).mesh.vertices.shape[0] == 3
+
+
+def test_an_oversized_or_junk_icc_profile_is_not_handed_to_the_colour_engine():
+    from duoskin.imaging import files
+
+    buf = io.BytesIO()
+    Image.new("RGB", (8, 8), (10, 20, 30)).save(buf, "PNG", icc_profile=b"\x00" * 800_000)
+    im, report = files.normalise_image(buf.getvalue())
+    assert im.mode == "RGBA" and "icc_too_big" in report.actions
+    buf2 = io.BytesIO()
+    Image.new("RGB", (8, 8), (10, 20, 30)).save(buf2, "PNG", icc_profile=b"not an icc profile at all" * 20)
+    im2, report2 = files.normalise_image(buf2.getvalue())
+    assert im2.mode == "RGBA" and any(a.startswith("icc_failed") for a in report2.actions)

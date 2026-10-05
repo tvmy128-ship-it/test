@@ -7,6 +7,7 @@ a fixed order gives every duo the same first entries. Part 3 checks the free-tex
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 
@@ -31,14 +32,13 @@ def every_compiled(specs, ids=None):
     for tid in ids or IMAGE_IDS:
         for name in SPEC_NAMES:
             for char in (None, "a", "b"):
-                try:
+                variants = []
+                with contextlib.suppress(Exception):          # a template that needs a character, a print or an accessory the fixture lacks
                     variants = list(P.input_variants(tid, specs[name], char))
-                except Exception:       # noqa: BLE001 - a template that needs a character, a print or an accessory the fixture lacks
-                    continue
                 for v in variants[:3]:
                     try:
                         yield tid, name, char, v, compiler.compile(tid, specs[name], char, v)
-                    except Exception as exc:    # noqa: BLE001
+                    except Exception as exc:
                         if "character" in str(exc) and "required" in str(exc):
                             break
                         raise

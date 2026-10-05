@@ -125,7 +125,13 @@ def _is_srgb_description(desc: str) -> bool:
     return "srgb" in desc.lower()
 
 
+MAX_ICC_BYTES = 512 * 1024      # real profiles are 3 KB to 600 KB (the big print profiles); a bigger one is not parsed by the native colour engine
+
+
 def _icc_to_srgb(im: Image.Image, icc: bytes, report: IngestReport) -> Image.Image:
+    if len(icc) > MAX_ICC_BYTES:
+        report.actions.append("icc_too_big")      # sRGB is assumed, exactly as for a corrupt profile
+        return im
     try:
         src = ImageCms.ImageCmsProfile(io.BytesIO(icc))
         desc = (ImageCms.getProfileDescription(src) or "").strip()

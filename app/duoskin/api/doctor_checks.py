@@ -242,6 +242,8 @@ _NATIVE_PROBES: dict[str, str] = {
     "trimesh": "import trimesh; print(trimesh.__version__)",
     "pymeshlab": "import pymeshlab; print('ok')",
 }
+#: Native imports whose failure only switches on a documented fallback (mesh/worker.py: the built-in UV-aware decimator): a warning.
+OPTIONAL_NATIVE = ("pymeshlab",)
 _OCR_SCRIPT = r"""
 import json, sys
 from PIL import Image, ImageDraw, ImageFont
@@ -318,9 +320,14 @@ def chk_s04(c: DoctorCtx) -> Outcome:
         failures.append("OCR")
         fixes.append("Text checks need OCR. Every OCR rule fails closed (no text can be approved) until this is fixed. "
                      "Run setup.bat again.")
+    optional_failed = [f for f in failures if f in OPTIONAL_NATIVE]
+    failures = [f for f in failures if f not in OPTIONAL_NATIVE]
     if failures:
         return Outcome("fail", "These native components did not load: " + ", ".join(failures) + ".", " ".join(fixes) or "Run setup.bat again.",
                        {"results": results})
+    if optional_failed:
+        return Outcome("warn", "pymeshlab did not load, so heavy 3D models are decimated with the built-in method (slower, same limits).",
+                       "Run setup.bat again if you want it; nothing is blocked.", {"results": results})
     return Outcome("pass", "OpenCV, OCR, SVG, 3D and the C++ runtime all load.", detail={"results": results})
 
 

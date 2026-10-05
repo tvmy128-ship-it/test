@@ -52,6 +52,12 @@ def _early_setup() -> None:
 
     winplat.fix_dll_directories()
     winplat.fix_mimetypes()
+    try:                                       # SYS-17: the step threads already use every core; OpenCV's own pool would oversubscribe
+        import cv2
+
+        cv2.setNumThreads(1)
+    except Exception:  # noqa: BLE001, S110 - a missing or broken OpenCV is reported by the doctor, not here
+        pass
 
 
 # ------------------------------------------------------------------------------------------------------------ commands

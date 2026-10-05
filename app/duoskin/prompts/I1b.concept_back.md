@@ -59,7 +59,7 @@ MUST:
 2. The same character seen from directly behind, showing the back of the hair and clothing.
 3. Every detail that shows on both sides matches Image 2 exactly; colours come from the matching areas and swatches of Image 1.
 4. {shape_language_line}
-5. Signature detail: {motif_object}, where it appears from behind.
+5. Signature detail: the motif {motif_object}, shown only where it can be seen from behind.
 STYLE: {style_block}
 KEEP: the light grey background, the colour swatches and the spacing of Image 1.
 EXCLUDE: text, letters, numbers, logos, watermark, additional people, floor shadow, background objects, background scenery.
