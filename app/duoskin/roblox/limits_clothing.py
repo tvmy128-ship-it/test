@@ -24,6 +24,24 @@ SOFT_FILE_BYTES = 1 * 1024 * 1024                                 # DES: a file 
 BIT_DEPTH = 8                                                     # DOC: "supports 8-bit alpha channels"
 COLOUR_TYPE_RGBA = 6
 
+# ---- the words printed on the official template PNG (CLO-18: none of them may appear on a shipped file) ----------------------
+TEMPLATE_LABEL_WORDS: tuple[str, ...] = (
+    "FRONT", "BACK", "UP", "DOWN", "TORSO", "RIGHT", "LEFT", "ARM", "LEG", "ROBLOX", "TEMPLATE", "SHIRT", "PANTS",
+    "R", "L", "B", "F", "U", "D")
+
+
+def find_label_words(texts: list[str] | tuple[str, ...]) -> list[str]:
+    """The template label words among OCR'd ``texts`` (case-insensitive, whole words; single letters only when the text is exactly that
+    letter, as on the official template's face labels)."""
+    hits: list[str] = []
+    for t in texts:
+        words = [w for w in "".join(c if c.isalnum() else " " for c in str(t)).upper().split() if w]
+        for w in words:
+            if w in TEMPLATE_LABEL_WORDS and (len(w) > 1 or len(words) == 1) and w not in hits:
+                hits.append(w)
+    return hits
+
+
 # ---- uploading (EXP-01 / EXP-02) ----------------------------------------------------------------------------------------
 UPLOAD_CHANNEL = "creator_dashboard"
 UPLOAD_PATH = "Creator Dashboard > Avatar Items > Classics > Upload Asset"

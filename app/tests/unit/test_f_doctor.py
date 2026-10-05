@@ -1,6 +1,8 @@
-"""duoskin doctor (CHK-S01..S14, with the issue-file split of CHK-S11 and the new CHK-S14)."""
+"""duoskin doctor (CHK-S01..S15: the CHK-S11 split, S09 warn-only, S14 DreamSim, S15 availability; APP_SPEC §15.3, §2 S25)."""
 from __future__ import annotations
 
+import hashlib
+import json
 import ssl
 import stat
 import sys
@@ -35,21 +37,23 @@ def item(report, check_id):
 # ------------------------------------------------------------------------------------------------- whole report
 def test_every_check_is_present_in_order(rt):
     ids = [i["id"] for i in report_for(rt)["checks"]]
-    assert ids == ["CHK-S01", "CHK-S02", "CHK-S03", "CHK-S04", "CHK-S05", "CHK-S06", "CHK-S07", "CHK-S08", "CHK-S09", "CHK-S10", "CHK-S11",
-                   "CHK-S11b", "CHK-S11c", "CHK-S12", "CHK-S13", "CHK-S14"]
+    assert ids == [f"CHK-S{n:02d}" for n in range(1, 16)]                                    # S11b and S11c became the single S15
 
 
-def test_a_fresh_install_is_never_blocked(rt):
-    """Issue file #2: no house style, no head base and no dreamsim.onnx only warn and route to reduced modes."""
+def test_a_fresh_install_exits_zero_and_only_warns(rt):
+    """APP_SPEC S25 / §17.7 criterion 1: a missing house style, head base, body base, hair kit, dreamsim.onnx or Blender only warn."""
     report = report_for(rt)
     assert report["blocks_paid_features"] is False and report["broken_install"] is False
-    assert report["summary"]["failed"] == 0
-    assert item(report, "CHK-S11b")["status"] == "warn" and item(report, "CHK-S11c")["status"] == "warn" and item(report, "CHK-S14")["status"] == "warn"
-    for cid in ("CHK-S11b", "CHK-S11c", "CHK-S14"):
-        assert item(report, cid)["blocking"] is False and item(report, cid)["kind"] == "soft"
-    assert report["exit_code"] == 2                                                         # warnings: setup says "finished with warnings"
-    assert report["flags"] == {**report["flags"], "head_base_present": False, "house_style_present": False,
-                               "degraded_clone_check": True, "clone_check_mode": "degraded"}
+    assert report["summary"]["failed"] == 0 and report["exit_code"] == 0                    # warnings alone exit 0
+    for cid in ("CHK-S14", "CHK-S15"):
+        i = item(report, cid)
+        assert i["status"] == "warn" and i["blocking"] is False and i["kind"] == "soft"
+    assert item(report, "CHK-S09")["kind"] == "soft" and item(report, "CHK-S09")["status"] in ("na", "pass")
+    f = report["flags"]
+    assert f["head_base_present"] is False and f["house_style_present"] is False and f["body_base_present"] is False
+    assert f["hair_kit_empty"] is True and f["dreamsim_present"] is False and f["makeup"] == "unavailable"
+    assert f["degraded_clone_check"] is True and f["clone_check_mode"] == "degraded" and "blender_present" in f
+    assert rt.paid_blocked_reason() is None
 
 
 def test_checks_are_checkresults_and_na_is_not_a_failure(rt):
@@ -69,11 +73,13 @@ def test_exit_codes(rt, monkeypatch):
     def make(status, kind="hard", fatal=False):
         return dc.CheckDef("CHK-T", "t", kind, lambda c: dc.Outcome(status, "msg"), [], fatal)
 
-    cases = [([make("pass")], 0), ([make("na")], 0), ([make("warn", "soft")], 2), ([make("fail")], 2),
-             ([make("fail", fatal=True)], 3), ([make("pass"), make("warn", "soft")], 2)]
+    # 0 = ok (warnings allowed; SOFT and not_applicable never block), 2 = a HARD or ASSERT check failed or did not run, 3 = broken install
+    cases = [([make("pass")], 0), ([make("na")], 0), ([make("warn", "soft")], 0), ([make("warn")], 0), ([make("fail", "soft")], 0),
+             ([make("fail")], 2), ([make("fail", "assert")], 2), ([make("fail", fatal=True)], 3),
+             ([make("pass"), make("warn", "soft")], 0), ([make("warn", "soft"), make("fail")], 2)]
     for checks, expected in cases:
         monkeypatch.setattr(dc, "_CHECKS", checks)
-        assert dc.run_doctor(rt, quick=True)["exit_code"] == expected
+        assert dc.run_doctor(rt, quick=True)["exit_code"] == expected, [(c.kind, c.fn(None).status) for c in checks]
     monkeypatch.setattr(dc, "_CHECKS", [make("fail", "soft")])                              # a SOFT failure can only warn
     r = dc.run_doctor(rt, quick=True)
     assert r["checks"][0]["status"] == "warn" and r["blocks_paid_features"] is False
@@ -96,7 +102,7 @@ def test_only_filter_and_report_formatting(rt):
     r = dc.run_doctor(rt, quick=True, only={"CHK-S02", "CHK-S14"})
     assert [i["id"] for i in r["checks"]] == ["CHK-S02", "CHK-S14"]
     text = dc.format_report(report_for(rt))
-    assert "[ OK ] CHK-S02" in text and "[WARN] CHK-S11c" in text and "What to do:" in text and "Nothing blocks you" in text
+    assert "[ OK ] CHK-S02" in text and "[WARN] CHK-S15" in text and "What to do:" in text and "Nothing blocks you" in text
     assert "FAIL" not in text
 
 
@@ -182,23 +188,33 @@ def test_s08_data_folder(ctx, monkeypatch):
     assert d.fatal and d.kind == "hard"
 
 
-def test_s09_blender_is_optional_and_checked_when_present(ctx, tmp_path, monkeypatch):
+def test_s09_blender_is_optional_and_only_ever_warns(ctx, tmp_path, monkeypatch):
     monkeypatch.delenv("DUOSKIN_BLENDER", raising=False)
     monkeypatch.setattr(dc.shutil, "which", lambda name: None)
     monkeypatch.setattr(dc, "detect_blender", lambda settings: None)
     out = run(ctx, "CHK-S09")
-    assert out.status == "na" and "optional" in out.message
+    assert out.status == "na" and "optional" in out.message and "no-Blender mode" in out.message and out.detail["blender_present"] is False
     fake = tmp_path / "blender"
     fake.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 'Blender 4.2.3'; exit 0; fi\nexit 3\n", encoding="utf-8")
     fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
     monkeypatch.setattr(dc, "detect_blender", lambda settings: fake)
     full = dc.DoctorCtx(paths=ctx.paths, settings=ctx.settings, rt=None, quick=False)
-    assert run(full, "CHK-S09").status == "pass"
+    ok = run(full, "CHK-S09")
+    assert ok.status == "pass" and ok.detail["blender_present"] is True
+    # a configured Blender that fails is switched off with a warning (never a block): the no-Blender mode runs
     fake.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 'Blender 3.6.0'; exit 0; fi\nexit 3\n", encoding="utf-8")
     out = run(full, "CHK-S09")
-    assert out.status == "fail" and "3.6" in out.message
+    assert out.status == "warn" and "3.6" in out.message and "no-Blender mode" in out.message and out.detail["blender_present"] is False
     fake.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 'Blender 4.2.3'; exit 0; fi\nexit 0\n", encoding="utf-8")
-    assert "expected 3" in run(full, "CHK-S09").message                                      # launcher-style: exit 0 when the script fails
+    out = run(full, "CHK-S09")
+    assert "expected 3" in out.message and out.status == "warn"                              # launcher-style: exit 0 when the script fails
+    assert next(d for d in dc._CHECKS if d.id == "CHK-S09").kind == "soft"
+
+
+def test_a_failing_blender_never_blocks_paid_features(rt, monkeypatch):
+    monkeypatch.setattr(dc, "_CHECKS", [dc.CheckDef("CHK-S09", "b", "soft", lambda c: dc.Outcome("warn", "broken", "", {"blender_present": False}), [], False)])
+    r = dc.run_doctor(rt, quick=True)
+    assert r["exit_code"] == 0 and r["blocks_paid_features"] is False
 
 
 def test_s10_needs_a_key_and_real_mode(ctx):
@@ -231,16 +247,59 @@ def test_s11_banned_term_in_colour_names(ctx, monkeypatch, tmp_path):
     assert run(ctx, "CHK-S11").status == "fail"
 
 
-def test_s11b_and_s11c_follow_the_kit_files_and_never_block(ctx):
-    assert run(ctx, "CHK-S11b").status == "warn" and run(ctx, "CHK-S11c").status == "warn"
+def test_s11_enum_check_builds_the_kit_enums_without_a_head_base(ctx):
+    out = run(ctx, "CHK-S11")
+    assert out.status == "pass" and "enums build" in out.message                              # from builtin_kits/face_canvas_default.json
+
+
+def test_s15_reports_each_missing_kit_with_its_route_and_never_blocks(ctx):
+    d = next(d for d in dc._CHECKS if d.id == "CHK-S15")
+    assert d.kind == "soft"
+    out = run(ctx, "CHK-S15")
+    assert out.status == "warn"
+    for words in ("no head base: 2D face previews, no Head item", "no body base", "body_colors.json", "no house style sheet", "run S0",
+                  "every hair is hair_custom", "no DreamSim", "no-Blender mode"):
+        assert words in out.message, words
+    f = out.detail["flags"]
+    assert f["makeup"] == "unavailable" and f["head_base_present"] is False and f["hair_kit_empty"] is True
     (ctx.paths.kits_dir / "style").mkdir(parents=True)
     (ctx.paths.kits_dir / "style" / "house_style_v1.png").write_bytes(b"png")
     (ctx.paths.kits_dir / "head_base" / "round").mkdir(parents=True)
     (ctx.paths.kits_dir / "head_base" / "round" / "zones.json").write_text("{}", encoding="utf-8")
-    assert run(ctx, "CHK-S11b").status == "pass" and run(ctx, "CHK-S11c").status == "pass"
     flags = dc.kit_flags(ctx.paths)
     assert flags == {"head_base_present": True, "house_style_present": True, "body_base_present": False, "hair_kit_empty": True}
-    assert all(d.kind == "soft" for d in dc._CHECKS if d.id in ("CHK-S11b", "CHK-S11c", "CHK-S14"))
+    out = run(ctx, "CHK-S15")
+    assert "no head base" not in out.message and "no house style" not in out.message and "no body base" in out.message
+
+
+def test_s15_writes_the_flags_into_an_existing_manifest_only(ctx):
+    manifest = ctx.paths.kits_dir / "manifest.json"
+    out = run(ctx, "CHK-S15")
+    assert out.detail["manifest_updated"] is False and not manifest.exists()                  # it never creates a manifest
+    manifest.write_text(json.dumps({"schema": 1, "hair": {}, "flags": {"head_base_present": False}}), encoding="utf-8")
+    out = run(ctx, "CHK-S15")
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    assert out.detail["manifest_updated"] is True and data["schema"] == 1 and data["hair"] == {}
+    assert data["flags"]["dreamsim_present"] is False and data["flags"]["makeup"] == "unavailable" and "blender_present" in data["flags"]
+    assert run(ctx, "CHK-S15").detail["manifest_updated"] is False                            # idempotent: nothing to change the second time
+    manifest.write_text("{ broken", encoding="utf-8")
+    assert run(ctx, "CHK-S15").detail["manifest_updated"] is False                            # a damaged manifest is S11's problem, not rewritten
+
+
+def test_s15_switches_off_a_component_whose_sha_differs(ctx, monkeypatch, tmp_path):
+    root = tmp_path / "app"
+    (root / "duoskin" / "data").mkdir(parents=True)
+    good = b"good-model"
+    (ctx.paths.models_dir / "matting").mkdir(parents=True)
+    (ctx.paths.models_dir / "matting" / "m.onnx").write_bytes(b"tampered")
+    (root / "duoskin" / "data" / "optional_components.json").write_text(json.dumps({"components": [
+        {"id": "matting", "path": "models/matting/m.onnx", "sha256": hashlib.sha256(good).hexdigest()},
+        {"id": "ocr_extra", "path": "models/ocr/missing.onnx", "sha256": "a" * 64}]}), encoding="utf-8")
+    monkeypatch.setattr(config, "APP_ROOT", root)
+    out = run(ctx, "CHK-S15")
+    assert out.detail["switched_off"] == ["matting"] and "switched off" in out.message        # a missing file is just an absent feature
+    (ctx.paths.models_dir / "matting" / "m.onnx").write_bytes(good)
+    assert run(ctx, "CHK-S15").detail["switched_off"] == []
 
 
 def test_kit_flags_from_the_manifest_and_hair_kit(ctx):
@@ -284,21 +343,100 @@ def test_s13_the_real_package_has_no_risky_shadow_files(ctx):
     assert out.status == "pass", out.message
 
 
-def test_s14_dreamsim(ctx):
+def test_s14_missing_file_sets_dreamsim_present_false(ctx):
     out = run(ctx, "CHK-S14")
-    assert out.status == "warn" and "DEGRADED" in out.message and out.detail["clone_check_mode"] == "degraded"
+    assert out.status == "warn" and "degraded" in out.message and out.detail["clone_check_mode"] == "degraded"
+    assert out.detail["dreamsim_present"] is False and "Optional components" in out.fix
+
+
+def _dreamsim_setup(ctx, monkeypatch, tmp_path, *, sha_ok=True, expectations=True, images=True):
+    """A fake app root with the manifest, a model file, its sidecar and the fixture pair; the ONNX probe is replaced."""
+    root = tmp_path / "app"
+    (root / "duoskin" / "data").mkdir(parents=True, exist_ok=True)
+    (root / "tests" / "fixtures" / "dreamsim").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(config, "APP_ROOT", root)
+    blob = b"onnx-bytes"
+    (ctx.paths.models_dir / "dreamsim.onnx").write_bytes(blob)
+    sha = hashlib.sha256(blob if sha_ok else b"other").hexdigest()
+    (root / "duoskin" / "data" / "optional_components.json").write_text(
+        json.dumps({"components": [{"id": "dreamsim", "path": "models/dreamsim.onnx", "sha256": sha}]}), encoding="utf-8")
+    sidecar = ctx.paths.models_dir / "dreamsim.onnx.json"
+    sidecar.unlink(missing_ok=True)
+    for name in ("a.png", "b.png"):
+        (root / "tests" / "fixtures" / "dreamsim" / name).unlink(missing_ok=True)
+    if expectations:
+        sidecar.write_text(
+            json.dumps({"fixture_expectations": [{"pair": ["a.png", "b.png"], "distance": 0.30}]}), encoding="utf-8")
+    if images:
+        for name in ("a.png", "b.png"):
+            (root / "tests" / "fixtures" / "dreamsim" / name).write_bytes(b"png")
+    return dc.DoctorCtx(paths=ctx.paths, settings=ctx.settings, rt=None, quick=False)
+
+
+def test_s14_passes_when_sha_load_and_the_fixture_pair_agree(ctx, monkeypatch, tmp_path):
+    full = _dreamsim_setup(ctx, monkeypatch, tmp_path)
+    monkeypatch.setattr(dc, "probe_dreamsim", lambda model, pairs: (True, [{"expected": 0.30, "distance": 0.305}], ""))   # within +-0.01
+    out = run(full, "CHK-S14")
+    assert out.status == "pass" and out.detail["clone_check_mode"] == "full" and out.detail["dreamsim_present"] is True
+
+
+def test_s14_fixture_pair_off_by_more_than_the_tolerance_switches_it_off(ctx, monkeypatch, tmp_path):
+    full = _dreamsim_setup(ctx, monkeypatch, tmp_path)
+    monkeypatch.setattr(dc, "probe_dreamsim", lambda model, pairs: (True, [{"expected": 0.30, "distance": 0.33}], ""))
+    out = run(full, "CHK-S14")
+    assert out.status == "warn" and "fixture" in out.message and out.detail["dreamsim_present"] is False
+    assert out.detail["clone_check_mode"] == "degraded"
+    monkeypatch.setattr(dc, "probe_dreamsim", lambda model, pairs: (True, [{"expected": 0.30, "distance": 0.3099}], ""))
+    assert run(full, "CHK-S14").status == "pass"                                              # the edge: |delta| <= 0.01 passes
+
+
+def test_s14_corrupt_or_unverifiable_files_are_switched_off(ctx, monkeypatch, tmp_path):
+    full = _dreamsim_setup(ctx, monkeypatch, tmp_path, sha_ok=False)
+    monkeypatch.setattr(dc, "probe_dreamsim", lambda *a: (_ for _ in ()).throw(AssertionError("must not load a file with a wrong sha")))
+    out = run(full, "CHK-S14")
+    assert out.status == "warn" and "sha256" in out.message and out.detail["dreamsim_present"] is False
+    full = _dreamsim_setup(ctx, monkeypatch, tmp_path)                                         # right sha, but the model does not load
+    monkeypatch.setattr(dc, "probe_dreamsim", lambda model, pairs: (False, [], "InvalidProtobuf"))
+    out = run(full, "CHK-S14")
+    assert out.status == "warn" and "did not load" in out.message and out.detail["dreamsim_present"] is False
+    full = _dreamsim_setup(ctx, monkeypatch, tmp_path, expectations=False)                     # fail closed: no sidecar, no fixture check
+    out = run(full, "CHK-S14")
+    assert out.status == "warn" and "fixture check could not run" in out.message and out.detail["dreamsim_present"] is False
+    full = _dreamsim_setup(ctx, monkeypatch, tmp_path, images=False)
+    assert "fixture" in run(full, "CHK-S14").message and run(full, "CHK-S14").detail["dreamsim_present"] is False
+
+
+def test_s14_without_a_pinned_sha_still_verifies_the_fixture(ctx, monkeypatch, tmp_path):
+    full = _dreamsim_setup(ctx, monkeypatch, tmp_path)
+    (config.APP_ROOT / "duoskin" / "data" / "optional_components.json").unlink()               # [UNVERIFIED] until the first CI export
+    monkeypatch.setattr(dc, "probe_dreamsim", lambda model, pairs: (True, [{"expected": 0.30, "distance": 0.30}], ""))
+    out = run(full, "CHK-S14")
+    assert out.status == "pass" and "no sha256 is pinned" in out.message
+
+
+def test_s14_quick_mode_only_looks_for_the_file(ctx):
     (ctx.paths.models_dir / "dreamsim.onnx").write_bytes(b"onnx")
     out = run(ctx, "CHK-S14")
     assert out.status == "pass" and out.detail["clone_check_mode"] == "full"
-    full = dc.DoctorCtx(paths=ctx.paths, settings=ctx.settings, rt=None, quick=False)
-    out = run(full, "CHK-S14")                                                                # not a real model: stays degraded
-    assert out.status == "warn" and out.detail["clone_check_mode"] == "degraded"
 
 
-def test_report_flags_follow_dreamsim(rt):
+def test_the_real_probe_degrades_when_onnxruntime_is_missing(ctx, monkeypatch, tmp_path):
+    """Without onnxruntime (this Linux dev venv) the child process cannot load the model: the result is "not loaded", not a crash."""
+    pair_a, pair_b = tmp_path / "a.png", tmp_path / "b.png"
+    from PIL import Image
+
+    for p_ in (pair_a, pair_b):
+        Image.new("RGBA", (8, 8), (255, 0, 0, 255)).save(p_)
+    model = ctx.paths.models_dir / "dreamsim.onnx"
+    model.write_bytes(b"not an onnx file")
+    loaded, measured, problem = dc.probe_dreamsim(model, [(str(pair_a), str(pair_b), 0.3)])
+    assert loaded is False and measured == [] and problem
+
+
+def test_report_flags_follow_dreamsim(rt, monkeypatch, tmp_path):
     (rt.paths.models_dir / "dreamsim.onnx").write_bytes(b"x")
     f = report_for(rt)["flags"]
-    assert f["clone_check_mode"] == "full" and f["degraded_clone_check"] is False
+    assert f["dreamsim_present"] is True and f["clone_check_mode"] == "full" and f["degraded_clone_check"] is False
 
 
 def test_the_report_never_contains_key_values(tmp_path):

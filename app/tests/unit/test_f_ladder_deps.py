@@ -130,7 +130,7 @@ SPEC = {
           "hair": {"kit_style_id": "bob", "description": "short", "colour_ref": "p_main"},
           "top": {"recipe_id": "tee", "fabric_id": "cotton", "main_ref": "p_main", "prints": [{"motif": "koi", "region": "chest", "scale": 1, "ink_ref": "p_main"}]},
           "bottom": {"recipe_id": "jeans", "shoes": {"style_id": "sneaker", "motif": "none"}, "prints": []},
-          "accessories": [{"description": "bag", "kind": "bag", "material": "plush", "size_class": "s", "attachment": "back"}],
+          "accessories": [{"description": "bag", "kind": "bag", "material": "plush", "size_class": "s", "attachment": "back", "category": "back"}],
           "body": {"skin_tone": "tone2", "modesty_ref": "p_main"},
           "dna": {"shape_language": "round_soft", "motif_object": "koi", "colour_plan": "a", "focal_location": "chest", "accessory_style": "x", "energy": "calm"}},
     "b": {"presentation": "girl",
@@ -202,8 +202,69 @@ def test_dna_motif_object_redoes_accessories_only():
 
 
 def test_world_detail_level_redoes_prints_and_face_parts_of_both_characters():
-    e = effects(changed({"/world/detail_level": "maximal"}))
-    assert e == {"a.face": R, "a.print.top.0": R, "b.face": R, "b.print.shoes.0": R}
+    r = changed({"/world/detail_level": "maximal"})
+    assert effects(r) == {"a.face": R, "a.print.top.0": R, "b.face": R, "b.print.shoes.0": R}
+    # of the face only the iris and the open mouth are redone: lash, brow and the closed mouth carry shape language only (bible 3.3)
+    targets = {p.part_id: p.targets for p in r.parts}
+    assert targets["a.face"] == ["iris", "mouth_open"] == targets["b.face"] and targets["a.print.top.0"] == []
+
+
+@pytest.mark.parametrize("field,expect", [("iris_style", ["iris"]), ("lash_style", ["lash"]), ("brow_style", ["brow"]),
+                                          ("mouth_style", ["mouth_closed", "mouth_open"])])
+def test_face_style_changes_name_the_ai_parts_to_redo(field, expect):
+    r = changed({f"/a/face/{field}": "other"})
+    assert effects(r) == {"a.face": R} and r.parts[0].targets == expect
+
+
+def test_face_targets_widen_to_the_whole_tile_when_another_change_redoes_all_of_it():
+    r = changed({"/a/face/iris_style": "square", "/a/dna/shape_language": "boxy_sturdy"})       # shape language routes every face part
+    face = next(p for p in r.parts if p.part_id == "a.face")
+    assert face.effect == R and face.targets == []
+    r = changed({"/a/face/iris_style": "square", "/world/detail_level": "maximal"})              # two partial changes: the union
+    assert next(p for p in r.parts if p.part_id == "a.face").targets == ["iris", "mouth_open"]
+    r = changed({"/a/face/iris_style": "square"}, redo=["a.face"])                               # an L7 redo of the part is the whole part
+    assert next(p for p in r.parts if p.part_id == "a.face").targets == []
+    code_only = changed({"/a/face/eye_shape": "narrow"})                                         # RECOMPOSE of the code layers: no AI parts
+    assert code_only.parts[0].targets == []
+
+
+SPEC_WITH_HEAD_ACCESSORIES = copy.deepcopy(SPEC)
+SPEC_WITH_HEAD_ACCESSORIES["a"]["accessories"] += [
+    {"description": "hat", "kind": "hat", "material": "felt", "size_class": "s", "attachment": "head", "category": "hat"},
+    {"description": "clip", "kind": "clip", "material": "metal", "size_class": "s", "attachment": "head", "category": "hair"},
+    {"description": "glasses", "kind": "glasses", "material": "plastic", "size_class": "s", "attachment": "face", "category": "face"},
+    {"description": "scarf", "kind": "scarf", "material": "wool", "size_class": "m", "attachment": "neck", "category": "neck"}]
+
+
+def _hair_change(path, value, **kw):
+    old, new = copy.deepcopy(SPEC_WITH_HEAD_ACCESSORIES), copy.deepcopy(SPEC_WITH_HEAD_ACCESSORIES)
+    *head, last = path.strip("/").split("/")
+    node = new
+    for seg in head:
+        node = node[seg]
+    node[last] = value
+    return deps.affected_parts(old, new, existing_parts=deps.default_parts(new), **kw)
+
+
+def test_a_hair_change_rechecks_the_hat_hair_and_face_accessories_once_the_hair_is_approved():
+    """APP_SPEC 9.8: any hair field, once approved -> {c}.acc.<i> with category in {hat, hair, face}: RECHECK, no new art."""
+    r = _hair_change("/a/hair/kit_style_id", "bun", approved_parts=["a.hair"])
+    e = effects(r)
+    assert e["a.hair"] == R and e["a.acc.1"] == K and e["a.acc.2"] == K and e["a.acc.3"] == K
+    assert "a.acc.0" not in e and "a.acc.4" not in e                                              # back and neck accessories are not on the head
+    r = _hair_change("/a/hair/colour_ref", "p_acc", approved_parts=["a.hair", "a.acc.1"])        # a RECOMPOSE of the hair, same re-check
+    assert effects(r)["a.hair"] == C and effects(r)["a.acc.1"] == K
+    assert effects(_hair_change("/a/hair/description", "long", approved_parts=[])) == {"a.hair": R}      # hair not approved yet: nothing to recheck
+    assert effects(_hair_change("/a/hair/description", "long")).get("a.acc.1") == K                     # unknown approval state: assume approved
+    assert "b.acc.0" not in effects(_hair_change("/a/hair/kit_style_id", "bun"))                         # only that character's accessories
+
+
+def test_a_hair_change_never_downgrades_an_accessory_that_is_regenerated_anyway():
+    old, new = copy.deepcopy(SPEC_WITH_HEAD_ACCESSORIES), copy.deepcopy(SPEC_WITH_HEAD_ACCESSORIES)
+    new["a"]["hair"]["kit_style_id"] = "bun"
+    new["a"]["accessories"][1]["description"] = "bow"
+    e = effects(deps.affected_parts(old, new, existing_parts=deps.default_parts(new)))
+    assert e["a.acc.1"] == R and e["a.acc.2"] == K
 
 
 @pytest.mark.parametrize("path", ["/a/dna/colour_plan", "/a/dna/focal_location", "/a/dna/energy", "/world/material_family", "/world/theme",
@@ -270,7 +331,7 @@ def test_added_and_removed_prints_and_accessories():
 def test_dna_field_users_filters_by_character_and_existing_parts():
     assert deps.dna_field_users("shape_language", "b", parts=PARTS) == ["b.face", "b.hair", "b.print.shoes.0"]
     assert deps.dna_field_users("motif_object", "a", parts=PARTS) == ["a.acc.0"]
-    assert deps.dna_field_users("detail_level", "a", parts=PARTS) == ["a.face", "a.print.top.0", "b.face", "b.print.shoes.0"]
+    assert deps.dna_field_users("detail_level", "a", parts=PARTS) == ["a.face", "a.print.top.0", "b.face", "b.print.shoes.0"]   # parts; the face targets are in the report
     assert deps.dna_field_users("colour_plan", "a", parts=PARTS) == []
     assert deps.dna_field_users("shape_language", "a", spec=SPEC)
 
@@ -327,51 +388,110 @@ def test_approval_hash_is_stable_and_covers_exactly_the_output_affecting_inputs(
 
 
 def test_build_assets_never_change_the_approval_hash_but_do_change_the_build_hash():
-    """The issue-file fix: two stamps. Building the part must not make the Gate 2 approval look stale."""
+    """APP_SPEC 9.7 / S30: two stamps. Building the part must not make the Gate 2 approval look stale."""
     part = board_part()
     approved = h(part)
     part.approval = deps.make_approval(part, SPEC, spec_id="spc_1", spec_version=1, pins=PINS, decision_id="dec_1", facts=FACTS)
-    assert part.approval.approval_hash == approved and part.approval.build_hash is None
+    assert part.approval.approval_hash == approved and part.build_stamp is None
+    assert "build_hash" not in type(part.approval).model_fields                           # the build stamp is its own record now
     built = part.model_copy(update={"build_assets": {"texture": SHA["e"], "mesh_gltf": SHA["f"]}})
     assert h(built) == approved                                                           # approval_hash ignores build_assets
     assert deps.check_approval(built, SPEC, PINS, FACTS).ok
     b1 = deps.build_hash(built)
     rebuilt = built.model_copy(update={"build_assets": {"texture": SHA["e"], "mesh_gltf": SHA["a"]}})
     assert deps.build_hash(rebuilt) != b1 and h(rebuilt) == approved                      # a rebuilt mesh: new build stamp only
-    assert deps.build_hash(built, build_inputs=[SHA["c"]]) != b1
+    steps = [["mesh.import", 2, SHA["c"]]]
+    assert deps.build_hash(built, build_steps=steps) != b1                                # the BUILD step versions are part of the stamp
+    assert deps.build_hash(built, build_steps=[["mesh.import", 3, SHA["c"]]]) != deps.build_hash(built, build_steps=steps)
+    reordered = built.model_copy(update={"build_assets": {"mesh_gltf": SHA["f"], "texture": SHA["e"]}})
+    assert deps.build_hash(reordered) == b1                                               # sorted asset shas: key order never matters
     reapproved = built.model_copy(update={"approval": built.approval.model_copy(update={"approval_hash": SHA["f"]})})
-    assert deps.build_hash(reapproved) != b1                                              # the build stamp chains the approval
+    assert deps.build_hash(reapproved) != b1                                              # the build stamp chains the approval it was built under
+    boards_only = built.model_copy(update={"board_assets": {"flat": SHA["d"]}})
+    assert deps.build_hash(boards_only) == b1                                             # board outputs belong to the approval, not the build
+
+
+def _approved_part(rt, p, board=None):
+    part = rt.repo.save_part(make_part(rt, p, board=board or {"flat": SHA["a"]}))
+    approval = deps.make_approval(part, SPEC, spec_id="s", spec_version=1, pins=PINS, decision_id="dec_1", facts=FACTS)
+    rt.repo.mutate_part(p.id, "a.shirt", lambda x: (setattr(x, "approval", approval), setattr(x, "state", PartState.APPROVED)))
+    rt.repo.upsert_approval(p.id, approval)
+    return approval
 
 
 def test_stamp_build_confirm_build_and_verification_flows(rt):
     p = make_project(rt)
-    part = make_part(rt, p, board={"flat": SHA["a"]})
-    part = rt.repo.save_part(part)
-    approval = deps.make_approval(part, SPEC, spec_id="s", spec_version=1, pins=PINS, decision_id="dec_1", facts=FACTS)
-    rt.repo.mutate_part(p.id, "a.shirt", lambda x: (setattr(x, "approval", approval), setattr(x, "state", PartState.APPROVED)))
-    rt.repo.upsert_approval(p.id, approval)
+    approval = _approved_part(rt, p)
     rt.repo.mutate_part(p.id, "a.shirt", lambda x: x.build_assets.update({"texture": SHA["e"]}))
-    stamped = deps.stamp_build(rt.repo, p.id, "a.shirt", build_inputs=[SHA["c"]])
-    assert stamped.state == PartState.BUILT and stamped.approval.build_hash and stamped.approval.build_confirmed_at is None
-    v = deps.verify_part(rt.repo, stamped, SPEC, PINS, facts=FACTS, build_inputs=[SHA["c"]])
+    stamped = deps.stamp_build(rt.repo, p.id, "a.shirt", build_steps=[["mesh.import", 1, SHA["c"]]])
+    assert stamped.state == PartState.BUILT and stamped.build_stamp.confirmed_decision_id is None
+    assert stamped.approval == approval and stamped.build_stamp.approval_hash == approval.approval_hash     # the approval is untouched
+    assert stamped.build_stamp.build_asset_shas == [SHA["e"]] and stamped.build_stamp.part_id == "a.shirt"
+    stored = rt.repo.valid_build_stamp(p.id, "a.shirt")
+    assert stored == stamped.build_stamp and rt.repo.valid_approval(p.id, "a.shirt") == approval           # both stamps, one table
+    with rt.db.conn() as c:
+        assert sorted(r["stamp"] for r in c.execute("SELECT stamp FROM approvals WHERE part_id='a.shirt'")) == ["approval", "build"]
+    steps = [["mesh.import", 1, SHA["c"]]]
+    v = deps.verify_part(rt.repo, stamped, SPEC, PINS, facts=FACTS, build_steps=steps)
     assert v.approval.ok and v.build.ok and not v.stale and not v.needs_gate3_look
     confirmed = deps.confirm_build(rt.repo, p.id, "a.shirt", "dec_pick")
-    assert confirmed.approval.build_confirmed_decision_id == "dec_pick"
-    # a rebuilt mesh: only the build stamp is off -> a new look at Gate 3, never a Gate 2 re-approval
+    assert confirmed.build_stamp.confirmed_decision_id == "dec_pick" and "build_changed" not in confirmed.flags
+    assert rt.repo.valid_build_stamp(p.id, "a.shirt").confirmed_decision_id == "dec_pick"
+    # the files changed without a new stamp: only the build stamp is off -> a new look at Gate 3, never a Gate 2 re-approval
     rebuilt = rt.repo.mutate_part(p.id, "a.shirt", lambda x: x.build_assets.update({"texture": SHA["f"]}))
-    v2 = deps.verify_part(rt.repo, rebuilt, SPEC, PINS, facts=FACTS, build_inputs=[SHA["c"]])
+    v2 = deps.verify_part(rt.repo, rebuilt, SPEC, PINS, facts=FACTS, build_steps=steps)
     assert v2.approval.ok and not v2.build.ok and v2.needs_gate3_look and not v2.stale
     after = deps.apply_verification(rt.repo, p.id, v2, rt.bus)
-    assert after.state == PartState.BUILT and "build_changed" in after.flags and after.approval.build_confirmed_at is None
+    assert after.state == PartState.BUILT and "build_changed" in after.flags and after.build_stamp.confirmed_decision_id is None
     assert rt.repo.valid_approval(p.id, "a.shirt") is not None                              # the Gate 2 approval is still valid
-    # a changed spec slice: the Gate 2 approval itself is stale -> re-approve
+    assert rt.repo.valid_build_stamp(p.id, "a.shirt").confirmed_decision_id is None
+    # a changed spec slice: the Gate 2 approval itself is stale -> re-approve (and its build stamp goes with it)
     other = copy.deepcopy(SPEC)
     other["a"]["top"]["fabric_id"] = "denim"
     v3 = deps.verify_part(rt.repo, rt.repo.get_part(p.id, "a.shirt"), other, PINS, facts=FACTS)
     assert v3.stale and "re-approve" in v3.approval.reason
     stale = deps.apply_verification(rt.repo, p.id, v3, rt.bus)
     assert stale.state == PartState.STALE and rt.repo.valid_approval(p.id, "a.shirt") is None
+    assert rt.repo.valid_build_stamp(p.id, "a.shirt") is None
     assert [e for e in rt.bus.events_after(0) if e.type == "part.state" and e.payload["state"] == "stale"]
+
+
+def test_a_rebuilt_mesh_keeps_the_approval_changes_the_build_hash_and_stales_the_duo_candidate(rt):
+    """APP_SPEC 17.4 "Rebuilt mesh": approval_hash kept, build_hash changed, duo STALE, "rebuilt since you last looked"."""
+    p = make_project(rt)
+    approval = _approved_part(rt, p)
+    rt.repo.save_part(make_part(rt, p, "duo", PartKind.DUO, character="duo", state=PartState.READY))
+    rt.repo.mutate_part(p.id, "a.shirt", lambda x: x.build_assets.update({"mesh_gltf": SHA["e"]}))
+    first = deps.stamp_build(rt.repo, p.id, "a.shirt", build_steps=[])
+    assert "build_changed" not in first.flags and rt.repo.get_part(p.id, "duo").state == PartState.READY    # a first build flags nothing
+    deps.confirm_build(rt.repo, p.id, "a.shirt", "dec_pick")
+    rt.repo.mutate_part(p.id, "a.shirt", lambda x: x.build_assets.update({"mesh_gltf": SHA["f"]}))           # a rebuild
+    second = deps.stamp_build(rt.repo, p.id, "a.shirt", build_steps=[])
+    assert second.approval.approval_hash == approval.approval_hash and second.state == PartState.BUILT
+    assert second.build_stamp.build_hash != first.build_stamp.build_hash and second.build_stamp.confirmed_decision_id is None
+    assert "build_changed" in second.flags and rt.repo.get_part(p.id, "duo").state == PartState.STALE
+    assert rt.repo.valid_approval(p.id, "a.shirt").approval_hash == approval.approval_hash                  # Gate 2 does not reopen
+    assert deps.verify_part(rt.repo, second, SPEC, PINS, facts=FACTS, build_steps=[]).approval.ok
+    again = deps.stamp_build(rt.repo, p.id, "a.shirt", build_steps=[])                                       # same files again: no new flag work
+    assert again.build_stamp.build_hash == second.build_stamp.build_hash
+    assert deps.confirm_build(rt.repo, p.id, "a.shirt", "dec_pick2").flags.count("build_changed") == 0     # the Gate 3 pick clears the badge
+
+
+def test_stamp_build_reads_the_build_step_versions_from_provenance(rt):
+    from duoskin.engine.cas import make_prov
+    from duoskin.models.asset import AssetLink
+
+    p = make_project(rt)
+    _approved_part(rt, p)
+    png = png_bytes((4, 4), (9, 9, 9, 255))
+    asset = rt.cas.put(png, "png", prov=make_prov("code", step_kind="mesh.import", handler_version=2, params={"a": 1}),
+                       link=AssetLink(id="", asset_sha="0" * 64, project_id=p.id, part_id="a.shirt", role="texture", status="final",
+                                      provenance=make_prov("code", step_kind="mesh.import", handler_version=2, params={"a": 1})))
+    rt.repo.mutate_part(p.id, "a.shirt", lambda x: x.build_assets.update({"texture": asset.sha256}))
+    part = rt.repo.get_part(p.id, "a.shirt")
+    versions = deps.part_build_step_versions(rt.repo, part)
+    assert versions == [["mesh.import", 2, sha256_of({"a": 1})]]
+    assert deps.stamp_build(rt.repo, p.id, "a.shirt").build_stamp.build_hash == deps.build_hash(part, versions)
 
 
 def test_check_functions_report_missing_stamps():

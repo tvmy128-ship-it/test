@@ -399,3 +399,9 @@ def test_limits_clothing_agree_with_the_template_and_the_registry():
     assert LC.seam_de_limits() == (6.0, 15.0) and LC.bleed_range_px() == (2, 4) and LC.gap_px() == 2
     assert LC.limb_bands() == ((355, 416), (421, 465), (469, 482)) and LC.shoe_top_row_range() == (446, 465)
     assert LC.semi_alpha_share_max() == 0.005 and LC.skin_in_clothing_de() == 6.0 and LC.hidden_leg_rows() == (355, 377)
+
+
+def test_template_label_words_finder():
+    assert LC.find_label_words(["Shirt Template", "FRONT", "hello world"]) == ["SHIRT", "TEMPLATE", "FRONT"]
+    assert LC.find_label_words(["R", "L"]) == ["R", "L"] and LC.find_label_words(["a lovely day", "go left now"]) == ["LEFT"]
+    assert LC.find_label_words([]) == []
