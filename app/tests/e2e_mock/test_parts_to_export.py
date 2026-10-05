@@ -116,3 +116,77 @@ def test_pick_then_export_is_blocked_for_mock_sources_and_allowed_in_tests(board
         r2 = client.patch(f"/api/exports/{p.id}/checklist", json={"item_id": locked[0]["item_id"], "step_id": locked[1]["step_id"], "ticked": True,
                                                                    "expected_version": r.json()["version"]})
         assert r2.status_code == 422 and r2.json()["error"] == "locked"
+
+
+# ---------------------------------------------------------------------------------------------------- Gate 2 changes
+def snapshot(rt, project_id: str) -> dict[str, dict]:
+    return {x.id: {"assets": dict(x.board_assets), "state": x.state.value} for x in rt.repo.list_parts(project_id)}
+
+
+def settle(rt, project_id: str, part_ids, timeout: float = 240.0):
+    """Wait until each part is READY or APPROVED again after a redo."""
+    def done():
+        st = {pid: rt.repo.get_part(project_id, pid).state.value for pid in part_ids}
+        return st if all(v in ("ready", "approved") for v in st.values()) else None
+
+    return wait_for(done, timeout=timeout, message=f"{list(part_ids)} to settle")
+
+
+@pytest.mark.timeout(600)
+def test_a_change_at_gate_2_redoes_only_the_affected_tiles(board):
+    rt, client, p = board
+    gate = wait_gate(rt, p.id, "part_board", timeout=30)
+    before = snapshot(rt, p.id)
+    old_spec = rt.repo.get_spec(rt.repo.get_project(p.id).approved_spec_id)
+    cost_before = rt.repo.get_project(p.id).spent_usd
+    old_ids = {s.id for s in rt.repo.list_steps(project_id=p.id, limit=5000)}
+
+    r = post_decision(client, gate.id, "b.shirt", "change", text="make B's jacket teal")
+    assert r.status_code == 200, r.text
+    cg = wait_gate(rt, p.id, "change_confirm", timeout=90)
+    facts = cg.tiles[0].facts
+    redo = {e["part_id"]: e["effect"] for e in facts["redo"]}
+    assert redo.get("b.shirt") == "recompose", redo
+    assert set(redo.values()) <= {"recompose", "recheck"}, redo           # a colour change costs nothing: no tile is regenerated
+    assert not any(pid in redo for pid in ("a.hair", "b.hair", "a.acc.0", "b.acc.0", "a.pants", "b.pants")), redo
+    assert facts["estimate_usd"] == 0.0 and facts["diff"], facts
+
+    r = post_decision(client, cg.id, cg.tiles[0].tile_id, "confirm")
+    assert r.status_code == 200, r.text
+    new_rec = wait_for(lambda: (lambda s: s if s.version > old_spec.version else None)(rt.repo.get_spec(rt.repo.get_project(p.id).approved_spec_id)), timeout=30,
+                       message="the new spec")
+    assert new_rec.parent_spec_id == old_spec.id and new_rec.created_by == "change"
+    settle(rt, p.id, list(redo))
+    after = snapshot(rt, p.id)
+    redone = {pid for pid in before if after[pid]["assets"] != before[pid]["assets"]}
+    assert "b.shirt" in redone, redone
+    assert redone <= set(redo), (redone, redo)                            # nothing else was touched
+    for pid in before:
+        if pid not in redo:
+            assert after[pid]["assets"] == before[pid]["assets"] and after[pid]["state"] == before[pid]["state"], pid
+    paid_kinds = {s.kind for s in rt.repo.list_steps(project_id=p.id, limit=5000) if s.id not in old_ids and s.paid}
+    assert paid_kinds <= {"partchange.interpret"}, paid_kinds              # only the question to the planner (L7) cost anything: no image was made
+    assert rt.repo.get_project(p.id).spent_usd - cost_before < 0.2
+
+
+@pytest.mark.timeout(600)
+def test_reimagine_uses_a_new_nonce_and_regenerates_only_that_tile(board):
+    rt, client, p = board
+    gate = wait_gate(rt, p.id, "part_board", timeout=30)
+    before = snapshot(rt, p.id)
+    old = rt.repo.list_steps(project_id=p.id, limit=5000)
+    old_steps = {s.id for s in old}
+    nonces_before = {s.nonce for s in old if s.part_id == "b.hair"}
+    r = post_decision(client, gate.id, "b.hair", "reimagine")
+    assert r.status_code == 200, r.text
+    wait_for(lambda: rt.repo.get_part(p.id, "b.hair").state.value in ("generating", "stale", "composing", "checking", "recheck", "ready"), timeout=30, message="start")
+    settle(rt, p.id, ["b.hair"], timeout=300)
+    new_steps = [s for s in rt.repo.list_steps(project_id=p.id, limit=5000) if s.id not in old_steps]
+    nonces = {s.nonce for s in new_steps if s.nonce}
+    assert nonces and not (nonces & nonces_before), (nonces_before, nonces)         # a new nonce: the cache cannot return the old picture
+    assert {s.part_id for s in new_steps if s.part_id} == {"b.hair"}, {s.part_id for s in new_steps}
+    after = snapshot(rt, p.id)
+    assert after["b.hair"]["assets"].get("front") != before["b.hair"]["assets"].get("front")
+    for pid in before:
+        if pid != "b.hair":
+            assert after[pid]["assets"] == before[pid]["assets"], pid

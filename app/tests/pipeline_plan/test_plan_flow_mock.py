@@ -239,7 +239,11 @@ def test_every_claude_call_is_recorded_in_the_ledger_and_an_identical_second_pla
     assert step_result(rt, planner["id"])["cached"] is True, "the same request is served from the content cache"
     paid = rt.db.conn().execute("select count(*) from cost_ledger where project_id=? and operation like 'messages.stream:L3%'", (twin,)).fetchone()[0]
     assert paid == 0
-    assert [r["spec"]["world"]["pair_structure"] for r in shown(client, twin)] == [r["spec"]["world"]["pair_structure"] for r in shown(client, pid)]
+    dbg = {}
+    for name, p_ in (("first", pid), ("second", twin)):
+        sel = step_result(rt, job_steps(client, p_, "plan.select")[0]["id"])
+        dbg[name] = {"wins": sorted(sel["wins"].values()), "points": sorted(sel["points"].values()), "shown": sel["shown"]}
+    assert [r["spec"]["world"]["pair_structure"] for r in shown(client, twin)] == [r["spec"]["world"]["pair_structure"] for r in shown(client, pid)], dbg
 
 
 def test_the_planner_thinking_is_shown_as_an_event_of_at_most_400_characters(client, rt, world):

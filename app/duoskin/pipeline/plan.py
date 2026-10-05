@@ -837,10 +837,11 @@ def _spawn_after_lint(ctx: StepContext, p: LintParams, recs: list[SpecRecord], b
                            deps=[li.id])
             steps.append(cr)
             tails.append(cr.id)
+    pair_ids, critic_ids = _pair_chain(rt, job_id, psid), _critic_chain(rt, job_id, psid)
     sel = _new_step(rt, "plan.select", job_id, pid, SelectParams(project_id=pid, plan_set_id=psid, lint_steps=[me, *[s.id for s in steps if s.kind == "plan.lint"]],
-                                                                critic_steps=[*_critic_chain(rt, job_id, psid), *[s.id for s in steps if s.kind == "plan.critic"]],
-                                                                pair_steps=_pair_chain(rt, job_id, psid)),
-                    deps=[me, *tails])
+                                                                critic_steps=[*critic_ids, *[s.id for s in steps if s.kind == "plan.critic"]],
+                                                                pair_steps=pair_ids),
+                    deps=[me, *tails, *pair_ids, *critic_ids])          # the selection waits for every score it ranks by
     ctx.spawn([*steps, sel])
 
 

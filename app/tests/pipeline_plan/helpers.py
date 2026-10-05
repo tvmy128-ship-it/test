@@ -132,3 +132,43 @@ def failed_hard(rec: dict[str, Any]) -> list[str]:
 
 def step_result(rt, step_id: str) -> dict[str, Any]:
     return dict(rt.repo.get_step(step_id).result)
+
+
+def png_size(rt, sha: str) -> tuple[int, int]:
+    import io
+
+    from PIL import Image
+
+    with Image.open(io.BytesIO(rt.cas.get(sha))) as im:
+        return im.size
+
+
+def tile_by_slot(gate: dict[str, Any], slot: int) -> dict[str, Any]:
+    return next(t for t in gate["tiles"] if t["tile_id"] == f"plan{slot}")
+
+
+def fresh_gate(client, pid: str, *, ready: bool = True) -> dict[str, Any]:
+    return wait_gate1(client, pid, ready=ready)
+
+
+def wait_tile(client, pid: str, tile_id: str, *, version_above: int, timeout: float = WAIT_S) -> dict[str, Any]:
+    """Wait until a Gate 1 tile has been updated (a newer version) and is not being drawn any more."""
+    def check():
+        g = concept_gate(client, pid)
+        if g is None:
+            return None
+        t = next((x for x in g["tiles"] if x["tile_id"] == tile_id), None)
+        if t is not None and t["version"] > version_above and t["state"] != "generating":
+            return g, t
+        return None
+
+    return wait_for(check, timeout=timeout, interval=0.3, message=f"tile {tile_id} to be redrawn")
+
+
+def open_side_gates(client, pid: str) -> list[dict[str, Any]]:
+    gates = client.get("/api/gates", params={"project_id": pid, "state": "open"}).json()
+    return [g for g in gates if g["kind"] in ("clarify", "change_confirm")]
+
+
+def change_status(client, change_id: str) -> str:
+    return client.get(f"/api/changes/{change_id}").json()["status"]
