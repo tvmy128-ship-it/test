@@ -105,6 +105,7 @@ class GateDecision(Strict):             # stored
     text: str = ""
     mask_sha: Sha256 | None = None
     choice: str | None = None
+    target: str | None = None           # additive: Gate 1 "a" | "b" | "both"; a face tile's part (GateDecisionIn.target)
     decided_at: UtcDatetime
     warnings_shown: list[str] = Field(default_factory=list)       # SOFT warning ids shown AFTER the first choice
     warnings_overridden: list[str] = Field(default_factory=list)  # logged as calibration labels

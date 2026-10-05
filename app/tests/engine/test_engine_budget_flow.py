@@ -10,7 +10,7 @@ from helpers_f import add_step, make_project, new_job, ok_handler, state_of, wai
 from duoskin.engine.registry import StepResult, register_handler
 from duoskin.engine.testkit import wait_for
 from duoskin.models.gate import GateAction, GateDecisionIn, GateKind
-from duoskin.models.job import StepState
+from duoskin.models.job import JobKind, StepState
 
 
 class Billed(Exception):
@@ -222,3 +222,62 @@ def test_budget_low_event_fires_once_per_threshold(live):
     wait_state(live, add_step(live, new_job(live, project.id), "t.spend", params={"n": 1}), StepState.SUCCEEDED)
     lows = [e for e in live.bus.events_after(0) if e.type == "budget.low"]
     assert len(lows) == 1 and lows[0].payload["threshold"] == 0.2 and lows[0].payload["remaining_usd"] == 1.5
+
+
+# ------------------------------------------------------------------------------------------------- REGRESSION (APP_SPEC 3.9, 14.1)
+def _regression_job(rt, estimate):
+    return rt.scheduler.submit_job(JobKind.REGRESSION, None, {"estimate_usd": estimate})
+
+
+def test_a_regression_job_above_regression_ask_usd_opens_one_budget_gate_and_never_runs_unconfirmed(live):
+    live.update_settings({"budgets": {"regression_ask_usd": 20.0}})
+    runs = []
+    register_handler("t.reg", lambda ctx, p, i: runs.append(p["n"]) or StepResult(), paid=True, provider="openai",
+                     estimate=lambda p: 0.5, pool="api")                                     # each step is far below ask_above_usd
+    job = _regression_job(live, 35.0)
+    first = add_step(live, job, "t.reg", params={"n": 1})
+    second = add_step(live, job, "t.reg", params={"n": 2})
+    gate = wait_for(lambda: next(iter(live.repo.list_gates(None, "open")), None), 5, message="the REGRESSION estimate gate")
+    assert gate.kind == GateKind.BUDGET and gate.tiles[0].facts["reason"] == "regression"
+    assert gate.tiles[0].facts["estimate_usd"] == 35.0 and gate.tiles[0].facts["ask_above_usd"] == 20.0     # the JOB estimate, not the step's
+    time.sleep(0.3)
+    assert runs == []                                                                         # it never runs unconfirmed
+    parked = [sid for sid in (first.id, second.id) if live.repo.get_step(sid).state == StepState.WAITING_USER]
+    assert len(parked) == 1 and len(live.repo.list_gates(None, "open")) == 1                  # one question for the whole job
+    decide(live, gate.id, parked[0], GateAction.CONTINUE)
+    wait_state(live, first, StepState.SUCCEEDED)
+    wait_state(live, second, StepState.SUCCEEDED)
+    assert sorted(runs) == [1, 2] and len(live.repo.list_gates(None)) == 1                    # the second step did not ask again
+    assert live.repo.get_job(job.id).params["budget_confirmed"] is True
+    third = add_step(live, job, "t.reg", params={"n": 3})
+    wait_state(live, third, StepState.SUCCEEDED)
+    assert len(live.repo.list_gates(None)) == 1
+
+
+def test_a_regression_job_at_or_below_the_threshold_just_runs(live):
+    live.update_settings({"budgets": {"regression_ask_usd": 20.0}})
+    register_handler("t.reg", ok_handler, paid=True, provider="openai", estimate=lambda p: 3.0, pool="api")   # a step above ask_above_usd (2.0)
+    job = _regression_job(live, 20.0)                                                         # exactly the threshold: not "above"
+    wait_state(live, add_step(live, job, "t.reg"), StepState.SUCCEEDED)
+    assert live.repo.list_gates(None) == []
+
+
+def test_stopping_the_regression_gate_fails_the_step_and_spends_nothing(live):
+    live.update_settings({"budgets": {"regression_ask_usd": 5.0}})
+    register_handler("t.reg", ok_handler, paid=True, provider="openai", estimate=lambda p: 1.0, pool="api")
+    job = _regression_job(live, 9.0)
+    s = add_step(live, job, "t.reg")
+    gate = wait_for(lambda: next(iter(live.repo.list_gates(None, "open")), None), 5, message="the gate")
+    decide(live, gate.id, s.id, GateAction.STOP)
+    assert wait_state(live, s, StepState.FAILED).error.code == "budget"
+    assert live.budget.spent(None) == 0.0 and not live.repo.get_job(job.id).params.get("budget_confirmed")
+
+
+def test_regression_check_is_a_pure_threshold_on_the_job_estimate(live):
+    live.update_settings({"budgets": {"regression_ask_usd": 20.0}})
+    assert live.budget.regression_check(20.0).ok and live.budget.regression_check(0.0).ok
+    over = live.budget.regression_check(20.01)
+    assert not over.ok and over.reason == "regression" and over.ask_above == 20.0
+    assert live.budget.regression_check(500.0, confirmed=True).ok
+    live.update_settings({"budgets": {"regression_ask_usd": 1.0}})
+    assert not live.budget.regression_check(5.0).ok                                           # follows the setting at once

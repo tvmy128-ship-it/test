@@ -267,6 +267,68 @@ def test_tile_action_sets_follow_the_9_5_table(kind, part_kind, expect, absent):
     assert A.OVERRIDE_WARNING not in got and "reject" not in {a.value for a in GateAction}   # S8: there is no reject
 
 
+def test_flip_mirrored_is_offered_only_on_a_mirrored_hair_or_accessory_tile():
+    """APP_SPEC 6.9 / 10.9: "Flip left/right (I checked)" only when the mirrored match wins; never applied automatically."""
+    for part_kind in ("hair", "accessory"):
+        assert A.FLIP_MIRRORED not in allowed_actions_for(GateKind.PART_BOARD, part_kind, can_manual=True)
+        assert A.FLIP_MIRRORED in allowed_actions_for(GateKind.PART_BOARD, part_kind, can_manual=True, mirrored=True)
+    for part_kind in ("face", "shirt", "pants", "print", "colours"):
+        assert A.FLIP_MIRRORED not in allowed_actions_for(GateKind.PART_BOARD, part_kind, mirrored=True)
+    assert A.FLIP_MIRRORED not in allowed_actions_for(GateKind.FINAL_PICK, None, mirrored=True)
+    assert A.FLIP_MIRRORED.value == "flip_mirrored"
+
+
+def test_a_flip_decision_reaches_the_pipelines_applier(board):
+    rt, project, _spec, _gate, _shirt, _hair = board
+    seen = []
+    rt.gates.register_applier(GateKind.PART_BOARD, lambda ac: seen.append((ac.decision.action, ac.tile.part_id)))
+    tile = GateTile(tile_id="a.hair", part_id="a.hair", label="hair", state=TileState.READY,
+                    allowed_actions=allowed_actions_for(GateKind.PART_BOARD, PartKind.HAIR, can_manual=True, mirrored=True))
+    gate = rt.gates.open_gate(Gate(id="", project_id=project.id, job_id=new_job(rt, project.id).id, kind=GateKind.PART_BOARD,
+                                   tiles=[tile], opened_at=utcnow()))
+    rt.gates.decide(gate.id, decision("a.hair", A.FLIP_MIRRORED))
+    assert seen == [(A.FLIP_MIRRORED, "a.hair")]
+
+
+def _gate1(rt, project):
+    tiles = [GateTile(tile_id=f"plan{i}", label=f"plan {i}", allowed_actions=allowed_actions_for(GateKind.CONCEPT)) for i in range(3)]
+    return rt.gates.open_gate(Gate(id="", project_id=project.id, job_id=new_job(rt, project.id).id, kind=GateKind.CONCEPT, tiles=tiles,
+                                   opened_at=utcnow()))
+
+
+def test_decision_target_is_validated_and_stored(rt):
+    """GateDecisionIn.target: Gate 1 Reimagine/Change take a | b | both; a face tile takes one of its AI parts or all."""
+    project = make_project(rt)
+    gate = _gate1(rt, project)
+    for bad in ("c", "iris", ""):
+        with pytest.raises(GateError) as e:
+            rt.gates.decide(gate.id, decision("plan0", A.REIMAGINE, target=bad))
+        assert e.value.code == "bad_target"
+    with pytest.raises(GateError) as e:
+        rt.gates.decide(gate.id, decision("plan0", A.SELECT_ALTERNATIVE, target="a"))      # a target means nothing on this action
+    assert e.value.code == "target_not_allowed"
+    assert rt.repo.list_decisions(gate.id) == []                                              # nothing was stored by the refused decisions
+    seen = []
+    rt.gates.register_applier(GateKind.CONCEPT, lambda ac: seen.append(ac.decision.target))
+    out = rt.gates.decide(gate.id, decision("plan0", A.REIMAGINE, target="a"))
+    assert out.decision.target == "a" and rt.repo.list_decisions(gate.id)[0].target == "a" and seen == ["a"]
+    assert rt.gates.decide(gate.id, decision("plan1", A.CHANGE, version=0, text="teal jacket")).decision.target is None   # default: both
+
+    face = GateTile(tile_id="a.face", part_id="a.face", label="face", allowed_actions=allowed_actions_for(GateKind.PART_BOARD, PartKind.FACE))
+    shirt = GateTile(tile_id="a.shirt", part_id="a.shirt", label="shirt", allowed_actions=allowed_actions_for(GateKind.PART_BOARD, PartKind.SHIRT))
+    board = rt.gates.open_gate(Gate(id="", project_id=project.id, job_id=new_job(rt, project.id).id, kind=GateKind.PART_BOARD,
+                                    tiles=[face, shirt], opened_at=utcnow()))
+    for good in ("iris", "lash", "brow", "mouth_closed", "mouth_open", "all"):
+        assert rt.gates.decide(board.id, decision("a.face", A.REIMAGINE, version=rt.repo.get_gate(board.id).tiles[0].version,
+                                                  target=good)).decision.target == good
+    with pytest.raises(GateError) as e:
+        rt.gates.decide(board.id, decision("a.face", A.CHANGE, version=rt.repo.get_gate(board.id).tiles[0].version, target="a"))
+    assert e.value.code == "bad_target"
+    with pytest.raises(GateError) as e:
+        rt.gates.decide(board.id, decision("a.shirt", A.REIMAGINE, target="iris"))             # only the face tile has parts
+    assert e.value.code == "target_not_allowed"
+
+
 def test_reannounce_and_close(rt):
     gate = rt.gates.open_gate(Gate(id="", project_id="", job_id="j", kind=GateKind.MANUAL_IMPORT, opened_at=utcnow(),
                                    tiles=[GateTile(tile_id="t", label="pack", allowed_actions=allowed_actions_for(GateKind.MANUAL_IMPORT))]))

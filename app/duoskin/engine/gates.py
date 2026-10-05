@@ -94,6 +94,10 @@ def allowed_actions_for(kind: GateKind, part_kind: PartKind | str | None = None,
     return [A.APPROVE, A.REIMAGINE]    # SETUP_APPROVAL
 
 
+GATE1_TARGETS = frozenset({"a", "b", "both"})                                          # Gate 1 Reimagine / Change (default: both)
+FACE_TARGETS = frozenset({"iris", "lash", "brow", "mouth_closed", "mouth_open", "all"})   # the face tile's AI parts
+
+
 # Which decisions close a gate by themselves. PART_BOARD closes when every tile is APPROVED (or on back_to_concept).
 CLOSING_ACTIONS: dict[GateKind, set[GateAction]] = {
     GateKind.CONCEPT: {GateAction.APPROVE, GateAction.NEW_PLAN},
@@ -260,6 +264,7 @@ class GateService:
                 raise ConflictError("the tile changed since you loaded it", self.view(gate), code="version_conflict")
             if body.action not in tile.allowed_actions:
                 raise GateError(f"'{body.action.value}' is not allowed on this tile", 422, "action_not_allowed")
+            self._check_target(gate, tile, body)
             if any(d.provisional and d.tile_id == tile.tile_id for d in self.repo.list_decisions(gate.id)):
                 raise ConflictError("finish or withdraw the earlier choice on this tile first", self.view(gate),
                                     code="provisional_pending")
@@ -273,7 +278,7 @@ class GateService:
             provisional = body.action in PROVISIONAL_ACTIONS and bool(released)
             decision = GateDecision(
                 id=new_id("dec"), gate_id=gate.id, tile_id=tile.tile_id, action=body.action, text=body.text,
-                mask_sha=body.mask_sha, choice=body.choice, decided_at=now, warnings_shown=[w["id"] for w in released],
+                mask_sha=body.mask_sha, choice=body.choice, target=body.target, decided_at=now, warnings_shown=[w["id"] for w in released],
                 provisional=provisional, client_decision_id=body.client_decision_id)
             self.repo.insert_decision(decision)
             if provisional:
@@ -284,6 +289,22 @@ class GateService:
                 return DecisionOutcome(decision, released)
             decision = self._apply(gate, decision)
         return DecisionOutcome(decision, released)
+
+    @staticmethod
+    def _check_target(gate: Gate, tile: GateTile, body: GateDecisionIn) -> None:
+        """``GateDecisionIn.target`` (APP_SPEC §6.9): Gate 1 Reimagine/Change take ``a | b | both``; a face tile's
+        Reimagine/Change take one of its AI parts or ``all``. Anywhere else a target is a mistake."""
+        if body.target is None:
+            return
+        redo = body.action in (GateAction.REIMAGINE, GateAction.CHANGE)
+        if gate.kind == GateKind.CONCEPT and redo:
+            allowed = GATE1_TARGETS
+        elif gate.kind == GateKind.PART_BOARD and redo and (tile.part_id or "").endswith(".face"):
+            allowed = FACE_TARGETS
+        else:
+            raise GateError(f"'target' is not used by '{body.action.value}' on this tile", 422, "target_not_allowed")
+        if body.target not in allowed:
+            raise GateError(f"target must be one of: {', '.join(sorted(allowed))}", 422, "bad_target")
 
     def _replay(self, d: GateDecision) -> DecisionOutcome:
         gate = self.repo.find_gate(d.gate_id)
