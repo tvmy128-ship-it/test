@@ -34,7 +34,7 @@ def pick(client, gate, note: str = "checked by the test"):
 
 
 def export_status(client, project_id: str, want: tuple[str, ...], timeout: float = 240.0) -> dict:
-    return wait_for(lambda: (lambda d: d if d["status"] in want else None)(client.get(f"/api/exports/{project_id}").json()), timeout=timeout,
+    return wait_for(lambda: (d if (d := client.get(f"/api/exports/{project_id}").json())["status"] in want else None), timeout=timeout,
                     message=f"the export to be one of {want}")
 
 
@@ -63,9 +63,11 @@ def test_pick_then_export_is_blocked_for_mock_sources_and_allowed_in_tests(board
     assert r.status_code == 409 and r.json()["error"] == "pick_first"        # the pick comes first
     pick(client, g3)
     wait_for(lambda: rt.repo.get_project(p.id).stage.value == "gate3" and rt.repo.kv_get(f"duo:{p.id}") is not None, timeout=30, message="the pick to settle")
-    mem = next(s for s in rt.repo.list_steps(project_id=p.id, limit=3000) if s.kind == "duo.memory")
-    assert mem.state.value == "succeeded" and mem.result["registered"] == 4         # both faces and both prints are remembered for the next duos
+    mem = wait_for(lambda: next((s for s in rt.repo.list_steps(project_id=p.id, limit=3000) if s.kind == "duo.memory" and s.state.value == "succeeded"), None),
+                   timeout=60, message="the duo to be remembered")
+    assert mem.result["registered"] == 2                                              # both faces are remembered for the next duos; mock prints never enter a registry
     assert rt.db.conn().execute("SELECT COUNT(*) FROM registry_face").fetchone()[0] == 2
+    assert rt.db.conn().execute("SELECT COUNT(*) FROM registry_print").fetchone()[0] == 0
     assert rt.db.conn().execute("SELECT COUNT(*) FROM duo_memory WHERE project_id=?", (p.id,)).fetchone()[0] == 1
 
     # 1. the real gate: the mock sources block the export at CHK-E01
@@ -157,7 +159,7 @@ def test_a_change_at_gate_2_redoes_only_the_affected_tiles(board):
 
     r = post_decision(client, cg.id, cg.tiles[0].tile_id, "confirm")
     assert r.status_code == 200, r.text
-    new_rec = wait_for(lambda: (lambda s: s if s.version > old_spec.version else None)(rt.repo.get_spec(rt.repo.get_project(p.id).approved_spec_id)), timeout=30,
+    new_rec = wait_for(lambda: (sp if (sp := rt.repo.get_spec(rt.repo.get_project(p.id).approved_spec_id)).version > old_spec.version else None), timeout=30,
                        message="the new spec")
     assert new_rec.parent_spec_id == old_spec.id and new_rec.created_by == "change"
     settle(rt, p.id, list(redo))
@@ -207,7 +209,7 @@ def tripo_glb(rt, project_id: str, part_id: str, seed: int = 11) -> bytes:
     item = itemspec.item_of(spec, part_id)
     ad = pr.get("tripo")
     tid = ad.multiview_to_model(rt.repo.kv_get(f"mvtask:{project_id}:{part_id}")["task_id"], T.P2Params.for_seed(item.face_limit, seed))
-    st = wait_for(lambda: (lambda s: s if s.done else None)(ad.task(tid)), timeout=60, message="the mock model")
+    st = wait_for(lambda: (st if (st := ad.task(tid)).done else None), timeout=60, message="the mock model")
     return ad.download_files(tid, ["model_url"], status=st)["model_url"].data
 
 
@@ -223,7 +225,7 @@ def test_manual_3d_pack_inbox_wizard_import_and_free_plan_banner(board):
     rt.repo.mutate_project(p.id, lambda x: setattr(x.settings, "mesh_mode", "manual"))
     gate = wait_gate(rt, p.id, "part_board", timeout=30)
     assert post_decision(client, gate.id, "a.colours", "approve_all").status_code == 200
-    gates = wait_for(lambda: (lambda d: d if {"a.acc.0", "b.acc.0"} <= set(d) else None)(manual_gates(rt, p.id)), timeout=300, message="the two manual gates")
+    gates = wait_for(lambda: (d if {"a.acc.0", "b.acc.0"} <= set(d := manual_gates(rt, p.id)) else None), timeout=300, message="the two manual gates")
     assert set(gates) == {"a.acc.0", "b.acc.0"}                      # the kit hair, the slab and the shirts need no 3D service
     fa, fb = gates["a.acc.0"].tiles[0].facts, gates["b.acc.0"].tiles[0].facts
 
@@ -302,8 +304,8 @@ def test_a_mirrored_model_offers_the_flip_and_is_never_flipped_by_itself(make_ru
 
     import numpy as np
     import trimesh
-    from PIL import Image
     from pfix import make_project
+    from PIL import Image
 
     from duoskin.pipeline import common, manual_mesh, multiview, parts
     from duoskin.providers.mock import meshes
@@ -372,7 +374,7 @@ def test_budget_gate_stop_fails_the_step_with_budget_and_opens_the_tripo_pack(bo
     def budget_gates():
         return {g.tiles[0].part_id: g for g in rt.repo.list_gates(p.id, "open") if g.kind.value == "budget"}
 
-    gates = wait_for(lambda: (lambda d: d if {"a.acc.0", "b.acc.0"} <= set(d) else None)(budget_gates()), timeout=300, message="the two budget gates")
+    gates = wait_for(lambda: (d if {"a.acc.0", "b.acc.0"} <= set(d := budget_gates()) else None), timeout=300, message="the two budget gates")
     ga, gb = gates["a.acc.0"], gates["b.acc.0"]
     ta, tb = ga.tiles[0], gb.tiles[0]
     assert ta.facts["reason"] == "ask" and ta.facts["step_kind"] == "tripo.model" and ta.facts["estimate_usd"] > 0.5
@@ -405,6 +407,7 @@ def test_a_restart_while_tripo_builds_resumes_the_poll_and_never_submits_twice(b
     home, project_id = board_home
     rt, client, close = app_opener(home)
     ad = pr.get("tripo")
+    normal_polls = ad.running_polls
     ad.running_polls = 10_000                                                   # every new task stays "running" until the test lets it finish
     before = len(tripo_submits())
     gate = wait_gate(rt, project_id, "part_board", timeout=30)
@@ -419,7 +422,8 @@ def test_a_restart_while_tripo_builds_resumes_the_poll_and_never_submits_twice(b
     assert len(tripo_submits()) == before + 2
 
     close()                                                                      # the app stops while Tripo is still working
-    rt2, client2, close2 = app_opener(home)                                      # ... and starts again on the same folder
+    rt2, _, _ = app_opener(home)                                                 # ... and starts again on the same folder
+    ad.running_polls = normal_polls                                              # (the mock is shared by the module: the next test must not see the stall)
     for t in ad._tasks.values():
         t.running_polls = 0                                                      # Tripo finishes while the app was away
     g3 = wait_gate_checked(rt2, project_id, "final_pick", timeout=600)
@@ -433,8 +437,9 @@ def test_a_restart_while_tripo_builds_resumes_the_poll_and_never_submits_twice(b
 
 # ---------------------------------------------------------------------------------------------------- missing kits and keys
 def run_to_gate2(rt, project_id: str, timeout: float = 400.0):
-    from duoskin.pipeline import parts
     from pfix import wait_gate_checked, wait_tiles_settled
+
+    from duoskin.pipeline import parts
 
     parts.start_parts_job(rt, project_id)
     gate = wait_gate_checked(rt, project_id, "part_board", timeout=timeout)
@@ -475,10 +480,12 @@ def test_no_head_base_and_an_empty_hair_kit_build_custom_hair_through_tripo(make
         reg = next(s for s in steps if s.part_id == h and s.kind == "hair.register")
         assert reg.result["ok"] is True, reg.result.get("reason")
         m21 = [c for c in reg.result["checks"] if c["id"] == "CHK-M21"]
-        assert m21 and m21[0]["passed"], m21                                       # the grey cube head is gone, the face is visible
+        assert m21 and m21[0]["passed"], m21
+        hr = reg.result["facts"]["hair_register"]                                  # the registration itself: the grey cube head was found and cut out
+        assert hr["head_found"] and hr["mode"] == "fiducial" and hr["watertight_after_cut"], hr
+        assert hr["cut"]["tris_after"] < hr["cut"]["tris_before"] and hr["head_lo"] == [-0.6, -1.193, -0.6]
         assert rt.repo.get_part(p.id, h).state.value == "built"
     assert g3.tiles[0].state.value == "ready"
-    assert not [b for b in g3.tiles[0].badges if "Head" in b and "base" in b.lower()] or True
 
 
 @pytest.mark.timeout(900)
@@ -489,14 +496,39 @@ def test_without_recraft_gemini_and_tripo_keys_the_pipeline_still_works(make_run
     from duoskin.pipeline import common
     from duoskin.providers.mock import meshes
 
-    rt, client = make_runtime(providers_mode="anthropic:mock,openai:mock,recraft:disabled,gemini:disabled,tripo:disabled")
+    rt, _ = make_runtime(providers_mode="anthropic:mock,openai:mock,recraft:disabled,gemini:disabled,tripo:disabled")
     assert common.available_providers(rt) == {"anthropic", "openai"}
     p, _ = make_project(rt, mesh_mode="api")
     gate = run_to_gate2(rt, p.id)
     states = {t.tile_id: t.state.value for t in gate.tiles}
-    print("no keys, gate 2:", states)
+    assert states["a.face"] == "ready" and states["b.face"] == "ready", states               # no Recraft: the face parts come from the next route
+    tiles = {t.tile_id: t for t in gate.tiles}
     for pid in ("a.acc.0", "b.acc.0"):
         assert "views_from_gpt" in rt.repo.get_part(p.id, pid).flags, rt.repo.get_part(p.id, pid).flags     # no Tripo: the views come from GPT, and say so
+        assert "Views from GPT (lower reliability)" in tiles[pid].badges
+    # what the mock GPT drawings cannot do is said with the check id (a real GPT set may pass); nothing fails for a routing reason
+    for t in gate.tiles:
+        if t.state.value != "ready":
+            assert t.state.value == "needs_human" and any(c in (t.facts.get("report") or "") for c in ("A_VIEWS", "A_PALETTE")), (t.tile_id, t.facts.get("report"))
     used = {eng_registry.get(s.kind).provider for s in rt.repo.list_steps(project_id=p.id, limit=3000)} - {None}
     assert used <= {"anthropic", "openai"}, used                                  # nothing reached Recraft, Gemini or Tripo
     _ = meshes
+
+
+@pytest.mark.timeout(900)
+def test_without_a_tripo_key_the_build_goes_straight_to_the_tripo_packs(board_home, app_opener):
+    from pfix import part_states
+
+    home, project_id = board_home
+    rt, client, _ = app_opener(home, "anthropic:mock,openai:mock,recraft:mock,gemini:mock,tripo:disabled")
+    gate = wait_gate(rt, project_id, "part_board", timeout=30)
+    assert post_decision(client, gate.id, "a.colours", "approve_all").status_code == 200
+    gates = wait_for(lambda: (d if {"a.acc.0", "b.acc.0"} <= set(d := manual_gates(rt, project_id)) else None), timeout=300, message="the Tripo packs")
+    for g in gates.values():
+        assert "no Tripo key" in g.tiles[0].facts["reason"], g.tiles[0].facts["reason"]
+        assert len([f for f in Path(g.tiles[0].facts["folder"]).iterdir() if f.is_file()]) == 8
+    steps = rt.repo.list_steps(project_id=project_id, limit=3000)
+    assert not [s for s in steps if s.kind == "tripo.model"]                                         # nothing was sent to Tripo
+    states = part_states(rt, project_id)
+    assert states["a.acc.0"] == "waiting_manual" and states["b.acc.0"] == "waiting_manual", states
+    wait_for(lambda: rt.repo.get_part(project_id, "a.hair").state.value == "built", timeout=300, message="the kit hair (code) to be built without Tripo")

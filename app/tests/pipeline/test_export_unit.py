@@ -73,7 +73,9 @@ def test_the_mock_flag_is_off_by_default_and_scoped():
 
 
 def test_the_flag_is_not_reachable_from_the_settings(rt):
-    with pytest.raises(Exception):
+    from duoskin.models.settings import SettingsPatchError
+
+    with pytest.raises(SettingsPatchError):
         rt.update_settings({"export": {"allow_mock_for_tests": True}})
     assert not hasattr(rt.effective_settings(), "export")
 

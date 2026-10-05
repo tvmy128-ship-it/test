@@ -24,7 +24,7 @@ def composite(spec: dict, character: str):
 def test_code_drawn_faces_pass_every_hard_face_check_on_the_fixture_specs(name):
     spec = locked_spec(name)
     for c, other in (("a", "b"), ("b", "a")):
-        fspec, comp, pal = composite(spec, c)
+        _, comp, pal = composite(spec, c)
         results = FC.face_check_suite(comp, hair_hexes=face.hair_hexes(spec, c), head_base_present=False,
                                       other_face=FC.FaceSpec.from_spec(spec[other]["face"], pal), subject_sha="t")
         failed = [(r.check_id, r.evidence) for r in results if r.kind in HARD_KINDS and not r.passed]

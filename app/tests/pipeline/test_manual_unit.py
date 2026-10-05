@@ -117,9 +117,9 @@ def test_assign_refuses_an_unknown_plan_and_entry(rt, board):
 def test_polish_pack_contents(rt, board):
     from pathlib import Path
 
-    from duoskin.pipeline import polish
+    from duoskin.pipeline import common, polish
 
-    glb = rt.cas.put(open("duoskin/providers/fixtures/meshes/hair_with_grey_head.glb", "rb").read(), "glb", prov=__import__("duoskin.pipeline.common", fromlist=["prov"]).prov("code"))
+    glb = rt.cas.put(Path("duoskin/providers/fixtures/meshes/hair_with_grey_head.glb").read_bytes(), "glb", prov=common.prov("code"))
     rt.repo.mutate_part(board.id, "a.hair", lambda p: setattr(p, "build_assets", {"glb_archive": glb.sha256}))
     st = polish.build_polish_pack(rt, board.id, "a.hair")
     folder = Path(st["folder"])

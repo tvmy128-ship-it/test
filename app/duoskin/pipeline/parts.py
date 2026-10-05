@@ -242,8 +242,6 @@ def tile_for(rt: Runtime, project_id: str, part: Part, *, version: int = 0) -> G
     if state == TileState.GENERATING:
         allowed = [a for a in allowed if a in (GateAction.REIMAGINE, GateAction.CHANGE, GateAction.APPROVE_ALL, GateAction.BACK_TO_CONCEPT)]
     badges = [BADGES[f] for f in part.flags if f in BADGES]
-    if part.character == "b" and False:
-        badges.append("")
     return GateTile(tile_id=part.id, part_id=part.id, label=part.label, state=state, assets=dict(part.board_assets),
                     alternatives=[dict(a) for a in part.alternatives], facts=facts, badges=badges, allowed_actions=allowed,   # type: ignore[arg-type]
                     version=version)
@@ -434,7 +432,7 @@ def reconcile_approval(rt: Runtime, project_id: str, part_id: str) -> bool:
     part = rt.repo.get_part(project_id, part_id)
     if part.approval is None:
         return False
-    rec, spec = common.load_spec(rt, project_id)
+    _, spec = common.load_spec(rt, project_id)
     project = rt.repo.get_project(project_id)
     chk = deps.check_approval(part, spec, project.pins, deps.collect_facts(rt.repo, part))
     if chk.ok:
@@ -498,8 +496,13 @@ def run_gate2_open(ctx: StepContext, p: OpenParams, inputs: list[Any]) -> StepRe
 # ---------------------------------------------------------------------------------------------------- jobs
 def _parts_job_steps(rt: Runtime, job: Job, project: Any) -> list[Step]:
     """The job factory of ``parts``: ensure the rows, then one ``part.start`` step per part (``params.only`` limits them)."""
-    project_id = job.project_id or ""
-    _, spec = common.load_spec(rt, project_id)
+    if not common.handlers_present("part.start") or not job.project_id:
+        return []
+    project_id = job.project_id
+    try:
+        _, spec = common.load_spec(rt, project_id)
+    except (ValueError, NotFound):              # no project or no locked spec: nothing to make yet (an empty job, as before the lane existed)
+        return []
     parts = ensure_parts(rt, project_id, spec)
     only = set(job.params.get("only") or [p.id for p in parts])
     nonce = str(job.params.get("nonce") or "")
@@ -523,7 +526,6 @@ def start_parts_job(rt: Runtime, project_id: str, *, only: list[str] | None = No
 def reimagine_part(rt: Runtime, project_id: str, part_id: str, *, target: str | None = None) -> str:
     """Reimagine = a new nonce (APP_SPEC §8.5): the part's lane runs again with fresh cache keys. Returns the nonce."""
     nonce = common.new_nonce()
-    part = rt.repo.get_part(project_id, part_id)
     rt.repo.invalidate_approvals(project_id, part_id)
     rt.repo.mutate_part(project_id, part_id, lambda p: (setattr(p, "approval", None), setattr(p, "build_stamp", None),
                                                         setattr(p, "build_assets", {}), setattr(p, "state", PartState.GENERATING),
@@ -581,8 +583,8 @@ def apply_part_board(ac: ApplyContext) -> ApplyResult | None:
     a = decision.action
     project_id = ac.project_id
     part = rt.repo.find_part(project_id, tile.part_id or tile.tile_id)
-    if part is None:
-        raise GateError(f"the part {tile.tile_id} no longer exists", 404, "unknown_tile")
+    if part is None:                    # a tile without a part row (a hand-made gate): the gate service's own handling applies
+        return None
     res = ApplyResult()
     if a in (GateAction.APPROVE, GateAction.APPROVE_ALL):
         _check_approvable(rt, gate, tile, a)
@@ -618,7 +620,7 @@ def apply_part_board(ac: ApplyContext) -> ApplyResult | None:
     if a == GateAction.BACK_TO_CONCEPT:
         rt.repo.set_project_stage(project_id, Stage.GATE1, bus=rt.bus)
         try:
-            from duoskin.pipeline import concept       # type: ignore[attr-defined]
+            from duoskin.pipeline import concept  # type: ignore[attr-defined]
 
             reopen = getattr(concept, "reopen_gate1", None)
             if callable(reopen):

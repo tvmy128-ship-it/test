@@ -51,7 +51,7 @@ def register(rt: Any | None = None) -> list[str]:
         try:
             if _register(name, rt, optional=True):
                 done.append(name)
-        except Exception:                        # noqa: BLE001 - another track's module must never break this track's lanes
+        except Exception:
             log.exception("pipeline module %s failed to register", name)
     for name in OWN_MODULES:
         if _register(name, rt, optional=True):
@@ -61,7 +61,7 @@ def register(rt: Any | None = None) -> list[str]:
 
         if rt is not None:
             kits.install_inventory(rt)
-    except Exception:                            # noqa: BLE001 - the kit enums keep their defaults
+    except Exception:
         log.exception("could not install the kit inventory")
     return done
 

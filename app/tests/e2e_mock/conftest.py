@@ -104,8 +104,8 @@ def app_opener(tmp_path):
     """``open_app(home)`` -> ``(rt, client, close)``: an app on an existing home folder (the same folder can be opened again after ``close()``: a restart)."""
     open_clients = []
 
-    def open_app(home: Path):
-        app = make_app(home, providers_mode="mock")
+    def open_app(home: Path, providers_mode: str = "mock"):
+        app = make_app(home, providers_mode=providers_mode)
         rt = app.state.rt
         rt.update_settings(_paths(tmp_path))
         c = make_client(app)

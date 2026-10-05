@@ -118,6 +118,8 @@ def run_pack(ctx: StepContext, p: PackParams, inputs: list[Any]) -> StepResult:
     if state is None or not Path(state["folder"]).exists():
         state = build_pack_for(rt, project_id, part)
     open_import_gate(ctx, part, state, reason=p.reason)
+    parts.set_part_state(rt, project_id, part.id, PartState.WAITING_MANUAL, flags_add=["waiting_manual"])       # a chain that goes straight to the pack says so too
+    parts.refresh_tile(rt, project_id, part.id)
     return StepResult(result={"pack_id": state["pack_id"]}, message="waiting for the model")
 
 
@@ -275,7 +277,10 @@ class InboxWatcher:
                 self.poll_once()
                 if not any(g.kind == GateKind.MANUAL_IMPORT for g in self.rt.repo.list_gates(None, "open")):
                     break
-            except Exception:  # noqa: BLE001 - the watcher must never die on one bad file
+            except RuntimeError as exc:                              # "database is closed": the app is stopping
+                log.debug("inbox watcher stops: %s", exc)
+                break
+            except Exception:
                 log.exception("inbox poll failed")
         self._thread = None
 
@@ -385,8 +390,8 @@ def _job_for(rt: Runtime, project_id: str, step_id: str | None) -> str:
     if step_id:
         try:
             return rt.repo.get_step(step_id).job_id
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001
+            log.debug("step %s is not readable (%s): looking for the job of the project", step_id, exc)
     for j in reversed(rt.repo.list_jobs(project_id=project_id, limit=50)):
         if j.kind in (JobKind.BUILD, JobKind.MANUAL_MESH) and j.state.value != "cancelled":
             return j.id

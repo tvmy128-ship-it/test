@@ -142,7 +142,7 @@ def build_demo_kits(dest: Path | str) -> list[str]:
         _write_style_folder(root / "hair" / "modules" / mid, d["build"](), meta, views=False)
     iou: dict[str, dict[str, float]] = {}
     for a, b in combinations(sorted(masks), 2):
-        def _iou(view: str) -> float:
+        def _iou(view: str, a: str = a, b: str = b) -> float:
             ma, mb = masks[a][view], masks[b][view]
             union = float((ma | mb).sum())
             return round(float((ma & mb).sum()) / union, 3) if union else 0.0

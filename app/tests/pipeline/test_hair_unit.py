@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import numpy as np
-from PIL import Image
 from pfix import locked_spec, make_project
+from PIL import Image
 
 from duoskin.imaging import guides
 from duoskin.pipeline import hair, kits

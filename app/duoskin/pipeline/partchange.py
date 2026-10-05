@@ -27,6 +27,7 @@ from duoskin.engine.gates import ApplyContext, ApplyResult, GateError
 from duoskin.engine.registry import StepResult
 from duoskin.models.common import Strict, new_id, sha256_of, utcnow
 from duoskin.models.gate import ChangeRequest, Gate, GateAction, GateKind, GateTile, TileState
+from duoskin.models.job import JobKind
 from duoskin.models.part import DepEffect, PartKind
 from duoskin.models.spec_record import SpecRecord
 from duoskin.pipeline import common, llmcall, parts
@@ -56,9 +57,12 @@ def begin_change(rt: Runtime, gate: Gate, tile: GateTile, decision: Any) -> Chan
     ch = ChangeRequest(id=new_id("chg"), project_id=gate.project_id, gate_id=gate.id, tile_id=tile.part_id or tile.tile_id, text=text,
                        mask_sha=decision.mask_sha, status="interpreting")   # type: ignore[arg-type]
     rt.repo.save_change(ch)
-    rt.repo.kv_set(f"change:{ch.id}", {"origin": origin, "target": decision.target, "answers": [], "gate_job": gate.job_id})
-    step = rt.ops.new_step("partchange.interpret", job_id=gate.job_id, project_id=gate.project_id, params=InterpretParams(change_id=ch.id).model_dump(mode="json"))
-    rt.scheduler.spawn(gate.job_id, [step])
+    job_id = gate.job_id
+    if rt.repo.find_job(job_id) is None:                       # a gate that was opened by hand has no job: the change runs in its own
+        job_id = rt.scheduler.submit_job(JobKind.PARTS, gate.project_id, {"reason": "change"}, steps=[]).id
+    rt.repo.kv_set(f"change:{ch.id}", {"origin": origin, "target": decision.target, "answers": [], "gate_job": job_id})
+    step = rt.ops.new_step("partchange.interpret", job_id=job_id, project_id=gate.project_id, params=InterpretParams(change_id=ch.id).model_dump(mode="json"))
+    rt.scheduler.spawn(job_id, [step])
     return ch
 
 

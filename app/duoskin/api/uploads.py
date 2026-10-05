@@ -22,12 +22,13 @@ def upload_mask(file: Annotated[UploadFile, File()], rt: Runtime = RT) -> dict[s
     if len(data) > MAX_MASK_BYTES:
         raise HTTPException(status_code=413, detail={"error": "too_large", "message": "the mask must be smaller than 4 MB"})
     try:
-        from PIL import Image
         import io
+
+        from PIL import Image
 
         with Image.open(io.BytesIO(data)) as im:
             size = im.size
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise HTTPException(status_code=415, detail={"error": "bad_mask", "message": "the mask is not a readable PNG"}) from exc
     problems = masks.validate_mask(data, size)
     if problems:

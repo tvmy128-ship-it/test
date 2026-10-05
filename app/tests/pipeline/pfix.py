@@ -21,6 +21,7 @@ def load_spec_dict(name: str = "spec_complement_gb") -> dict[str, Any]:
 
 
 INK = {"spec_empty_bb": "#3A1F4D"}
+HAIR_A = {"spec_empty_bb": "#5A2D1B"}               # a hair colour with chroma: the mock Tripo hair of a graphite colour reads as the grey guide colour (CHK-M21)
 
 
 def locked_spec(name: str = "spec_complement_gb") -> dict[str, Any]:
@@ -28,6 +29,8 @@ def locked_spec(name: str = "spec_complement_gb") -> dict[str, Any]:
     on the darkest of the 5 tones), so the ink colour becomes a dark indigo and both brows use it; nothing else changes."""
     spec = load_spec_dict(name)
     for c in spec["palette"]:
+        if c["id"] == "p8" and name in HAIR_A:
+            c["hex"] = HAIR_A[name]
         if c["id"] == "p6":
             c["hex"] = INK.get(name, "#2D1B69")        # a dark ink that is not near any iris colour of the spec (F_LID_COVERS counts iris-coloured lid pixels)
             c["name"] = "ink"

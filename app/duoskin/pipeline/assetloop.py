@@ -22,6 +22,7 @@ Design rules this module keeps:
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
@@ -275,7 +276,7 @@ def draft_chain(rt: Runtime, job_id: str, project_id: str, loop: AssetLoopSpec, 
     snap = compile_snap(rt, spec, loop, technique, project_id=project_id) if TECHNIQUES[technique].template_id else None
     n_total = state.n_total
     nonce = state.nonce or loop.nonce
-    base = dict(loop=loop, state=state, technique=technique, prompt=snap, n_total=n_total)
+    base = {"loop": loop, "state": state, "technique": technique, "prompt": snap, "n_total": n_total}
     pj = {"project_id": project_id, "priority": priority}
     draft = _new(rt, "img.draft", job_id, loop, LoopStepParams(**base, stage="draft"), deps=deps, inputs=images_of(loop, technique)
                  + ([mask_of(loop, technique)] if mask_of(loop, technique) else []), nonce=nonce, **pj)
@@ -750,6 +751,11 @@ def run_gate_b_step(ctx: StepContext, p: LoopStepParams, inputs: list[Any]) -> S
         for e in batch:
             ctx.check_cancel()
             res = gate_b_for(ctx, e["sha"], p.loop, counter=counter)
+            failing = [r.check_id for r in res if _blocking(r)]
+            if failing:                       # a hard verdict that fails must survive a 3-vote majority before it costs a candidate (bible 2.7, CHK-P12)
+                again = {r.check_id: r for r in gate_b_for(ctx, e["sha"], p.loop.model_copy(update={"gate_b_hard": failing, "gate_b_soft": []}), hard_only=True,
+                                                           votes=3, counter=counter)}
+                res = [again.get(r.check_id, r) for r in res]
             e["gb"] = _summary(res)
             hard_fail = [r for r in res if _blocking(r)]
             e["gb_fails"] = [r.check_id for r in hard_fail]
@@ -768,8 +774,17 @@ def run_gate_b_step(ctx: StepContext, p: LoopStepParams, inputs: list[Any]) -> S
                       message=f"{len(survivors)} candidate(s) pass Gate B")
 
 
+_LOCATION = re.compile(r"^\w+ \[([a-z_]+)\]:")
+
+
 def _fail_locations(results: list[CheckResult], ctx: StepContext) -> dict[str, str]:
-    return {}
+    """Where the judge says each failing rule is (the closed ``location`` values of a verdict; the repair mask seed, bible 16.1)."""
+    out: dict[str, str] = {}
+    for r in results:
+        m = None if r.passed else _LOCATION.match(r.evidence or "")
+        if m:
+            out[r.check_id] = m.group(1)
+    return out
 
 
 def estimate_gate_b(p: LoopStepParams) -> float:
@@ -943,8 +958,8 @@ def _finish(ctx: StepContext, loop: AssetLoopSpec, res: LoopResult) -> None:
 def _finalize_chain(rt: Runtime, ctx: StepContext, p: LoopStepParams, state: LoopState, draft_sha: str, alts: list[str]) -> list[Step]:
     loop = p.loop
     snap = _finalize_snap(rt, ctx, p, draft_sha)
-    common_kw = dict(job_id=ctx.step.job_id, project_id=ctx.step.project_id, part_id=loop.part_id, priority=ctx.step.priority)
-    base = dict(loop=loop, state=state, technique=p.technique, prompt=snap, n_total=1, draft_sha=draft_sha, alternatives=alts)
+    common_kw = {"job_id": ctx.step.job_id, "project_id": ctx.step.project_id, "part_id": loop.part_id, "priority": ctx.step.priority}
+    base = {"loop": loop, "state": state, "technique": p.technique, "prompt": snap, "n_total": 1, "draft_sha": draft_sha, "alternatives": alts}
     fin = rt.ops.new_step("img.finalize", params=LoopStepParams(**base, stage="finalize").model_dump(mode="json"), inputs=[draft_sha],
                           nonce=state.nonce, **common_kw)
     rec = rt.ops.new_step("img.recheck", params=LoopStepParams(**base, final_step=fin.id, from_step=fin.id, stage="recheck").model_dump(mode="json"),

@@ -138,7 +138,6 @@ def kit_candidates(rt: Runtime, front_mask_img: Image.Image, *, top: int = 5) ->
 
 # ---------------------------------------------------------------------------------------------------- the lane
 def loop_for(rt: Runtime, project_id: str, spec: dict[str, Any], part: Part, route: str, *, nonce: str) -> AL.AssetLoopSpec:
-    from duoskin.checks import gate_b
     from duoskin.imaging import guides
 
     c = part.character
@@ -219,7 +218,6 @@ def run_board(ctx: StepContext, p: HairParams, inputs: list[Any]) -> StepResult:
     rt = ctx.rt
     project_id = ctx.step.project_id or ""
     part = rt.repo.get_part(project_id, p.part_id)
-    _, spec = common.load_spec(rt, project_id)
     st = dict(rt.repo.kv_get(f"hair:{project_id}:{part.id}") or {})
     mv = rt.repo.get_step(p.mv_step).result if p.mv_step else {}
     views = dict(mv.get("views") or {})
@@ -407,9 +405,8 @@ def register(rt: Runtime | None = None) -> None:
     parts.register_lane(HairLane())
     AL.register_callback("hair_front", hair_front_done)
     registry.register_handler("hair.board", run_board, version=1, pool="cpu", paid=False, Params=HairParams, cacheable=False)
-    from duoskin.pipeline.meshsteps import MeshStepParams
-
     from duoskin.pipeline.build import guarded
+    from duoskin.pipeline.meshsteps import MeshStepParams
 
     registry.register_handler("hair.kit_match", guarded(run_kit_match, "anthropic"), version=1, pool="api", paid=True, provider="anthropic", Params=MeshStepParams,
                               estimate=lambda p: 0.1, cacheable=False)

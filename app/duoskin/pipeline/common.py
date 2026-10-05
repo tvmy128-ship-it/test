@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import logging
 import re
 import uuid
 from dataclasses import dataclass
@@ -34,6 +35,8 @@ if TYPE_CHECKING:
 PART_RE = re.compile(r"^(?P<c>[ab])\.(?P<kind>face|hair|shirt|pants|colours|acc|print)(?:\.(?P<a>top|bottom|shoes|\d))?(?:\.(?P<b>\d))?$")
 CHARS = ("a", "b")
 PLACEHOLDER_BG = (242, 242, 242)
+
+log = logging.getLogger("duoskin.pipeline.common")
 
 
 # ---------------------------------------------------------------------------------------------------- part ids
@@ -130,6 +133,19 @@ def provider_mode(rt: Runtime, provider: str) -> str:
         return str(rt.effective_settings().mode_of(provider).value)
 
 
+def handlers_present(*kinds: str) -> bool:
+    """Are the step handlers of this lane registered in this process? The job factories live for the whole process, but a test may clear the handler
+    registry: a factory then makes no steps instead of failing on an unknown kind."""
+    from duoskin.engine import registry
+
+    try:
+        for k in kinds:
+            registry.get(k)
+    except registry.UnknownStepKind:
+        return False
+    return True
+
+
 def provider_available(rt: Runtime, provider: str) -> bool:
     """Can a call to ``provider`` be made? Mock: yes. Disabled: no. Real: only with a stored key (APP_SPEC §7, D22)."""
     mode = provider_mode(rt, provider)
@@ -220,8 +236,8 @@ def record_cost(ctx: StepContext, cost: dict[str, Any] | None, operation: str, *
     for u in cost.get("units") or []:
         try:
             units.append(CostUnit(**u))
-        except Exception:  # noqa: BLE001 - an unknown unit name must not lose the cost row
-            continue
+        except Exception as exc:  # noqa: BLE001 - an unknown unit name must not lose the cost row
+            log.warning("cost unit %r skipped: %s", u.get("name") if isinstance(u, dict) else u, exc)
     provider = cost.get("provider") or fallback_provider
     if provider not in ("anthropic", "openai", "recraft", "tripo", "gemini", "fal", "mock"):
         provider = "mock"

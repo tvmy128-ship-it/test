@@ -62,9 +62,22 @@ def run_mesh_job(ctx: StepContext | None, job: MeshJob, *, overrides: dict[str, 
     return _failed(job, "worker_crashed", f"The 3D worker stopped unexpectedly (exit code {res['returncode']}). {tail}".strip())
 
 
-def mesh_overrides_for(rt: Any) -> dict[str, Any]:
-    """Threshold overrides a mesh job needs in this run. With a mock Tripo, the multiview images are procedural shaded renders of a mesh
-    that the model download shows unlit, so their palette distance is not a quality signal: the view-palette limit is loosened (mock only)."""
+def mesh_overrides_for(rt: Any, hair: bool = False) -> dict[str, Any]:
+    """Threshold overrides a mesh job needs in this run (mock Tripo only; a real Tripo run has none).
+
+    * The mock multiview images are procedural renders of the mock mesh that the downloaded model shows unlit, so the palette distance of the
+      views is not a quality signal: ``acc.view_palette_de_max`` is loosened.
+    * The mock Tripo hair is a thin cap with the grey head cube (and the views show the cube too), painted in the grey mean colour of its input:
+      once ``hair.register`` cut the head out, the silhouettes and the thickness are not the real ones and the hair itself reads as the guide grey,
+      so the view match, the thickness, the visible-face and the guide-colour share limits are loosened for hair (the registration facts still say
+      whether the head was found and cut: the e2e test asserts them).
+    The result of such a run is marked mock (every file name carries MOCK, CHK-E01 blocks it), so a loosened limit never reaches a real kit."""
     from duoskin.pipeline import common
 
-    return {"acc.view_palette_de_max": 45.0} if common.is_mock(rt, "tripo") else {}
+    if not common.is_mock(rt, "tripo"):
+        return {}
+    out: dict[str, Any] = {"acc.view_palette_de_max": 45.0}
+    if hair:
+        out.update({"mesh.orient_iou_min": 0.5, "acc.front_iou_min": 0.5, "acc.view_iou_min": 0.5, "mesh.thickness_min": 0.005, "hair.front_face_visible_min": 0.3,
+                    "hair.guide_texel_share_max": 1.0})
+    return out

@@ -176,7 +176,7 @@ def remember_task(rt: Runtime, project_id: str, part_id: str, mv: dict[str, Any]
 def _record_task_cost(ctx: StepContext, adapter: Any, status: Any, op: str) -> None:
     try:
         common.record_cost(ctx, adapter.cost_for(status), op, fallback_provider="tripo")
-    except Exception:  # noqa: BLE001 - a ledger row that cannot be built must not lose the views
+    except Exception:
         log.warning("could not record the cost of %s", op, exc_info=True)
 
 
@@ -405,8 +405,8 @@ def run_mv_check(ctx: StepContext, p: CheckParams, inputs: list[Any]) -> StepRes
             return StepResult(result={"next": "gpt_views"}, message="drawing the views with GPT instead (lower reliability)")
     # pass, or nothing left to try: the board step shows what there is (a failing set is a NEEDS_HUMAN tile with the evidence)
     out_views = {v: s for v, s in views.items()}
-    nxt = rt.ops.new_step(p.board, job_id=ctx.step.job_id, project_id=project_id, part_id=part.id, deps=[],
-                          params={"part_id": p.part_id, "front_sha": p.front_sha, "nonce": p.nonce, "mv_step": ctx.step.id},
+    nxt = rt.ops.new_step(p.board, job_id=ctx.step.job_id, project_id=project_id, part_id=part.id, deps=[ctx.step.id],        # the board reads this step's result:
+                          params={"part_id": p.part_id, "front_sha": p.front_sha, "nonce": p.nonce, "mv_step": ctx.step.id},   # it must not start before it is stored
                           nonce=p.nonce, priority=ctx.step.priority)
     ctx.spawn([nxt])
     return StepResult(result={"views": out_views, "source": source, "task_id": task_id, "flags": flags, "ok": not blocking,

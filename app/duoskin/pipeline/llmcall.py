@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any
 
 from PIL import Image
 
-from duoskin.engine.errors import StepFailure
 from duoskin.models import llm_io
 from duoskin.pipeline import common
 
@@ -121,11 +120,7 @@ def run_rules(ctx: StepContext, rule_requests: list[Any], images: list[bytes | I
 
     if not rule_requests:
         return gate_b.GateBResult(results=[], verdicts={}, calls=0, escalate=[])
-    try:
-        return gate_b.run_gate_b(gate_b_provider(ctx, images, counter), rule_requests, measured_facts=measured_facts, subject_sha=subject_sha,
-                                 votes=votes)
-    except StepFailure:
-        raise
+    return gate_b.run_gate_b(gate_b_provider(ctx, images, counter), rule_requests, measured_facts=measured_facts, subject_sha=subject_sha, votes=votes)
 
 
 def rule_requests(rule_ids: list[str], slots: dict[str, dict[str, str]] | None = None) -> list[Any]:

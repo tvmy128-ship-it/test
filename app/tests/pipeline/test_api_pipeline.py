@@ -6,8 +6,8 @@ import json
 import shutil
 
 import pytest
-from PIL import Image
 from pfix import give_views, make_project
+from PIL import Image
 
 from duoskin.pipeline import kits, parts
 

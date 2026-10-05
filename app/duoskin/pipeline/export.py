@@ -113,8 +113,10 @@ def start_export(rt: Runtime, project_id: str) -> Job:
 
 
 def _export_steps(rt: Runtime, job: Job, project: Any) -> list[Any]:
+    if not common.handlers_present("export.build"):
+        return []
     pid = job.project_id or ""
-    mk = lambda kind, deps_=(): rt.ops.new_step(kind, job_id=job.id, project_id=pid, params=ExportParams(project_id=pid).model_dump(mode="json"),   # noqa: E731
+    mk = lambda kind, deps_=(): rt.ops.new_step(kind, job_id=job.id, project_id=pid, params=ExportParams(project_id=pid).model_dump(mode="json"),
                                                   deps=list(deps_))
     b = mk("export.build")
     v = mk("export.validate", [b.id])
@@ -234,7 +236,7 @@ def kit_lineage(rt: Runtime, spec: dict[str, Any]) -> list[dict[str, Any]]:
 
 # ---------------------------------------------------------------------------------------------------- writing
 def kit_dir(rt: Runtime, project: Any, mock: bool) -> Path:
-    stamp = datetime.now().strftime("%Y%m%d-%H%M")
+    stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M")
     base = config.exports_root(rt.effective_settings()) / "Kits"
     name = f"{'MOCK_' if mock else ''}{common.ascii_slug(project.name, 'duo', 20)}_{stamp}"
     d = base / name
@@ -380,7 +382,6 @@ def run_build(ctx: StepContext, p: ExportParams, inputs: list[Any]) -> StepResul
     w = Writer(root, mock)
     ps = {x.id: x for x in rt.repo.list_parts(project_id)}
     items: list[dict[str, Any]] = []
-    cl_items: list[dict[str, Any]] = []
     head_base = bool(kits.load_context(rt).flags.get("head_base_present"))
     for c in ("a", "b"):
         cf = character_folder(spec, c)
@@ -631,7 +632,7 @@ def run_validate(ctx: StepContext, p: ExportParams, inputs: list[Any]) -> StepRe
                           target_studs=item.target_studs, tris_target=item.tris_target, texture_px=item.texture_px, params={"roundtrip": False,
                           "expect_slab": item.build == "sticker_slab", "expect_hair_register": item.is_hair and False}, asset_id=it["item_id"],
                           forward_axis=meshsteps.forward_axis(rt), blender_path=meshsteps.blender_path(rt))
-            res = meshrun.run_mesh_job(ctx, job, overrides=meshrun.mesh_overrides_for(rt), timeout_s=180)
+            res = meshrun.run_mesh_job(ctx, job, overrides=meshrun.mesh_overrides_for(rt, item.is_hair), timeout_s=180)
             blocking = common.hard_failures(list(res.checks))
             bad += [f"{it['item_id']}: {r.check_id} {r.evidence[:80]}" for r in blocking if r.check_id not in ("CHK-M08", "CHK-M13", "CHK-M21", "CHK-M14")]
             bb = res.facts.get("bbox_studs")

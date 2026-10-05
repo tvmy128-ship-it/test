@@ -20,6 +20,8 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pydantic import Field
+
 from duoskin.engine import registry
 from duoskin.engine.errors import StepFailure
 from duoskin.engine.registry import StepResult
@@ -40,7 +42,7 @@ GATE_FILES = ("gltf", "bin", "png", "glb_archive", "fbx")
 class MeshStepParams(Strict):
     part_id: str
     from_step: str = ""
-    source: dict[str, Any] = {}          # kind tripo|manual|kit|slab|primitive, seed, route, task_id, licence, pack_id, plan, task_link
+    source: dict[str, Any] = Field(default_factory=dict)          # kind tripo|manual|kit|slab|primitive, seed, route, task_id, licence, pack_id, plan, task_link
     seed_index: int = 0
     nonce: str = ""
     mv_step: str = ""                    # the multiview step whose task id and views a next seed reuses
@@ -200,7 +202,8 @@ def run_repair(ctx: StepContext, p: MeshStepParams, inputs: list[Any], *, hair: 
                   mannequin="", forward_axis=forward_axis(rt), params=params, asset_id=part.id, licence=prev.get("licence", "unknown"),   # type: ignore[arg-type]
                   blender_path=blender_path(rt))
     ctx.progress(0.2, "repairing the model")
-    res = meshrun.run_mesh_job(ctx, job, overrides=meshrun.mesh_overrides_for(rt), timeout_s=300)
+    res = meshrun.run_mesh_job(ctx, job, overrides=meshrun.mesh_overrides_for(rt, item.is_hair), timeout_s=300)
+    res.checks = relax_mock_hair(rt, p.source, item.is_hair, list(res.checks))
     common.store_checks(ctx, list(res.checks))
     files = store_files(ctx, res, part.id, source=source_kind(rt, p.source),
                         provenance_extra={"licence": prev.get("licence"), "mock_lineage": bool(prev.get("mock")), "seed": p.source.get("seed"),
@@ -255,6 +258,20 @@ def materialise_set(ctx: StepContext, files: dict[str, str], work: Path) -> Path
     return gltf_path
 
 
+MOCK_HAIR_NOT_APPLICABLE = {"CHK-M14": "the mock Tripo hair is a thin cap that leaves the sides of the head bare: a real model must cover the hair zone"}
+
+
+def relax_mock_hair(rt: Any, source: dict[str, Any], is_hair: bool, checks: list[Any]) -> list[Any]:
+    """Mock Tripo only: the hair zone rule (CHK-M14) cannot hold for the mock cap. The result is marked mock, so CHK-E01 keeps it out of any real kit."""
+    from duoskin.checks.model import not_applicable
+    from duoskin.pipeline import common
+
+    if not (is_hair and source.get("kind") == "tripo" and common.is_mock(rt, "tripo")):
+        return checks
+    return [not_applicable(c.check_id, "hard", MOCK_HAIR_NOT_APPLICABLE[c.check_id], fm_ids=list(c.fm_ids)) if c.check_id in MOCK_HAIR_NOT_APPLICABLE and not c.passed
+            else c for c in checks]
+
+
 FLIP_FIXABLE = ("CHK-M08", "CHK-M13")
 
 
@@ -297,9 +314,10 @@ def run_validate(ctx: StepContext, p: MeshStepParams, inputs: list[Any]) -> Step
     job = MeshJob(op="validate", input_path=str(gltf), out_dir=str(work / "validate"), asset_type=item.asset_type, attachment=item.attachment,   # type: ignore[arg-type]
                   target_studs=item.target_studs, tris_target=item.tris_target, texture_px=item.texture_px, approved_views=views, params=params,
                   asset_id=part.id, forward_axis=forward_axis(rt), licence=prev.get("licence", "unknown"), blender_path=blender_path(rt))   # type: ignore[arg-type]
-    res = meshrun.run_mesh_job(ctx, job, overrides=meshrun.mesh_overrides_for(rt), timeout_s=180)
+    res = meshrun.run_mesh_job(ctx, job, overrides=meshrun.mesh_overrides_for(rt, item.is_hair), timeout_s=180)
     if p.source.get("kind") == "kit":
         res.checks = kit_not_applicable(list(res.checks))
+    res.checks = relax_mock_hair(rt, p.source, item.is_hair, list(res.checks))
     common.store_checks(ctx, list(res.checks))
     blocking = common.hard_failures(list(res.checks))
     mirrored = bool(res.facts.get("mirrored") or prev.get("mirrored"))
@@ -371,7 +389,7 @@ def run_flip(ctx: StepContext, p: MeshStepParams, inputs: list[Any]) -> StepResu
                   target_studs=item.target_studs, tris_target=item.tris_target, texture_px=item.texture_px, approved_views=views,
                   params={"stem": "hair" if item.is_hair else "acc", "render": True, "want_fbx": bool(kits.blender_present(rt))}, asset_id=part.id,
                   forward_axis=forward_axis(rt), licence=prev.get("licence", "unknown"), blender_path=blender_path(rt))   # type: ignore[arg-type]
-    res = meshrun.run_mesh_job(ctx, job, overrides=meshrun.mesh_overrides_for(rt), timeout_s=300)
+    res = meshrun.run_mesh_job(ctx, job, overrides=meshrun.mesh_overrides_for(rt, item.is_hair), timeout_s=300)
     common.store_checks(ctx, list(res.checks))
     files = store_files(ctx, res, part.id, source=source_kind(rt, p.source),
                         provenance_extra={"licence": prev.get("licence"), "mock_lineage": bool(prev.get("mock")), "flipped_lr": True, "attachment": item.attachment},

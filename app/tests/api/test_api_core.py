@@ -227,9 +227,10 @@ def test_openapi_docs_exist_only_in_dev_mode(tmp_path):
 
 @pytest.mark.parametrize("method,path", [("POST", "/api/projects/prj_x/export"), ("GET", "/api/exports/prj_x"), ("PATCH", "/api/exports/prj_x/checklist"),
                                          ("POST", "/api/projects/prj_x/parts/a.hair/tripo-pack")])
-def test_stub_routes_answer_501_with_a_clear_message(client, method, path):
+def test_the_pipeline_routes_are_no_longer_stubs(client, method, path):
+    """These four were 501 stubs until the pipeline track filled them in (``api/exports.py``, ``api/parts.py``): they now answer for the project they are asked about."""
     r = client.request(method, path)
-    assert r.status_code == 501 and r.json()["error"] == "not_implemented" and "track" in r.json()["message"]
+    assert r.status_code in (404, 422) and r.json()["error"] != "not_implemented"
 
 
 def test_unknown_routes_and_methods(client):

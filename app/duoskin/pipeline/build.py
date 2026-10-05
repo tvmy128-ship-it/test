@@ -28,11 +28,12 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pydantic import Field
+
 from duoskin.db.errors import NotFound
-from duoskin.engine import deps
-from duoskin.engine import registry
-from duoskin.engine import scheduler as sched
+from duoskin.engine import deps, registry
 from duoskin.engine import errors as eng_errors
+from duoskin.engine import scheduler as sched
 from duoskin.engine.errors import StepFailure
 from duoskin.engine.gates import ApplyContext, ApplyResult
 from duoskin.engine.registry import Pending, StepResult
@@ -69,7 +70,7 @@ class ModelParams(Strict):
     route: str = "p2"                       # p2 | p1
     nonce: str = ""
     mv_task_id: str = ""
-    views: dict[str, str] = {}
+    views: dict[str, str] = Field(default_factory=dict)
     views_from_gpt: bool = False
     mv_step: str = ""
 
@@ -95,6 +96,8 @@ def start_build(rt: Runtime, project_id: str) -> Job:
 
 
 def _build_steps(rt: Runtime, job: Job, project: Any) -> list[Step]:
+    if not common.handlers_present("build.plan"):
+        return []
     pid = job.project_id or ""
     return [rt.ops.new_step("build.plan", job_id=job.id, project_id=pid, params=PlanParams(project_id=pid).model_dump(mode="json"))]
 
@@ -124,8 +127,8 @@ def estimate_api_usd(rt: Runtime, project_id: str, spec: dict[str, Any]) -> tupl
 
 
 def run_plan(ctx: StepContext, p: PlanParams, inputs: list[Any]) -> StepResult:
-    from duoskin.models.gate import Gate, GateTile
     from duoskin.models.common import utcnow
+    from duoskin.models.gate import Gate, GateTile
 
     rt = ctx.rt
     project_id = p.project_id
@@ -137,7 +140,7 @@ def run_plan(ctx: StepContext, p: PlanParams, inputs: list[Any]) -> StepResult:
         if n == 0:
             mode = "api"
         elif not tripo_ok(rt):
-            mode = "manual"
+            mode = "api"                       # no key: nothing to ask, the chain of every mesh part goes to the Tripo pack ("no Tripo key")
         else:
             tile = GateTile(tile_id=ctx.step.id, part_id=None, label=f"3D models: {n} to make (about ${est:.2f} with the Tripo API)", state=TileState.READY,
                             facts={"mesh_mode_ask": True, "estimate_usd": est, "meshes": n, "step_id": ctx.step.id, "step_kind": "build.plan",
@@ -146,8 +149,7 @@ def run_plan(ctx: StepContext, p: PlanParams, inputs: list[Any]) -> StepResult:
             gate = Gate(id="", project_id=project_id, job_id=ctx.step.job_id, kind=GateKind.BUDGET, tiles=[tile], opened_at=utcnow())   # type: ignore[arg-type]
             ctx.open_gate(gate)
             return StepResult(message="waiting for the 3D route")
-    if mode == "api" and not tripo_ok(rt):
-        mode = "manual"
+    no_key = mode == "api" and not tripo_ok(rt)
     created: list[Step] = []
     todo = [x for x in rt.repo.list_parts(project_id) if x.kind != PartKind.DUO and x.state in (PartState.APPROVED, PartState.BUILDING)]
     for part in todo:
@@ -157,7 +159,8 @@ def run_plan(ctx: StepContext, p: PlanParams, inputs: list[Any]) -> StepResult:
     all_parts = todo
     if created:
         ctx.spawn(created)
-    return StepResult(result={"mode": mode, "steps": len(created)}, message=f"building {len(all_parts)} parts ({mode} 3D)")
+    return StepResult(result={"mode": mode, "steps": len(created), "no_tripo_key": no_key},
+                      message=f"building {len(all_parts)} parts ({'no Tripo key: the Tripo packs' if no_key else mode + ' 3D'})")
 
 
 # ---------------------------------------------------------------------------------------------------- chains
@@ -420,7 +423,7 @@ def mesh_passed(ctx: StepContext, part: Part, p: MeshStepParams, prev: dict[str,
     parts.set_part_state(rt, project_id, part.id, part.state, flags_add=flags_add, flags_remove=["mirrored", "waiting_manual"])
     rt.repo.mutate_part(project_id, part.id, lambda x: setattr(x, "license", licence if licence in _LICENCES else "n/a"))
     fin = _step(rt, "build.finish", ctx.step.job_id, project_id, part.id, FinishParams(part_id=part.id, from_step=ctx.step.id).model_dump(mode="json"),
-                priority=ctx.step.priority)
+                deps_=[ctx.step.id], priority=ctx.step.priority)          # it reads this step's result: it must not start before it is stored
     ctx.spawn([fin])
 
 
@@ -469,7 +472,7 @@ def guarded(fn: Any, provider: str | None = None) -> Any:
     def run(ctx: StepContext, p: Any, *rest: Any) -> Any:
         try:
             return fn(ctx, p, *rest)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             if eng_errors.is_cancelled(exc):
                 raise
             decision = eng_errors.decide(ctx.step, exc, provider)
@@ -492,9 +495,9 @@ def fall_back(ctx: StepContext, p: Any, reason: str) -> StepResult:
         idx, route = int(getattr(p, "seed_index", 0)), str(getattr(p, "route", "p2"))
         nxt = None
         if route == "p2" and idx + 1 < len(SEEDS):
-            nxt = dict(seed_index=idx + 1, route="p2")
+            nxt = {"seed_index": idx + 1, "route": "p2"}
         elif route == "p2":
-            nxt = dict(seed_index=0, route="p1")
+            nxt = {"seed_index": 0, "route": "p1"}
         if nxt is not None and "budget" not in reason.lower():
             ctx.spawn([model_step(rt, ctx.step.job_id, project_id, part, priority=ctx.step.priority, nonce=common.new_nonce(), mv_step=getattr(p, "mv_step", ""), **nxt)])
             return StepResult(result={"ok": False, "handled": True, "reason": reason, "next": f"seed {nxt['seed_index']} {nxt['route']}"},

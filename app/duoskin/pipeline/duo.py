@@ -78,8 +78,10 @@ def start_duo(rt: Runtime, project_id: str) -> Job:
 
 
 def _duo_steps(rt: Runtime, job: Job, project: Any) -> list[Any]:
+    if not common.handlers_present("duo.render"):
+        return []
     pid = job.project_id or ""
-    mk = lambda kind, deps_=(): rt.ops.new_step(kind, job_id=job.id, project_id=pid, params=DuoParams(project_id=pid).model_dump(mode="json"),   # noqa: E731
+    mk = lambda kind, deps_=(): rt.ops.new_step(kind, job_id=job.id, project_id=pid, params=DuoParams(project_id=pid).model_dump(mode="json"),
                                                   deps=list(deps_))
     render = mk("duo.render")
     checks = mk("duo.checks", [render.id])
