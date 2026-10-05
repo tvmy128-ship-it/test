@@ -21,8 +21,9 @@ from duoskin.checks import thresholds as TH
 from duoskin.checks.model import CheckResult
 from duoskin.models.common import CharKey, sha256_of
 from duoskin.models.spec import DuoSpec
-from duoskin.prompts import dna_router, registry, slots as S
+from duoskin.prompts import dna_router, registry
 from duoskin.prompts import freetext as free_text
+from duoskin.prompts import slots as S
 from duoskin.prompts import template_lang as TL
 from duoskin.prompts.catalog import TEXT_INVITING, CompileCtx, default_ctx, norm
 from duoskin.prompts.limits import thr
@@ -35,13 +36,13 @@ PAIR_WORDS = frozenset({"complement", "leader_chaotic", "leader", "chaotic", "sa
                         "seasonal", "twins", "object_mascot", "mascot"})
 HEX = re.compile(r"#[0-9A-Fa-f]{3,8}\b")
 SLOT_LEAK = re.compile(r"[{}]|\b(?:None|null|undefined)\b|,\s*,|  ")
-COLOUR_COUNT = re.compile(r"\b(?:\d+|two|three|four|five|six)\s+(?:\w+\s+)?colou?rs?\b|\b\d{2}\s*/\s*\d{2}\b", re.I)
+COLOUR_COUNT = re.compile(r"\b(?:\d+|two|three|four|five|six)\s+(?:\w+\s+)?colou?rs?\b|\b\d{2}\s*/\s*\d{2}\b", re.IGNORECASE)
 STATELESS = re.compile(r"\b(?:same as (?:before|earlier|previously|last time|the (?:last|previous|earlier))|as before|as previously|"
                        r"as (?:in|from) the (?:last|previous|earlier) (?:image|call|version|round|attempt|result)|"
                        r"(?:previous|earlier|last) (?:image|call|version|round|attempt|result)s?|last time|once more|try again|"
-                       r"like the (?:last|previous)|unchanged from)\b", re.I)
-_LABEL = re.compile(r"^(PURPOSE|IMAGES|SUBJECT|MUST|STYLE|KEEP|OUTPUT|EXCLUDE):", re.M)
-_MUST_LINE = re.compile(r"^\d+[.)]\s", re.M)
+                       r"like the (?:last|previous)|unchanged from)\b", re.IGNORECASE)
+_LABEL = re.compile(r"^(PURPOSE|IMAGES|SUBJECT|MUST|STYLE|KEEP|OUTPUT|EXCLUDE):", re.MULTILINE)
+_MUST_LINE = re.compile(r"^\d+[.)]\s", re.MULTILINE)
 _MUST_FLAT = re.compile(r"(?:^|\s)\d\)\s")
 _SENTENCES = re.compile(r"[.!?](?:\s|$)")
 
@@ -153,7 +154,7 @@ def _render_template(tpl: registry.Template, env: dict[str, Any], flags: dict[st
         raise S.PromptBuildError(f"{meta.id}: required slot {exc.name!r} is empty (PRM-05)") from exc
 
 
-def compile(template_id: str, spec: DuoSpec | dict, character: CharKey | None, slots: dict | None = None,   # noqa: A001
+def compile(template_id: str, spec: DuoSpec | dict, character: CharKey | None, slots: dict | None = None,
             ctx: CompileCtx | None = None, *, lint: bool = True) -> CompiledPrompt:
     """Compile one image or text prompt. See the module docstring. ``slots`` are the caller's inputs (declared in the template's
     ``inputs``: a face ``part``, a ``print``, an ``accessory`` index, a ``fix_sentence`` from L7, boolean flags such as ``mood``)."""
@@ -219,7 +220,7 @@ def compile(template_id: str, spec: DuoSpec | dict, character: CharKey | None, s
                                           "provider_fields": provider_fields}),
                         must_lines=must, dna_fields=used_dna, character=character, images=roles, provider_fields=provider_fields)
     if lint:
-        expected_style = style_block if re.search(r"^STYLE:", text, re.M) else ""
+        expected_style = style_block if re.search(r"^STYLE:", text, re.MULTILINE) else ""
         results = lint_prompt(cp, lint_ctx(tid, spec, ctx, background=background, n_images=len(roles), house_style_block=expected_style))
         if not all(r.passed for r in results):
             raise PromptLintError(tid, results)
@@ -319,7 +320,7 @@ def lint_prompt(cp: CompiledPrompt, ctx: LintCtx, banned: Any = None) -> list[Ch
     add("PRM-01", len(cp.text) <= lim_total, "chars_total", len(cp.text),
         f"<= {lim_total}" + ("" if "max_chars_total" in bud else " (prm.max_chars_total)"))
     add("PRM-01", len(excl) <= thr("prm.exclude_nouns_max"), "exclude_nouns", len(excl), "<= prm.exclude_nouns_max")
-    add("PRM-01", len(re.findall(r"^KEEP:", cp.text, re.M)) <= 1 and len(re.findall(r"^EXCLUDE:", cp.text, re.M)) <= 1,
+    add("PRM-01", len(re.findall(r"^KEEP:", cp.text, re.MULTILINE)) <= 1 and len(re.findall(r"^EXCLUDE:", cp.text, re.MULTILINE)) <= 1,
         "keep_exclude_one_line")
     add("PRM-10", len(cp.dna_fields) <= thr("prm.dna_fields_max"), "dna_fields", len(cp.dna_fields), "<= prm.dna_fields_max")
     add("PRM-07", len(cp.images) == ctx.n_attached_images == roles, "image_roles", roles, f"== {ctx.n_attached_images} attached")

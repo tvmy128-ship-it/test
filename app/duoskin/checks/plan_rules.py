@@ -33,7 +33,7 @@ from duoskin.models.kitenums import KitError, KitInventory, current_inventory
 from duoskin.models.spec import ACCESSORY_ATTACHMENTS, CONTRAST_AXES, DuoSpec, PlanSet
 from duoskin.prompts import freetext
 from duoskin.prompts.catalog import Banned, data_json, default_ctx
-from duoskin.prompts.limits import describe, thr
+from duoskin.prompts.limits import EVIDENCE_ITEMS, describe, thr
 
 CHARS = ("a", "b")
 HAIR_CUSTOM = "hair_custom"
@@ -122,15 +122,20 @@ def season_group(hex_colour: str) -> str:
     return ("spring" if light else "autumn") if warm else ("summer" if light else "winter")
 
 
+_HEX6 = re.compile(r"#[0-9A-Fa-f]{6}")
+
+
 def role_hex(spec: DuoSpec, role: str) -> str | None:
+    """The hex of the first palette entry with ``role`` (``None`` when there is none or its hex is malformed: the palette-integrity
+    rule reports that, and the colour rules must not crash on it)."""
     for c in spec.palette:
         if c.role == role:
-            return c.hex
+            return c.hex if _HEX6.fullmatch(c.hex) else None
     return None
 
 
 def _pal(spec: DuoSpec) -> dict[str, str]:
-    return {c.id: c.hex for c in spec.palette}
+    return {c.id: c.hex for c in spec.palette if _HEX6.fullmatch(c.hex)}
 
 
 # --------------------------------------------------------------------------------------------------- report types
@@ -236,7 +241,7 @@ def _sha(spec: DuoSpec) -> str:
     return sha256_of(spec.model_dump(mode="json"))
 
 
-def _short(items: Iterable[str], n: int = 4) -> str:
+def _short(items: Iterable[str], n: int = EVIDENCE_ITEMS) -> str:
     items = list(items)
     return "; ".join(items[:n]) + (f" (+{len(items) - n} more)" if len(items) > n else "")
 
@@ -398,8 +403,10 @@ def rule_roblox(spec: DuoSpec, R: _Rep, ctx: PlanLintCtx) -> None:
                 box = limits.box_for(ROBLOX_TYPE[a.category], _attachment_name(a.attachment))
                 studs = float(sizes[a.size_class])
                 if studs > max(box.size):
-                    size_bad.append((f"{p}/size_class", f"size {a.size_class} (about {studs:g} studs) does not fit the {a.category} box "
-                                                         f"{'x'.join(f'{x:g}' for x in box.size)} studs; use a smaller size class"))
+                    dims = "x".join(f"{x:g}" for x in box.size)
+                    msg = (f"size {a.size_class} (about {studs:g} studs) does not fit the {a.category} box "
+                           f"{dims} studs; use a smaller size class")
+                    size_bad.append((f"{p}/size_class", msg))
             except KeyError:
                 pass                                               # an invalid pair is already a slot_attachment finding
         mk = c.makeup
@@ -638,8 +645,8 @@ def rule_dna(spec: DuoSpec, R: _Rep) -> None:
     need = int(thr("pln.dna_char_diff_min"))
     R.add("PLN-DNA-01", len(diff) >= need, "dna_character_difference", value=len(diff), threshold=describe("pln.dna_char_diff_min", ">="),
           evidence=f"differing: {', '.join(diff) or 'none'}", paths=["/b/dna"],
-          messages=[f"A and B share too much design DNA; differ in at least {need} of shape_language, colour_plan, focal_location, "
-                    "hair kit, motif_object, accessory_style"])
+          messages=[(f"A and B share too much design DNA; differ in at least {need} of shape_language, colour_plan, focal_location, "
+                     "hair kit, motif_object, accessory_style")])
 
 
 def rule_profile_contrast(spec: DuoSpec, R: _Rep, t: ContrastTally, inv: KitInventory) -> None:
@@ -891,26 +898,38 @@ def nearest_card_share(spec: DuoSpec, cards: Sequence[Any]) -> float | None:
 
 
 # --------------------------------------------------------------------------------------------------- the per-spec entry point
+def _guarded(R: _Rep, name: str, check_id: str, fn: Callable[..., Any], *args: Any) -> Any:
+    """Run one rule. A rule that crashes fails closed (``ran=False``, the check's own kind) instead of taking the whole lint down."""
+    try:
+        return fn(*args)
+    except Exception as exc:    # noqa: BLE001 - a crashing rule is a failed check, never a pass
+        res = runner.fail_closed(check_id, f"rule {name} could not run: {type(exc).__name__}: {exc}", R.sha)
+        R.rep.results.append(res)
+        R.rep.findings.append(Finding(check_id, name, "/", res.evidence, res.kind in ("hard", "assert")))
+        return None
+
+
 def lint_spec(spec: DuoSpec | Mapping[str, Any], ctx: PlanLintCtx | None = None) -> LintReport:
     """Every per-spec C1 rule. ``spec`` may be a ``DuoSpec`` or its dict (parsed without the spec rules, so that every problem shows)."""
     ctx = ctx or PlanLintCtx()
     if not isinstance(spec, DuoSpec):
         spec = DuoSpec.model_validate(dict(spec), context={"skip_rules": True})
     R = _Rep(ctx.subject_sha or _sha(spec))
-    rule_palette_integrity(spec, R)
-    rule_lash_iris(spec, R)
-    rule_free_text(spec, R, ctx)
-    rule_kit_ids(spec, R, ctx)
-    rule_roblox(spec, R, ctx)
-    rule_combo(spec, R)
-    tally = rule_contrasts(spec, R, ctx)
-    rule_face_grammar(spec, R)
-    rule_hair_pairing(spec, R)
-    rule_accessory_complement(spec, R)
-    rule_garment_cut(spec, R, ctx)
-    rule_dna(spec, R)
-    rule_profile_contrast(spec, R, tally, ctx.inv())
-    rule_registry(spec, R, ctx)
+    _guarded(R, "palette_integrity", "CHK-G0-09", rule_palette_integrity, spec, R)
+    _guarded(R, "lash_vs_iris", "CHK-G0-09", rule_lash_iris, spec, R)
+    _guarded(R, "free_text", "CHK-G0-08", rule_free_text, spec, R, ctx)
+    _guarded(R, "kit_ids_and_compatibility", "CHK-G0-01", rule_kit_ids, spec, R, ctx)
+    _guarded(R, "roblox", "CHK-G0-02", rule_roblox, spec, R, ctx)
+    _guarded(R, "combo_presentation", "CHK-G0-03", rule_combo, spec, R)
+    tally = _guarded(R, "contrasts", "CHK-G0-03", rule_contrasts, spec, R, ctx)
+    _guarded(R, "face_grammar_difference", "CHK-G0-03", rule_face_grammar, spec, R)
+    _guarded(R, "hair_pairing", "CHK-G0-03", rule_hair_pairing, spec, R)
+    _guarded(R, "accessory_complement", "CHK-G0-03", rule_accessory_complement, spec, R)
+    _guarded(R, "garment_cut", "CHK-G0-05", rule_garment_cut, spec, R, ctx)
+    _guarded(R, "dna_character_difference", "PLN-DNA-01", rule_dna, spec, R)
+    if tally is not None:
+        _guarded(R, "structure_profile_contrast", "CHK-G0-03", rule_profile_contrast, spec, R, tally, ctx.inv())
+    _guarded(R, "registry_reuse", "A_REGISTRY", rule_registry, spec, R, ctx)
     other = spec.world.pair_structure == "other"
     probs = [p for p in spec_rules.spec_problems(spec) if p.code == "structure_note"]
     R.add("PLN-STR-01", not probs and (not other or bool(spec.world.structure_note.strip())), "structure_note",
@@ -919,10 +938,10 @@ def lint_spec(spec: DuoSpec | Mapping[str, Any], ctx: PlanLintCtx | None = None)
                    and p.code not in ("anchor_count", "contrast_count")]
     R.add("CHK-G0-03", not other_probs, "schema_counts", value=len(other_probs), threshold="0 problems", evidence=_short(map(str, other_probs)),
           paths=[p.path for p in other_probs], messages=[p.message for p in other_probs])
-    rule_structure_colours(spec, R)
-    rule_restraint(spec, R)
-    rule_detail_range(spec, R)
-    rule_soft_misc(spec, R, ctx)
+    _guarded(R, "structure_colour_rule", "CHK-G0-06", rule_structure_colours, spec, R)
+    _guarded(R, "restraint", "CHK-G0-10-SOFT", rule_restraint, spec, R)
+    _guarded(R, "detail_count", "TASTE_DETAIL", rule_detail_range, spec, R)
+    _guarded(R, "soft_misc", "CHK-G0-12", rule_soft_misc, spec, R, ctx)
     return R.rep
 
 
@@ -1096,6 +1115,22 @@ def patch_scope_problems(ops: Sequence[Any], *, finding_paths: Sequence[str] | N
     return bad
 
 
-__all__ = ["Finding", "LintReport", "PlanReport", "PlanLintCtx", "lint_spec", "lint_plan_set", "lint_plan", "leak_sets", "LeakSets",
-           "measure_axis", "tally_contrasts", "season_group", "profile", "nearest_card_share", "patch_scope_problems",
-           "CONTRAST_AXES", "ACCESSORY_ATTACHMENTS"]
+__all__ = [
+    "ACCESSORY_ATTACHMENTS",
+    "CONTRAST_AXES",
+    "Finding",
+    "LeakSets",
+    "LintReport",
+    "PlanLintCtx",
+    "PlanReport",
+    "leak_sets",
+    "lint_plan",
+    "lint_plan_set",
+    "lint_spec",
+    "measure_axis",
+    "nearest_card_share",
+    "patch_scope_problems",
+    "profile",
+    "season_group",
+    "tally_contrasts",
+]

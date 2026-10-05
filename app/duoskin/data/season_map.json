@@ -3,7 +3,7 @@
  "note": "CIELAB LCH rules for the season groups of seasonal_twins [CALIBRATE]. Warm hues (degrees) with light colours are spring, warm and darker are autumn, other hues and light are summer, other hues and darker are winter. Colours with chroma below min_chroma follow lightness only.",
  "warm_hue_deg": [
   15,
-  105
+  125
  ],
  "light_l_min": 62,
  "min_chroma": 12,

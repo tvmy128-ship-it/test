@@ -32,10 +32,11 @@ rem 3) Install the pinned, hashed, binary-only packages.
 ".venv\Scripts\python.exe" -m pip install --require-hashes --no-deps --only-binary=:all: --find-links wheelhouse -r requirements\win-x64.lock
 if errorlevel 1 goto :fail
 
-rem 4) Check the machine. Exit code 2 = installed, but doctor found problems (shown in the app).
+rem 4) Check the machine. Exit 0 = fine (missing kits and optional parts are only warnings). 2 = installed, but a check that
+rem    blocks paid features failed (shown in the app). 3 = broken install.
 ".venv\Scripts\python.exe" -m duoskin doctor --setup
 if errorlevel 3 goto :fail
-if errorlevel 2 echo Setup finished with warnings. Open DuoSkin Studio to see what needs fixing.
+if errorlevel 2 echo Setup finished, but the doctor found a problem that blocks paid features. Open DuoSkin Studio to see what to fix.
 echo Setup complete.
 if not defined DUOSKIN_NOPAUSE pause
 exit /b 0

@@ -353,7 +353,7 @@ class Scheduler:
                         job_est = float(job.params.get("estimate_usd") or est)
                         check = rt.budget.regression_check(job_est, confirmed=step.budget_ok or bool(job.params.get("budget_confirmed")))
                         if not check.ok:
-                            self._open_budget_gate(step, job_est, check)
+                            self._open_budget_gate(step, job_est, check, regression=True)
                             return
                         rt.budget.check_and_reserve(step.project_id, estimate, step_id=step.id, attempt=step.attempt, budget_ok=True)
                     else:
@@ -389,9 +389,12 @@ class Scheduler:
         self.rt.ops.transition(step.id, StepState.SUCCEEDED, expect=StepState.RUNNING, attempt=step.attempt, update=apply)
         self.notify()
 
-    def _open_budget_gate(self, step: Step, est: float, check: Any) -> None:
+    def _open_budget_gate(self, step: Step, est: float, check: Any, *, regression: bool = False) -> None:
         step = self.rt.repo.mutate_step(step.id, lambda s: setattr(s, "cost_estimate_usd", est)) or step
-        self.rt.gates.open_budget_gate(step, check.facts())
+        if regression:
+            self.rt.gates.open_regression_gate(step, check.facts())      # one gate for the whole job
+        else:
+            self.rt.gates.open_budget_gate(step, check.facts())
 
     def _finish(self, step: Step, handler: Any, ctx: StepContext, out: StepResult | Pending, key: str | None,
                 polling: bool) -> None:

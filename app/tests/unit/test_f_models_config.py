@@ -24,6 +24,7 @@ def test_defaults_match_the_spec():
     assert s.providers.openai_ipm == 5 and s.three_d.blender_tested_versions[0] == "4.2"
     assert s.paths.exports_root == r"%USERPROFILE%\DuoSkin Exports"
     assert s.checks.reference_similarity_default is False                # requirement 7: default OFF
+    assert s.budgets.regression_ask_usd == 20.0 and s.regression_reuse_plan_cache is True      # APP_SPEC 14.1 (v1.3 additions)
 
 
 def test_extra_fields_are_refused():
@@ -193,5 +194,81 @@ def test_runtime_overrides_and_sticky_port(tmp_path):
         assert config.load_settings(tmp_path).providers.modes["openai"] == ProviderMode.REAL
         rt.remember_port(8790)
         assert config.load_settings(tmp_path).port == 8790 and rt.port == 8790
+    finally:
+        rt.shutdown()
+
+
+# ------------------------------------------------------------------------------------------------- v1.3 model shapes (APP_SPEC 6.1, 6.4, 6.6, 6.9)
+def test_the_licence_enum_is_one_shared_literal():
+    import typing
+
+    from duoskin.models.asset import Provenance
+    from duoskin.models.common import License
+    from duoskin.models.part import Part
+
+    values = set(typing.get_args(License))
+    assert values == {"n/a", "tripo_api_private_commercial", "tripo_paid_private_commercial", "tripo_free_public_ccby_noncommercial",
+                      "user_made", "unknown"}
+    now = utcnow()
+    for lic in values:                                                                          # Part and Provenance accept the same set
+        assert Provenance(source="code", created_at=now, license=lic).license == lic
+        assert Part(id="a.hair", project_id="p", character="a", kind="hair", label="x", license=lic).license == lic
+    with pytest.raises(ValidationError):
+        Provenance(source="code", created_at=now, license="tripo_free")            # the old free-text field is gone
+    with pytest.raises(ValidationError):
+        Part(id="a.hair", project_id="p", character="a", kind="hair", label="x", license="mine")
+
+
+def test_patch_ops_are_split_into_revision_and_change_ops():
+    from duoskin.models import spec_record
+    from duoskin.models.spec_record import ChangeOp, RevisionOp, SpecRecord
+
+    assert not hasattr(spec_record, "PatchOp")
+    rev = RevisionOp(op="replace", path="/a/hair/kit_style_id", value_json='"bun"', finding="3")
+    chg = ChangeOp(op="add", path="/a/accessories/-", value_json="{}", reason="the user asked")
+    assert set(RevisionOp.model_fields) == {"op", "path", "value_json", "finding"} and set(ChangeOp.model_fields) == {"op", "path", "value_json", "reason"}
+    with pytest.raises(ValidationError):
+        RevisionOp(op="replace", path="/x", value_json="1", reason="r")                          # a revision cites a finding, not a reason
+    with pytest.raises(ValidationError):
+        ChangeOp(op="replace", path="/x", value_json="1", finding="1")
+    rec = SpecRecord(id="s", project_id="p", plan_set_id="ps", plan_index=0, spec={"a": 1}, sha256="a" * 64, patch_from_parent=[rev, chg])
+    again = SpecRecord.model_validate_json(rec.model_dump_json())
+    assert [type(op) for op in again.patch_from_parent] == [RevisionOp, ChangeOp]                # the union round-trips to the right class
+
+
+def test_build_stamp_is_its_own_record_and_the_approval_has_no_build_fields():
+    from duoskin.models.part import ApprovalRecord, BuildStamp, Part
+
+    assert set(BuildStamp.model_fields) == {"part_id", "build_hash", "approval_hash", "build_asset_shas", "built_at", "confirmed_decision_id"}
+    assert not any(name.startswith("build") for name in ApprovalRecord.model_fields)
+    part = Part(id="a.hair", project_id="p", character="a", kind="hair", label="x")
+    assert part.build_stamp is None
+    stamp = BuildStamp(part_id="a.hair", build_hash="b" * 64, approval_hash="a" * 64, built_at=utcnow())
+    assert stamp.confirmed_decision_id is None and stamp.build_asset_shas == []
+    assert Part.model_validate_json(part.model_copy(update={"build_stamp": stamp}).model_dump_json()).build_stamp == stamp
+
+
+def test_gate_decision_target_and_flip_action():
+    from duoskin.models.gate import GateAction, GateDecision, GateDecisionIn
+
+    assert GateAction("flip_mirrored") is GateAction.FLIP_MIRRORED
+    body = GateDecisionIn(tile_id="a.face", action="reimagine", target="iris", expected_version=0, client_decision_id="c1")
+    assert body.target == "iris" and GateDecisionIn(tile_id="t", action="approve", expected_version=0, client_decision_id="c2").target is None
+    stored = GateDecision(id="d", gate_id="g", tile_id="t", action="reimagine", target="both", decided_at=utcnow())
+    assert GateDecision.model_validate_json(stored.model_dump_json()).target == "both"
+
+
+def test_registry_tables_carry_part_role_and_approvals_carry_two_stamps(tmp_path):
+    from duoskin.engine.testkit import make_runtime
+
+    rt = make_runtime(tmp_path / "h")
+    try:
+        def cols(table):
+            return [r["name"] for r in rt.db.conn().execute(f"PRAGMA table_info({table})")]
+
+        assert "part_role" in cols("registry_face") and "part_role" in cols("registry_print")
+        assert cols("approvals") == ["project_id", "part_id", "stamp", "stamp_hash", "decision_id", "valid", "json", "created_at"]
+        with pytest.raises(Exception, match="CHECK"), rt.db.tx() as c:                            # only 'approval' and 'build' exist
+            c.execute("INSERT INTO approvals VALUES ('p','a.hair','other','h','d',1,'{}','t')")
     finally:
         rt.shutdown()

@@ -16,7 +16,6 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from duoskin.models import spec_rules
 from duoskin.models.common import CharKey, Strict
 from duoskin.models.spec import Anchor, CharacterDNA, DuoSpec, WorldDNA
 
@@ -133,5 +132,12 @@ def recent_cards_json(cards: list[DnaCard], n: int = 5) -> list[dict[str, Any]]:
     return out
 
 
-__all__ = ["DnaCard", "card_from_spec", "card_diff", "character_field_differences", "normalise_text", "recent_cards_json",
-           "DNA_COMPARED_FIELDS", "spec_rules"]
+__all__ = [
+    "DNA_COMPARED_FIELDS",
+    "DnaCard",
+    "card_diff",
+    "card_from_spec",
+    "character_field_differences",
+    "normalise_text",
+    "recent_cards_json",
+]

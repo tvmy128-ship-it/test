@@ -27,6 +27,7 @@ FALLBACKS: dict[str, tuple[Any, str, list[str]]] = {
     "taste.top_n":             (2, "SPEC", ["DUO-03"]),                      # the planned main colour must be in the top N
     "taste.layout_ari_warn":   (0.80, "DES", ["DUO-11"]),                    # used only when thresholds.py lacks the key
     "taste.acc_min_px":        (8, "DES", ["DUO-04", "PLN-14"]),             # used only when thresholds.py lacks the key
+    "taste.plan_ratio_share_off": (15, "DES", ["DUO-03"]),                  # TASTE_RATIO (SOFT): share points a built colour may be off its declared plan
 }
 
 
@@ -72,3 +73,8 @@ def missing_keys() -> list[str]:
         except TH.UnknownThreshold:
             out.append(k)
     return sorted(out)
+
+
+# Small constants that check modules need but that are not thresholds (so the "no literal numbers in check code" scan stays clean).
+EVIDENCE_ITEMS = 4        # how many findings an evidence string lists before "(+n more)"
+RGB_CHANNELS = 3          # colour channels of an RGB image

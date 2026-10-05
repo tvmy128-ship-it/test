@@ -242,9 +242,10 @@ def test_a_regression_job_above_regression_ask_usd_opens_one_budget_gate_and_nev
     assert gate.tiles[0].facts["estimate_usd"] == 35.0 and gate.tiles[0].facts["ask_above_usd"] == 20.0     # the JOB estimate, not the step's
     time.sleep(0.3)
     assert runs == []                                                                         # it never runs unconfirmed
-    parked = [sid for sid in (first.id, second.id) if live.repo.get_step(sid).state == StepState.WAITING_USER]
-    assert len(parked) == 1 and len(live.repo.list_gates(None, "open")) == 1                  # one question for the whole job
-    decide(live, gate.id, parked[0], GateAction.CONTINUE)
+    wait_for(lambda: all(live.repo.get_step(s.id).state == StepState.WAITING_USER for s in (first, second)), 5, message="both steps parked")
+    assert len(live.repo.list_gates(None, "open")) == 1                                       # one question for the whole job
+    assert {live.repo.get_step(s.id).gate_id for s in (first, second)} == {gate.id}           # the second step waits behind the same gate
+    decide(live, gate.id, gate.tiles[0].tile_id, GateAction.CONTINUE)
     wait_state(live, first, StepState.SUCCEEDED)
     wait_state(live, second, StepState.SUCCEEDED)
     assert sorted(runs) == [1, 2] and len(live.repo.list_gates(None)) == 1                    # the second step did not ask again
@@ -268,8 +269,10 @@ def test_stopping_the_regression_gate_fails_the_step_and_spends_nothing(live):
     job = _regression_job(live, 9.0)
     s = add_step(live, job, "t.reg")
     gate = wait_for(lambda: next(iter(live.repo.list_gates(None, "open")), None), 5, message="the gate")
-    decide(live, gate.id, s.id, GateAction.STOP)
-    assert wait_state(live, s, StepState.FAILED).error.code == "budget"
+    s2 = add_step(live, job, "t.reg", params={"n": 2})
+    wait_for(lambda: live.repo.get_step(s2.id).state == StepState.WAITING_USER, 5, message="the second step parked behind the gate")
+    decide(live, gate.id, gate.tiles[0].tile_id, GateAction.STOP)
+    assert wait_state(live, s, StepState.FAILED).error.code == "budget" and wait_state(live, s2, StepState.FAILED).error.code == "budget"
     assert live.budget.spent(None) == 0.0 and not live.repo.get_job(job.id).params.get("budget_confirmed")
 
 

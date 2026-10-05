@@ -149,7 +149,7 @@ class Template:
         return out
 
 
-_FRONT = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n?(.*)\Z", re.S)
+_FRONT = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n?(.*)\Z", re.DOTALL)
 _PART = re.compile(r"^@@ part=([a-z0-9_]+)\s*$")
 
 
@@ -219,7 +219,7 @@ def reload() -> None:
 
 def get(template_id: str) -> Template:
     """The template for ``template_id`` (the ``@s0`` bootstrap suffix is handled by the compiler, not here)."""
-    base = template_id[: -len(BOOTSTRAP_SUFFIX)] if template_id.endswith(BOOTSTRAP_SUFFIX) else template_id
+    base = template_id.removesuffix(BOOTSTRAP_SUFFIX)
     try:
         return all_templates()[base]
     except KeyError:

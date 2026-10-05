@@ -20,9 +20,9 @@ from duoskin.prompts.catalog import TEXT_INVITING, Banned, norm
 QUOTES = re.compile("[\"“”‘’]")
 DIGITS = re.compile(r"\d")
 HEX = re.compile(r"#[0-9A-Fa-f]{3,8}\b")
-NEGATION = re.compile(r"\b(?:no|not|without|never|none|nothing|cannot|can't|don't|doesn't|isn't|aren't|won't)\b", re.I)
+NEGATION = re.compile(r"\b(?:no|not|without|never|none|nothing|cannot|can't|don't|doesn't|isn't|aren't|won't)\b", re.IGNORECASE)
 LETTER_WORDS = re.compile(r"\b(?:the\s+)?(?:letter|letters|number|numbers|digit|digits|initial|initials|monogram|alphabet)\b|"
-                          r"(?<![\w-])[b-hj-zB-HJ-Z](?![\w-])", re.I)
+                          r"(?<![\w-])[b-hj-zB-HJ-Z](?![\w-])", re.IGNORECASE)
 
 
 @dataclass(frozen=True)

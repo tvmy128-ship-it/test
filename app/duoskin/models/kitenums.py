@@ -298,7 +298,7 @@ def _tuple(v: Any) -> tuple[str, ...]:
 
 
 def _recipe_from_builtin(recipe_id: str, phrases: Mapping[str, str]) -> Recipe:
-    from duoskin.imaging.recipes import load_recipe     # lazy: pulls in numpy and Pillow
+    from duoskin.imaging.recipes import load_recipe  # lazy: pulls in numpy and Pillow
 
     r = load_recipe(recipe_id)
     phrase = phrases.get(recipe_id, "")
@@ -312,7 +312,7 @@ def _recipe_from_builtin(recipe_id: str, phrases: Mapping[str, str]) -> Recipe:
 def builtin_inventory() -> KitInventory:
     """The demo defaults: built-in recipes, shoes, fabrics, skin tones and the default 2D face canvas, with an **empty hair kit**
     (so ``HairKit`` is just ``hair_custom``, bible D24) and ``makeup: unavailable``."""
-    from duoskin.imaging import face_canvas as fc          # lazy
+    from duoskin.imaging import face_canvas as fc  # lazy
 
     ph = _phrases()
     recipe_phr = ph["kit_defaults"]["recipe_phrase"]

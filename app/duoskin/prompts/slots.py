@@ -60,7 +60,7 @@ class BuildArgs:
         return self.spec.a if self.char == "a" else self.spec.b
 
     @property
-    def phr(self):  # noqa: ANN201
+    def phr(self):
         return self.ctx.phrases
 
     def input(self, name: str, default: Any = None) -> Any:
@@ -420,7 +420,6 @@ def build_i3(a: BuildArgs) -> Built:
     if part not in FACE_PARTS or part == "closed_lid_line":
         raise PromptBuildError(f"I3: unknown part {part!r}")
     v = _face_part_values(a, part)
-    r1 = a.phr.section("r1")
     i3 = a.phr.section("i3")
     f = a.me.face
     if part == "iris":

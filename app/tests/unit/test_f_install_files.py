@@ -45,6 +45,9 @@ def test_setup_bat_follows_the_spec():
     assert "requirements\\win-x64.lock" in t and "-m duoskin doctor --setup" in t
     assert "if errorlevel 3 goto :fail" in t and "winget install 9NQ7512CXL7T" in t
     assert 'if not defined DUOSKIN_NOPAUSE pause' in t
+    # APP_SPEC 15.2 v1.3: no uv.exe and no .python folder is shipped; with no Python found, :nopython prints the instructions
+    assert "uv.exe" not in t and "--install-dir" not in t and "if not defined PY goto :nopython" in t
+    assert "python.org/downloads/windows" in t and "Python 3.14 - Windows installer 64-bit" in t
 
 
 def test_start_bat_follows_the_spec():

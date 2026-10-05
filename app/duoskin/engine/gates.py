@@ -471,6 +471,27 @@ class GateService:
                     opened_at=utcnow())
         return self.open_gate(gate, step=step)
 
+    def open_regression_gate(self, step: Step, facts: dict[str, Any]) -> Gate:
+        """One BUDGET gate per REGRESSION job (APP_SPEC §3.9): the first step to ask opens it, later steps of the same job
+        park behind it (WAITING_USER with the same ``gate_id``) and are released or failed with it."""
+        with self.db.tx():
+            for g in self.repo.list_gates(state="open"):
+                if g.kind == GateKind.BUDGET and g.job_id == step.job_id:
+                    moved = self.rt.ops.transition(
+                        step.id, StepState.WAITING_USER, expect=StepState.RUNNING, attempt=step.attempt,
+                        update=lambda s, gid=g.id: (setattr(s, "gate_id", gid), setattr(s, "message", "waiting for you (budget)")))
+                    if moved is None:
+                        from duoskin.engine.errors import Cancelled
+
+                        raise Cancelled(step.id)
+                    return g
+            return self.open_budget_gate(step, facts)
+
+    def _parked_behind(self, ac: ApplyContext) -> list[str]:
+        """Other steps of this job waiting on the same BUDGET gate (only REGRESSION jobs park more than one)."""
+        return [s.id for s in self.repo.list_steps(job_id=ac.gate.job_id, state=StepState.WAITING_USER.value)
+                if s.gate_id == ac.gate.id and s.id != ac.tile.tile_id]
+
     def _apply_budget(self, ac: ApplyContext) -> ApplyResult:
         a, tile = ac.decision.action, ac.tile
         step_id = tile.tile_id
@@ -482,6 +503,8 @@ class GateService:
                 s.message = "budget"
                 s.gate_id = None
 
+            for other in self._parked_behind(ac):
+                ops.transition(other, StepState.FAILED, expect=StepState.WAITING_USER, update=fail)
             ops.transition(step_id, StepState.FAILED, expect=StepState.WAITING_USER, update=fail)
             tile.state = TileState.FAILED
             return ApplyResult(close_gate=True, step="keep")
@@ -500,9 +523,10 @@ class GateService:
         if job is not None and job.kind == JobKind.REGRESSION and not job.params.get("budget_confirmed"):
             # a REGRESSION job is confirmed as a whole (APP_SPEC §3.9): its other steps do not ask again
             self.repo.save_job(job.model_copy(update={"params": {**job.params, "budget_confirmed": True}}))
-        ops.transition(step_id, StepState.READY, expect=StepState.WAITING_USER,
-                       update=lambda s: (setattr(s, "budget_ok", True), setattr(s, "gate_id", None),
-                                         setattr(s, "message", "approved by you")))
+        for sid in [*self._parked_behind(ac), step_id]:
+            ops.transition(sid, StepState.READY, expect=StepState.WAITING_USER,
+                           update=lambda s: (setattr(s, "budget_ok", True), setattr(s, "gate_id", None),
+                                             setattr(s, "message", "approved by you")))
         tile.state = TileState.APPROVED
         return ApplyResult(close_gate=True, step="keep")
 

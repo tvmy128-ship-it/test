@@ -133,7 +133,13 @@ def test_run_falls_back_to_another_port_when_the_sticky_port_is_taken(tmp_path):
 
         found = wait_for(info, 60, 0.2, message="server.json")
         assert found["port"] != taken and 8765 <= found["port"] <= 8799
-        wait_for(lambda: httpx.get(f"http://127.0.0.1:{found['port']}/api/health", timeout=2).json()["ok"], 30, 0.2)
+        def healthy():
+            try:
+                return httpx.get(f"http://127.0.0.1:{found['port']}/api/health", timeout=2).json()["ok"]
+            except httpx.HTTPError:          # server.json is written before uvicorn listens: keep polling
+                return False
+
+        wait_for(healthy, 60, 0.2, message="the health endpoint")
     finally:
         proc.kill()
         proc.wait(10)

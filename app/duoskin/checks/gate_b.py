@@ -26,13 +26,39 @@ from pydantic import ValidationError
 
 from duoskin.checks import runner
 from duoskin.checks.model import CheckResult
-from duoskin.models.llm_io import (ALL_RULE_IDS, LOCATIONS, RULES_VERSION, AssetCheck, RuleDef, RuleId, Verdict, _rules_doc,
-                                   rule_library)
+from duoskin.models.llm_io import (
+    ALL_RULE_IDS,
+    LOCATIONS,
+    RULES_VERSION,
+    AssetCheck,
+    RuleDef,
+    RuleId,
+    Verdict,
+    _rules_doc,
+    rule_library,
+)
 from duoskin.prompts.limits import thr
 
-__all__ = ["ALL_RULE_IDS", "RULES_VERSION", "RuleId", "RuleDef", "RuleRequest", "GateBRequest", "GateBResult", "rule", "is_hard",
-           "statement", "change_aware_statement", "rules_block", "plan_calls", "run_gate_b", "run_rule", "ProviderFn",
-           "MATCHES_CONCEPT_RULES", "IP_RULES"]
+__all__ = [
+    "ALL_RULE_IDS",
+    "IP_RULES",
+    "MATCHES_CONCEPT_RULES",
+    "RULES_VERSION",
+    "GateBRequest",
+    "GateBResult",
+    "ProviderFn",
+    "RuleDef",
+    "RuleId",
+    "RuleRequest",
+    "change_aware_statement",
+    "is_hard",
+    "plan_calls",
+    "rule",
+    "rules_block",
+    "run_gate_b",
+    "run_rule",
+    "statement",
+]
 
 IP_RULES = ("ip_no_brand", "ip_no_known_character", "ip_no_text", "ip_age_appropriate")
 MATCHES_CONCEPT_RULES = ("hr_matches_concept", "ac_matches_concept", "pr_matches_concept", "fh_matches_concept", "gm_matches_concept")

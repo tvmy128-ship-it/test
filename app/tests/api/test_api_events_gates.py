@@ -139,6 +139,19 @@ def decision(tile="a.shirt", action="approve", version=0, **kw):
     return {"tile_id": tile, "action": action, "expected_version": version, "client_decision_id": new_id("cid"), **kw}
 
 
+def test_decision_target_and_the_flip_action_over_http(client, rt, project):
+    gate = make_board(rt, project["id"])
+    r = client.post(f"/api/gates/{gate.id}/decisions", json=decision("a.shirt", "reimagine", target="iris"))
+    assert r.status_code == 422 and r.json()["error"] == "target_not_allowed"                       # only Gate 1 and the face tile have targets
+    r = client.post(f"/api/gates/{gate.id}/decisions", json=decision("a.hair", "flip_mirrored"))
+    assert r.status_code == 422 and r.json()["error"] == "action_not_allowed"                       # offered only on a mirrored mesh tile
+    tiles = [GateTile(tile_id="a.face", part_id="a.face", label="face", allowed_actions=allowed_actions_for(GateKind.PART_BOARD, "face"))]
+    face = rt.gates.open_gate(Gate(id="", project_id=project["id"], job_id="j", kind=GateKind.PART_BOARD, tiles=tiles, opened_at=utcnow()))
+    assert client.post(f"/api/gates/{face.id}/decisions", json=decision("a.face", "change", target="elbow", text="x")).json()["error"] == "bad_target"
+    ok = client.post(f"/api/gates/{face.id}/decisions", json=decision("a.face", "reimagine", target="mouth_open"))
+    assert ok.status_code == 200 and ok.json()["decision"]["target"] == "mouth_open"
+
+
 def test_get_gate_and_list(client, rt, project):
     gate = make_board(rt, project["id"])
     g = client.get(f"/api/gates/{gate.id}").json()

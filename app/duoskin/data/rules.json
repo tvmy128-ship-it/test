@@ -559,7 +559,8 @@
     0.1
    ],
    "allover_pattern": []
-  }
+  },
+  "points_per_unit": 100
  },
  "gate_b": {
   "max_rules_per_call": 5,
