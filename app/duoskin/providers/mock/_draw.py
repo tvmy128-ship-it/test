@@ -103,7 +103,8 @@ def to_png(im: Image.Image) -> bytes:
 # Blocky character concept sheets
 # --------------------------------------------------------------------------------------------------------------
 
-def _figure(d: ImageDraw.ImageDraw, cx: int, top: int, height: int, pal: dict[str, RGB], *, back: bool, line: int) -> None:
+def _figure(d: ImageDraw.ImageDraw, cx: int, top: int, height: int, pal: dict[str, RGB], *, back: bool, line: int,
+            style: dict[str, float] | None = None) -> None:
     """One blocky figure (head, torso, two arms, two legs) centred on ``cx``."""
     u = height / 10.0                                  # a stud-ish unit: head 2u, torso 3.5u, legs 3.5u ... = 9u + hair
     head_w, head_h = int(2.2 * u), int(2.0 * u)
@@ -122,7 +123,7 @@ def _figure(d: ImageDraw.ImageDraw, cx: int, top: int, height: int, pal: dict[st
     if back:
         box(hx0, hy0, hx0 + head_w, hy0 + head_h, pal["hair"])
     else:
-        box(hx0, hy0, hx0 + head_w, hy0 + int(head_h * 0.38), pal["hair"])
+        box(hx0, hy0, hx0 + head_w, hy0 + int(head_h * (style or {}).get("fringe", 0.38)), pal["hair"])
         ex = int(head_w * 0.2)
         ey = hy0 + int(head_h * 0.55)
         ew = max(2, int(head_w * 0.12))
@@ -138,6 +139,10 @@ def _figure(d: ImageDraw.ImageDraw, cx: int, top: int, height: int, pal: dict[st
         box(ax, y + int(arm_h * 0.55), ax + arm_w, y + arm_h, pal["skin"])
     # a belt-like trim so the torso reads as clothing
     d.rectangle([tx0, y + torso_h - int(0.35 * u), tx0 + torso_w, y + torso_h], fill=pal["trim"])
+    if style and not back:        # a small emblem in the trim colour: where it sits is what makes one draft differ from the next (inside the silhouette)
+        ex0 = tx0 + int(torso_w * (0.12, 0.5, 0.68)[int(style["emblem"]) % 3])
+        ey0 = y + int(torso_h * (0.15, 0.5)[int(style["emblem"]) // 3 % 2])
+        d.rectangle([ex0, ey0, ex0 + int(0.9 * u), ey0 + int(0.9 * u)], fill=pal["trim"], outline=outline, width=line)
     y += torso_h
     # legs and shoes
     for lx in (cx - leg_w, cx):
@@ -155,11 +160,12 @@ def blocky_sheet(w: int, h: int, colors: list[RGB], rng: random.Random, *, skin:
     line = max(2, min(w, h) // 256)
     fh = int(h * 0.82)
     top = (h - fh) // 2
+    style = {"emblem": float(rng.randrange(6)), "fringe": rng.choice((0.3, 0.38, 0.46))}      # drawn after the skin tone, so that choice is unchanged
     if w >= int(h * 1.1):
-        _figure(d, w // 4, top, fh, pal, back=False, line=line)
-        _figure(d, 3 * w // 4, top, fh, pal, back=True, line=line)
+        _figure(d, w // 4, top, fh, pal, back=False, line=line, style=style)
+        _figure(d, 3 * w // 4, top, fh, pal, back=True, line=line, style=style)
     else:
-        _figure(d, w // 2, top, fh, pal, back=False, line=line)
+        _figure(d, w // 2, top, fh, pal, back=False, line=line, style=style)
     return im
 
 

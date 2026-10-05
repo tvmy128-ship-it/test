@@ -163,10 +163,10 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     dialog(ui).get_by_label("Character A only").check()
     dialog(ui).get_by_role("button", name="Reimagine").click()
     ui.wait_until(lambda: api.tile(pid, "concept", work_id)["version"] > before["version"], 60, "the reimagine decision to be stored")
-    ui.wait_until(lambda: api.tile(pid, "concept", work_id)["state"] == "ready", 400, "the reimagined plan to be ready again")
+    ui.wait_until(lambda: (t := api.tile(pid, "concept", work_id))["state"] == "ready" and t["assets"].get("a_front") != before["assets"]["a_front"], 600,
+                  "A to be drawn again")
     after = api.tile(pid, "concept", work_id)
     assert after["assets"]["b_front"] == before["assets"]["b_front"] and after["assets"]["b_back"] == before["assets"]["b_back"], "B is untouched"
-    assert after["assets"]["a_front"] != before["assets"]["a_front"], "A was drawn again"
     expect(ui.page.locator(".plan-tile .sheet-4up figure")).to_have_count(12, timeout=60000)
     clean(ui, "gate 1 after reimagine")
     ui.shot("07_gate1_after_reimagine")

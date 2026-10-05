@@ -92,6 +92,22 @@ def test_concept_calls_draw_a_blocky_front_and_back_sheet():
     assert not np.array_equal(left, right)                                                                       # the face is only on the front
 
 
+def test_reimagine_changes_the_concept_picture_not_only_the_skin_tone():
+    """"Reimagine" changes only the nonce. The mock used to vary just the skin tone, so a person who pressed it often saw the same picture again
+    (found by clicking the app through, tests/e2e_ui): the drafts now differ inside the silhouette too (emblem place, fringe), same colours."""
+    prompt = "A character concept sheet, front and back: red jacket, navy trousers, black hair"
+    pics = {}
+    for nonce in ("a", "b", "c", "d", "e", "f"):
+        r = MockImages().generate(req(prompt=prompt, size="1536x1024", tag="I1", nonce=nonce), CTX)
+        pics[nonce] = np.asarray(decode(r.images[0]).convert("RGB")).astype(int)
+    distinct = {v.tobytes() for v in pics.values()}
+    assert len(distinct) >= 5, "six nonces give at least five different pictures"
+    base = pics["a"]
+    for other in pics.values():                                                                                  # the silhouette (what the guide check reads) stays the same
+        bg = np.array([242, 242, 242])
+        assert abs(int((np.abs(base - bg).sum(axis=-1) > 36).sum()) - int((np.abs(other - bg).sum(axis=-1) > 36).sum())) < 0.01 * base.shape[0] * base.shape[1]
+
+
 def test_guide_edit_paints_the_mask_area_and_leaves_everything_else_untouched():
     base = png_bytes(1024, 1024, (240, 240, 240, 255))
     r = MockImages().edit(req(prompt="Fill the area in green.", images=(NamedPng("guide.png", base),), mask=NamedPng("mask.png", mask_png()), tag="I4"), CTX)
@@ -105,7 +121,12 @@ def test_guide_edit_paints_the_mask_area_and_leaves_everything_else_untouched():
 
 
 def test_finalize_returns_a_lightly_sharpened_copy_that_keeps_alpha():
-    draft = MockImages().generate(req(background="transparent"), CTX).images[0]
+    # a mock part picture is one flat colour (nothing to sharpen), so the draft here has an outline and a highlight like a real drawing
+    import random
+
+    from duoskin.providers.mock import _draw as D
+
+    draft = D.to_png(D.shape_rgba(1024, 1024, (40, 160, 90), random.Random(1)))
     allz = np.zeros((1024, 1024, 4), np.uint8)
     buf = io.BytesIO()
     Image.fromarray(allz, "RGBA").save(buf, "PNG")

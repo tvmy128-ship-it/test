@@ -169,7 +169,9 @@ def build_mesh(kind: str, color: RGB = (180, 90, 60), seed: int = 0) -> trimesh.
         strip = (0.7, 0.0, 1.0, 1.0)
         parts = [uv_sphere(24, 16, 0.35, (0, 0.38, 0), main), uv_sphere(24, 16, 0.28, (0, 0.82, 0.05), main),
                  uv_sphere(10, 8, 0.1, (-0.17, 1.04, 0.0), strip), uv_sphere(10, 8, 0.1, (0.17, 1.04, 0.0), strip)]
-        parts += [uv_sphere(10, 8, 0.1, (sx * 0.18, 0.07, sz * 0.15), strip) for sx in (-1, 1) for sz in (-1, 1)]
+        # the feet are big enough and sit deep enough that no more than ~4% of the surface is thinner than 0.05 stud at 0.8 stud and up (CHK-M04
+        # allows 5%): with the old 0.1 feet a charm-sized plush pet failed the mesh gate on every Tripo try and the duo waited for a manual model
+        parts += [uv_sphere(12, 8, 0.16, (sx * 0.2, 0.14, sz * 0.2), strip) for sx in (-1, 1) for sz in (-1, 1)]
     else:  # hair_with_head
         head = grid_box(8, (0.5, 0.5, 0.5), 0.0, (0, 0, 0), (0.0, 0.0, 0.25, 1.0))
         hair_rect = (0.25, 0.0, 1.0, 1.0)
