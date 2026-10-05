@@ -159,7 +159,7 @@ def test_approve_through_the_api_stamps_the_part(client, rt, project):
     assert body["provisional"] is False and body["replay"] is False and body["released_warnings"] == []
     d = body["decision"]
     assert d["action"] == "approve" and d["approval"]["part_id"] == "a.shirt" and len(d["approval"]["approval_hash"]) == 64
-    assert d["approval"]["build_hash"] is None
+    assert "build_hash" not in d["approval"]                                         # the build stamp is its own record (Part.build_stamp)
     part = client.get(f"/api/projects/{project['id']}/parts/a.shirt").json()["part"]
     assert part["state"] == "approved" and part["approval"]["approval_hash"] == d["approval"]["approval_hash"]
     tile = client.get(f"/api/gates/{gate.id}").json()["tiles"][0]

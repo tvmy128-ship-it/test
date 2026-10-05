@@ -8,6 +8,7 @@ from helpers_unit import make_part, make_project
 
 from duoskin.checks.model import CheckResult
 from duoskin.engine import deps, ladder
+from duoskin.engine.testkit import png_bytes
 from duoskin.models.common import sha256_of
 from duoskin.models.cost import Budget
 from duoskin.models.part import DepEffect, LadderState, Part, PartKind, PartState
@@ -483,7 +484,7 @@ def test_stamp_build_reads_the_build_step_versions_from_provenance(rt):
 
     p = make_project(rt)
     _approved_part(rt, p)
-    png = png_bytes((4, 4), (9, 9, 9, 255))
+    png = png_bytes(4, 4, (9, 9, 9, 255))
     asset = rt.cas.put(png, "png", prov=make_prov("code", step_kind="mesh.import", handler_version=2, params={"a": 1}),
                        link=AssetLink(id="", asset_sha="0" * 64, project_id=p.id, part_id="a.shirt", role="texture", status="final",
                                       provenance=make_prov("code", step_kind="mesh.import", handler_version=2, params={"a": 1})))

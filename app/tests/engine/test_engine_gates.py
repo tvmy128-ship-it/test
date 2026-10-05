@@ -69,7 +69,7 @@ def test_approving_a_part_tile_stamps_the_gate2_approval_hash(board):
     assert part.state == PartState.APPROVED and part.approval == approval
     assert approval.approval_hash == deps.approval_hash(shirt, SPEC, None, deps.collect_facts(rt.repo, shirt))
     assert approval.spec_id == spec.id and approval.output_shas == sorted(shirt.board_assets.values())
-    assert approval.build_hash is None                                   # the second stamp does not exist yet
+    assert part.build_stamp is None and rt.repo.valid_build_stamp(project.id, "a.shirt") is None   # the second stamp does not exist yet
     stored = rt.repo.valid_approval(project.id, "a.shirt")
     assert stored.approval_hash == approval.approval_hash
     g = rt.repo.get_gate(gate.id)
@@ -238,12 +238,14 @@ def test_gate3_pick_confirms_every_build_stamp(rt):
     rt.gates.decide(gate.id, decision("a.shirt"))
     rt.repo.mutate_part(project.id, "a.shirt", lambda p: p.build_assets.update({"texture": "e" * 64}))
     stamped = deps.stamp_build(rt.repo, project.id, "a.shirt")
-    assert stamped.state == PartState.BUILT and stamped.approval.build_hash and stamped.approval.build_confirmed_at is None
+    assert stamped.state == PartState.BUILT and stamped.build_stamp.build_hash and stamped.build_stamp.confirmed_decision_id is None
     tile = GateTile(tile_id="cand1", label="Duo 1", allowed_actions=allowed_actions_for(GateKind.FINAL_PICK))
     g3 = rt.gates.open_gate(Gate(id="", project_id=project.id, job_id="j", kind=GateKind.FINAL_PICK, tiles=[tile], opened_at=utcnow()))
     out = rt.gates.decide(g3.id, decision("cand1", A.PICK))
     confirmed = rt.repo.get_part(project.id, "a.shirt")
-    assert confirmed.approval.build_confirmed_at is not None and confirmed.approval.build_confirmed_decision_id == out.decision.id
+    assert confirmed.build_stamp.confirmed_decision_id == out.decision.id
+    assert rt.repo.valid_build_stamp(project.id, "a.shirt").confirmed_decision_id == out.decision.id
+    assert confirmed.approval.approval_hash == stamped.approval.approval_hash                     # the pick never touches the Gate 2 stamp
     assert rt.repo.get_gate(g3.id).state == "open"                                    # pick + export decide Gate 3
     rt.gates.decide(g3.id, decision("cand1", A.EXPORT, version=1))
     assert rt.repo.get_gate(g3.id).state == "decided"

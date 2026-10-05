@@ -206,8 +206,8 @@ def test_gc_dry_run_lists_only_unreferenced_old_assets(rt):
                   (gate_id, p.id, "j", "part_board", "decided", f'{{"tiles":[{{"assets":{{"x":"{in_gate}"}}}}]}}', "t"))
         c.execute("INSERT INTO decisions (id, gate_id, tile_id, action, client_decision_id, json, decided_at) VALUES (?,?,?,?,?,?,?)",
                   ("dec1", gate_id, "t", "approve", "cid", f'{{"mask_sha":"{in_decision}"}}', "t"))
-        c.execute("INSERT INTO registry_face (id, project_id, asset_sha, pixel_sha, phash, json, duo_seq, registered_at) VALUES (?,?,?,?,?,?,?,?)",
-                  ("r1", p.id, in_registry, "p" * 64, "0f", "{}", 1, "t"))
+        c.execute("INSERT INTO registry_face (id, project_id, part_role, asset_sha, pixel_sha, phash, json, duo_seq, registered_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                  ("r1", p.id, "canvas", in_registry, "p" * 64, "0f", "{}", 1, "t"))
         c.execute("UPDATE projects SET json=json_set(json,'$.references',json(?)) WHERE id=?",
                   (f'[{{"asset_sha":"{in_project}","role":"reference","note":""}}]', p.id))
         for sha, status in ((link_final, "final"), (link_cand, "candidate")):

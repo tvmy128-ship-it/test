@@ -15,5 +15,7 @@ def make_project(rt, name="Test Duo", **settings):
 
 
 def make_part(rt, project, part_id="a.shirt", kind=PartKind.SHIRT, board=None, **kw):
-    return Part(id=part_id, project_id=project.id, character=part_id[0], kind=kind, label=part_id,
-                deps=deps.default_dep_rules(kind.value, part_id[0]), state=PartState.READY, board_assets=board or {}, **kw)
+    character = kw.pop("character", "duo" if part_id == "duo" else part_id[0])
+    kw.setdefault("state", PartState.READY)
+    return Part(id=part_id, project_id=project.id, character=character, kind=kind, label=part_id,
+                deps=deps.default_dep_rules(kind.value, character), board_assets=board or {}, **kw)

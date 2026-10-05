@@ -192,8 +192,8 @@ def test_a_fresh_install_doctor_report_never_blocks(rt):
     report = run_doctor(rt, quick=True)
     assert report["blocks_paid_features"] is False and report["broken_install"] is False
     by_id = {c["id"]: c for c in report["checks"]}
-    assert by_id["CHK-S11b"]["status"] == "warn" and by_id["CHK-S11c"]["status"] == "warn" and by_id["CHK-S14"]["status"] == "warn"
-    assert not any(c["blocking"] for c in report["checks"])
+    assert by_id["CHK-S15"]["status"] == "warn" and by_id["CHK-S14"]["status"] == "warn" and "CHK-S11b" not in by_id
+    assert report["exit_code"] == 0 and not any(c["blocking"] for c in report["checks"])
     rt.set_doctor_report(report)
     assert rt.paid_blocked_reason() is None
 

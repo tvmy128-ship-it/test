@@ -35,20 +35,25 @@ def test_selfcheck_and_unknown_commands():
     assert cli("nonsense").returncode == 2
     later = cli("regression")
     assert later.returncode == 1 and "later milestone" in later.stdout
+    staged = cli("regression", "--stage", "parts", "--template", "I4", "--sample", "3", "--candidate", "planner=x")   # arguments are parsed
+    assert staged.returncode == 1 and "later milestone" in staged.stdout
+    head = cli("build-head-base", "somewhere.glb", "--variant", "round")
+    assert head.returncode == 1 and "later milestone" in head.stdout
 
 
 def test_doctor_cli_prints_a_plain_report_and_exits_by_the_rules(tmp_path):
     r = cli("--home", str(tmp_path / "h"), "--providers", "mock", "doctor", "--quick")
-    assert r.returncode in (0, 2) and "CHK-S01" in r.stdout and "CHK-S14" in r.stdout and "What to do:" in r.stdout
+    assert r.returncode == 0 and "CHK-S01" in r.stdout and "CHK-S15" in r.stdout and "What to do:" in r.stdout   # warnings alone exit 0
     j = cli("--home", str(tmp_path / "h"), "--providers", "mock", "doctor", "--quick", "--json")
     report = json.loads(j.stdout)
-    assert report["blocks_paid_features"] is False and j.returncode == report["exit_code"] == 2
+    assert report["blocks_paid_features"] is False and j.returncode == report["exit_code"] == 0
+    assert report["summary"]["warnings"] >= 2 and report["flags"]["dreamsim_present"] is False
     # the report was saved to the DB so the app can show it on its first start
     from duoskin.engine.testkit import make_runtime
 
     rt = make_runtime(tmp_path / "h")
     try:
-        assert rt.doctor_report["exit_code"] == 2
+        assert rt.doctor_report["exit_code"] == 0
     finally:
         rt.shutdown()
 
