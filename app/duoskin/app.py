@@ -158,8 +158,9 @@ def _install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_request: Request, exc: RequestValidationError) -> JSONResponse:
-        return JSONResponse({"error": "validation", "message": "the request is not valid", "detail": _jsonable(exc.errors())},
-                            status_code=422)
+        # ``input`` (the offending value) and ``ctx`` are left out: a rejected body may hold a pasted API key, and an answer must not echo it
+        errors = [{k: v for k, v in e.items() if k not in ("input", "ctx", "url")} for e in exc.errors()]
+        return JSONResponse({"error": "validation", "message": "the request is not valid", "detail": _jsonable(errors)}, status_code=422)
 
     @app.exception_handler(Exception)
     async def _unhandled(_request: Request, exc: Exception) -> JSONResponse:

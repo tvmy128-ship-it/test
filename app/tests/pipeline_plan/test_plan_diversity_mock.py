@@ -271,3 +271,18 @@ def test_every_claude_call_of_one_project_round_shares_one_logged_order_seed(uni
     assert PL.kit_order_seed(object()) is None, "a context without a runtime simply gets the sorted blocks"
     assert "kit_order_seed" in PL.run_planner.__code__.co_names and PL.log.name == "duoskin.plan"
     _ = (caplog, logging)
+
+
+def test_an_identical_request_is_the_same_cache_key_and_another_project_is_not(unit_rt, demo_inv):
+    """"Never pay twice" holds for a retry or a resume (same project round, same order seed, same nonce) and not for a second duo."""
+    from duoskin.pipeline import plan as PL
+
+    p, q = db_project(unit_rt, name="One", brief="a cosy duo"), db_project(unit_rt, name="Two", brief="a cosy duo")
+
+    def key(project, nonce=""):
+        prompt = compile_llm("L3.planner", BR.planner_inputs(unit_rt, project), order_seed=BR.seed_for(unit_rt, project.id))
+        return PL._llm_key("L3.planner", prompt, "PlanSet", (), nonce)
+
+    assert key(p) == key(p), "the retried request is served from the content cache"
+    assert key(p) != key(q), "a second project with the same brief is planned again"
+    assert key(p) != key(p, nonce="plan1"), "a New plan is never a cache hit"

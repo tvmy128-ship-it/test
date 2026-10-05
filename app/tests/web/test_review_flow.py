@@ -129,3 +129,24 @@ def test_a_plan_with_no_usable_drawing_does_not_claim_the_drawings_are_still_bei
     expect(card.locator(".hard-fails")).to_contain_text("Needs fixing first")
     expect(card.locator(".tile-wait")).to_contain_text("nothing to look at")
     assert "still being made" not in card.inner_text()
+
+
+def test_a_failed_required_check_is_said_in_words_not_as_a_check_code_or_a_measurement(ui, live):
+    ui.goto("/")
+    got = ui.page.evaluate("""async () => {
+        const { hardFailuresOf } = await import('/web/components/tile.js');
+        const f = (list) => hardFailuresOf({ facts: { hard_failures: list } });
+        return [
+          f([{ id: 'A_PALETTE', evidence: 'clusters off palette: #70b5e6(13.8), #375a74(27.3)' }]),
+          f([{ id: 'F_LINE_SKIN', evidence: 'lash on tone_1: dE 8.6 < 20' }, { id: 'CHK-A17', evidence: 'F_LID_COVERS: cover 1.0000' }]),
+          f([{ id: 'A_PALETTE', evidence: 'The shirt colour is too far from the palette.' }]),          // evidence that is already a sentence stays
+          f([{ id: 'SOME_NEW_CHECK', evidence: 'something specific' }]),                                      // an unknown check keeps its own words
+          f([{ id: 'SOME_NEW_CHECK' }]),
+        ];
+    }""")
+    assert got[0] == ["Only the colours of the plan"]
+    assert got[1] == ["Face lines stand out on every skin tone", "The 2D face is complete"]
+    assert got[2] == ["The shirt colour is too far from the palette."]
+    assert got[3] == ["something specific"] and got[4] == ["A required check did not pass"]
+    for line in sum(got, []):
+        assert "#" not in line and "dE" not in line and "_" not in line.replace("A required check did not pass", "")

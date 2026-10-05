@@ -198,7 +198,9 @@ def test_a_zip_bomb_is_stopped_by_the_stream_count_not_the_header(tmp_path):
     big = tmp_path / "bomb.zip"
     with zipfile.ZipFile(big, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for i in range(3):
-            z.writestr(f"z{i}.bin", b"\0" * (200 * 1024 * 1024))
+            with z.open(f"z{i}.bin", "w", force_zip64=True) as member:          # streamed: the test itself never holds 200 MB
+                for _ in range(200):
+                    member.write(b"\0" * (1024 * 1024))
     assert big.stat().st_size < 2 * 1024 * 1024
     t0 = time.monotonic()
     r = mi.import_file(big, tmp_path / "w")
@@ -836,3 +838,55 @@ def test_an_oversized_or_junk_icc_profile_is_not_handed_to_the_colour_engine():
     Image.new("RGB", (8, 8), (10, 20, 30)).save(buf2, "PNG", icc_profile=b"not an icc profile at all" * 20)
     im2, report2 = files.normalise_image(buf2.getvalue())
     assert im2.mode == "RGBA" and any(a.startswith("icc_failed") for a in report2.actions)
+
+
+# ================================================================================================= a key pasted into the wrong box
+KEYISH = ["sk-ant-api03-" + "AbCdEf0123456789" * 3, "sk-proj-" + "ZyXwVu9876543210" * 2, "tsk_" + "QwErTy1234567890" * 2, "AIza" + "SyAbCdEfGhIjKlMnOpQrStUvWxYz0123456"]
+
+
+@pytest.mark.parametrize("key", KEYISH)
+def test_an_api_key_pasted_into_a_brief_or_request_is_refused_not_stored_or_sent(client, rt, key):
+    for body in ({"name": "x", "combo": "bg", "brief": f"my key is {key} ok"}, {"name": key, "combo": "bg"}, {"name": "x", "combo": "bg", "must_include": [key]}):
+        r = client.post("/api/projects", json=body)
+        assert r.status_code == 422 and key not in r.text and ("API key" in r.text or body["name"] == key), body      # (a 60-character cap may answer first)
+    assert client.get("/api/projects").json() == []
+    pid = client.post("/api/projects", json={"name": "ok", "combo": "bg", "brief": "two friends"}).json()["id"]
+    r = client.patch(f"/api/projects/{pid}", json={"expected_version": 0, "name": key})
+    assert r.status_code == 422 and key not in r.text
+    from duoskin.models.gate import GateDecisionIn
+
+    with pytest.raises(ValueError, match="API key"):
+        GateDecisionIn(tile_id="t", action="approve", text=f"make it teal {key}", expected_version=0, client_decision_id="d1")
+    assert rt.db.conn().execute("SELECT COUNT(*) FROM projects WHERE json LIKE ?", (f"%{key[:20]}%",)).fetchone()[0] == 0
+
+
+def test_ordinary_words_never_trip_the_key_check():
+    from duoskin.logsetup import looks_like_api_key
+
+    for text in ("a bearer of good news", "token: banana", "the sky-blue sk-8 skirt", "risk-averse task-based plan", "AI zebra", "password: hunter2", "sk-short",
+                 "a long-hyphenated-word-with-no-key-shape-at-all-in-it", "tsk_ok", "AIzaShort"):
+        assert not looks_like_api_key(text), text
+
+
+def test_a_stored_key_pasted_anywhere_is_caught_by_its_exact_value(client):
+    from duoskin.logsetup import forget_secret, looks_like_api_key
+
+    value = "customProviderKey-0123456789abcdef"
+    r = client.put("/api/keys/recraft", json={"value": value})
+    assert r.status_code == 200
+    try:
+        assert looks_like_api_key(f"brief with {value} inside")
+        assert client.post("/api/projects", json={"name": "x", "combo": "bg", "brief": f"see {value}"}).status_code == 422
+    finally:
+        client.delete("/api/keys/recraft")
+        forget_secret(value)
+
+
+def test_a_rejected_request_never_echoes_the_offending_value(client):
+    key = KEYISH[0]
+    r = client.put("/api/keys/openai", json={"value": key, "oops": key})
+    assert r.status_code == 422 and key not in r.text
+    r = client.put("/api/keys/openai", json={"value": [key]})
+    assert r.status_code == 422 and key not in r.text
+    r = client.post("/api/projects", json={"name": "x", "combo": key})
+    assert r.status_code == 422 and key not in r.text

@@ -17,7 +17,7 @@ import { h, humanize, money } from "../dom.js";
 import { casImage, extForRole } from "../api.js";
 import { badge, spinner } from "./ui.js";
 import { warningList } from "./warnings.js";
-import { partKindLabel, roleLabel, stateLabel, stateTone } from "../text.js";
+import { partKindLabel, roleLabel, stateLabel, stateTone, checkLabel } from "../text.js";
 
 /** @param {{part_id?: string | null, tile_id?: string, facts?: Record<string, any>}} tile */
 export function partKindOf(tile) {
@@ -37,7 +37,14 @@ export function characterOf(pid) {
 export function hardFailuresOf(tile) {
   const f = tile.facts || {};
   const list = /** @type {any[]} */ (f.hard_failures || f.checks?.hard_failures || []);
-  return list.map((x) => (typeof x === "string" ? x : String(x.evidence || x.message || x.id || x.check_id || "A required check did not pass")));
+  // evidence that is already a sentence is shown as it is; a check this app knows is said in words ("Face lines stand out on every skin tone"),
+  // never as "clusters off palette: #70b5e6(13.8)"; an unknown check keeps its own evidence text
+  const sentence = (/** @type {string} */ t) => /^[A-Z][^:;{}#()]*[.!]$/.test(t) && t.includes(" ");
+  return list.map((x) => {
+    if (typeof x === "string") return checkLabel(x, x);
+    const evidence = String(x.evidence || x.message || "");
+    return sentence(evidence) ? evidence : checkLabel(String(x.id || x.check_id || ""), evidence || "A required check did not pass");
+  });
 }
 
 /**

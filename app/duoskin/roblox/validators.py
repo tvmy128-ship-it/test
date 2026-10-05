@@ -654,7 +654,9 @@ def _ocr_result(img: np.ndarray, hook: Any) -> CheckResult:
 
     if ocr.get_engine() is None:
         raise NotApplicable("no_ocr_engine")
-    return ocr.check_no_text(im, engine="rapidocr")
+    # A code-composed template has no text source (CLO-18), so only a confidently read word is a bug: the folds and stitches are
+    # shaded strokes that rapidocr reads as one letter at about 0.65 (tee, tee_long, hoodie), which the art floor of 0.5 would fail.
+    return ocr.check_no_text(im, engine="rapidocr", score_key="ocr.template_rec_score_min")
 
 
 # --------------------------------------------------------------------------------------------------------------------

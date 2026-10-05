@@ -43,11 +43,29 @@ def test_cheap_paid_step_runs_without_asking_and_commits_its_cost(live):
     assert live.repo.list_gates(project.id) == []
 
 
-def test_paid_step_that_records_no_cost_is_committed_at_its_estimate(live):
+def test_paid_step_that_called_a_provider_but_recorded_no_cost_is_committed_at_its_estimate(live):
+    """A call whose usage never came back may have been billed: the conservative rule holds the estimate as spent."""
+    project = make_project(live)
+
+    def called_without_usage(ctx, p, i):
+        ctx.provider("openai")
+        return StepResult(result={"ran": True})
+
+    register_handler("t.paid", called_without_usage, paid=True, provider="openai", estimate=lambda p: 0.75, pool="api")
+    wait_state(live, add_step(live, new_job(live, project.id), "t.paid"), StepState.SUCCEEDED)
+    assert live.budget.spent(project.id) == 0.75 and live.budget.reserved(project.id) == 0.0
+
+
+def test_paid_step_that_never_called_a_provider_is_not_charged_its_estimate(live):
+    """Nothing to revise, every rule already answered: the step is declared paid (it has an estimate) but made no call, so nothing was billed.
+    (Found in the real app: the cost bar showed estimates for plan.revise, img.gate_b and img.recheck steps that did no paid work.)"""
     project = make_project(live)
     register_handler("t.paid", ok_handler, paid=True, provider="openai", estimate=lambda p: 0.75, pool="api")
     wait_state(live, add_step(live, new_job(live, project.id), "t.paid"), StepState.SUCCEEDED)
-    assert live.budget.spent(project.id) == 0.75 and live.budget.reserved(project.id) == 0.0
+    assert live.budget.spent(project.id) == 0.0 and live.budget.reserved(project.id) == 0.0
+    assert live.repo.get_project(project.id).spent_usd == 0.0
+    rows = live.db.conn().execute("SELECT state, usd FROM cost_ledger WHERE project_id=?", (project.id,)).fetchall()
+    assert [(r["state"], r["usd"]) for r in rows] == [("released", 0.0)]
 
 
 def test_estimate_above_the_ask_threshold_opens_a_budget_gate_and_continue_runs_it(live):

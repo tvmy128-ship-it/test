@@ -442,3 +442,14 @@ def test_no_get_route_changes_state():
                     if any(name.split(".")[-1].startswith(m) for m in mutators):
                         found.append((path.name, node.name, name))
     assert set(found) <= allowed, found
+
+
+def test_open_folder_does_not_accept_a_sibling_folder_that_merely_starts_with_the_same_text(client, rt, opener, tmp_path):
+    exports = tmp_path / "exports"
+    exports.mkdir()
+    sibling = tmp_path / "exports-evil"
+    sibling.mkdir()
+    rt.update_settings({"paths": {"exports_root": str(exports), "tripo_inbox": str(sibling)}})
+    assert _open(client, "inbox").status_code == 403
+    rt.repo.kv_set("export:prj_s", {"kit_dir": str(sibling)})
+    assert _open(client, "export", "prj_s").status_code == 403 and opener.opened == []

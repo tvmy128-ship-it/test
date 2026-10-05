@@ -101,6 +101,29 @@ def redact(text: str, extra_secrets: Iterable[str] = ()) -> str:
     return text
 
 
+_KEY_SHAPES = re.compile(r"(?<![A-Za-z0-9])(?:sk-[A-Za-z0-9_\-]{20,}|tsk_[A-Za-z0-9_\-]{16,}|AIza[0-9A-Za-z_\-]{30,})|\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}")
+
+
+def looks_like_api_key(text: str) -> bool:
+    """Does free text (a brief, a change request) hold something shaped like an API key, or the exact value of a stored key? Strict shapes only
+    (``sk-...`` with 20+ characters, ``tsk_...``, ``AIza...``, a JWT): a person typing a brief must never trip it by accident."""
+    if not text:
+        return False
+    if _KEY_SHAPES.search(text):
+        return True
+    with _SECRET_LOCK:
+        exact = [v for v in _SECRETS if len(v) >= 12]
+    return any(v in text for v in exact)
+
+
+def reject_key_text(value: str) -> str:
+    """Pydantic validator body: refuse a field that holds a key (pasted into the wrong box). The text would go to a model provider, the database and
+    the export kit."""
+    if looks_like_api_key(value):
+        raise ValueError("this looks like an API key: keys go in Settings only, never into a brief or a request")
+    return value
+
+
 def redact_data(obj: Any, *, _depth: int = 0) -> Any:
     """``redact`` applied to every string (keys and values) inside JSON-like data (dict, list, tuple, str); other values pass through.
     Used where free text from exceptions or providers enters an event payload, a step row or a zip."""

@@ -55,7 +55,13 @@ def _allowed_roots(rt: Runtime) -> list[Path]:
 
 
 def _inside(path: Path, roots: list[Path]) -> bool:
-    return any(path == r or path.is_relative_to(r) for r in roots)
+    """Is ``path`` one of ``roots`` or below one? Compared case-insensitively on Windows (``os.path.normcase``), whole path parts only."""
+    p = os.path.normcase(str(path))
+    for r in roots:
+        base = os.path.normcase(str(r)).rstrip("\\/")
+        if p == base or p.startswith(base + os.sep):
+            return True
+    return False
 
 
 def _pack_state(rt: Runtime, pack_id: str, *, polish: bool) -> dict[str, Any] | None:

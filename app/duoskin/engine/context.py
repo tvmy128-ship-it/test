@@ -62,6 +62,7 @@ class StepContext:
         self.gate_opened = False
         self.gate_id: str | None = None
         self.cost_recorded = False
+        self.provider_called = False        # a handler that never asked for a provider adapter cannot have been billed (settle_step releases its hold)
 
     # ------------------------------------------------------------------------------------------------ identity
     @property
@@ -198,6 +199,7 @@ class StepContext:
             from duoskin.providers import registry as provider_registry
         except ImportError as exc:
             raise StepFailure("the provider layer is not installed in this build", kind="other") from exc
+        self.provider_called = True
         return provider_registry.get(name)
 
     def call_ctx(self) -> Any:

@@ -219,11 +219,159 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     assert set(states.values()) == {"ready"}, f"every tile of a duo made from the mock planner reaches READY: {states}"
     kinds = sorted({t["tile_id"].split(".")[1] for t in board["tiles"] if "." in t["tile_id"]})
     assert {"colours", "face", "hair", "acc", "print", "shirt", "pants"} <= set(kinds), kinds
-    ui.page.reload()
-    expect(ui.page.locator(".tile")).to_have_count(len(board["tiles"]), timeout=60000)
+    expect(ui.page.locator(".tile")).to_have_count(len(board["tiles"]), timeout=60000)         # drawn by the live events: the page was never reloaded
     expect(ui.page.locator(".board-col")).to_have_count(2)
     expect(ui.page.locator(".tile .tile-media img").first).to_be_visible()
     assert not ui.page.locator(".heads-up").count(), "no suggestion before the first choice on the board"
     clean(ui, "part board")
     ui.shot("13_board")
     assert ui.page.locator(".cost-value").first.inner_text().startswith("$")
+
+
+    # ---- the three buttons on a tile: Approve (one tile), Reimagine (a print), Change... (a shirt); partner parts keep their approval
+    def tile_el(tile_id: str):
+        return ui.page.locator(f'.tile[data-tile-id="{tile_id}"]')
+
+    def approve_anyway() -> None:
+        ui.page.wait_for_timeout(800)
+        dl = ui.page.locator("dialog[open]")
+        if dl.count() and "Approve anyway" in dl.last.inner_text():
+            assert dl.last.locator(".warning-dialog-list li").count() <= 2, "at most two heads-ups"
+            dl.last.get_by_role("button", name="Approve anyway").click()
+
+    tile_el("b.colours").get_by_role("button", name="Approve", exact=True).click()
+    approve_anyway()
+    ui.wait_until(lambda: api.tile(pid, "part_board", "b.colours")["state"] == "approved", 60, "B's colours to be approved")
+    expect(tile_el("b.colours")).to_contain_text("Approved")
+    dismiss_toasts(ui)
+
+    before = api.tile(pid, "part_board", "a.print.top.0")
+    tile_el("a.print.top.0").get_by_role("button", name="Reimagine", exact=True).click()
+    dialog(ui).get_by_role("button", name="Reimagine").click()
+    ui.wait_until(lambda: api.tile(pid, "part_board", "a.print.top.0")["version"] > before["version"], 60, "the reimagine decision")
+    ui.wait_until(lambda: api.tile(pid, "part_board", "a.print.top.0")["state"] == "ready", 600, "the print to be drawn again")
+    assert api.tile(pid, "part_board", "a.print.top.0")["assets"] != before["assets"], "a new print was made"
+    dismiss_toasts(ui)
+
+    before = api.tile(pid, "part_board", "a.shirt")
+    tile_el("a.shirt").get_by_role("button", name="Change…", exact=True).click()
+    dialog(ui).get_by_label("What should be different?").fill("make the shirt teal")
+    ui.shot("14_board_change_box", full=False)
+    dialog(ui).get_by_role("button", name="Show me the changes").click()
+    expect(dialog(ui)).to_contain_text("Confirm your change", timeout=180000)
+    expect(dialog(ui)).to_contain_text("Parts that will be redone")
+    clean(ui, "board change confirm", "dialog[open]")
+    ui.shot("15_board_change_confirm", full=False)
+    dialog(ui).get_by_role("button", name="Confirm the change").click()
+    ui.wait_until(lambda: api.tile(pid, "part_board", "a.shirt")["version"] > before["version"], 120, "the change to be applied")
+    ui.wait_until(lambda: all(t["state"] not in ("generating", "planned") for t in api.gate(pid, "part_board")["tiles"]), 900, "every tile to settle again")
+    assert api.tile(pid, "part_board", "b.colours")["state"] == "approved", "the partner's approval survives a change to A"
+    dismiss_toasts(ui)
+    clean(ui, "board after choices")
+    ui.shot("16_board_after_choices")
+    assert ui.page.locator(".heads-up").count() <= 2, "at most two heads-ups on the board"
+
+    # ---- one 3D part made by hand on Tripo's website (the pack), the rest through the (mock) Tripo API
+    board = api.gate(pid, "part_board")
+    manual_tile = next(t for t in board["tiles"] if "make_manual" in t["allowed_actions"] and ".acc." in t["tile_id"])
+    tile_el(manual_tile["tile_id"]).get_by_role("button", name="Make it myself on Tripo").click()
+    expect(dialog(ui)).to_contain_text("FREE plan")                                                    # the free-plan warning comes first
+    ui.shot("17_board_manual_free_plan_warning", full=False)
+    dialog(ui).get_by_role("button", name="I understand, make the pack").click()
+    ui.page.wait_for_url(re.compile(r"#/p/prj_[^/]+/build$"), timeout=60000)
+    manual_gate = ui.wait_until(lambda: api.gate(pid, "manual_import"), 60, "the manual import gate")
+    facts = manual_gate["tiles"][0]["facts"]
+    pack = Path(facts["folder"])
+    assert pack.is_dir() and (pack / "return").is_dir() and not list((pack / "return").iterdir())
+    assert len([f for f in pack.iterdir() if f.is_file()]) == 8, sorted(f.name for f in pack.iterdir())
+    panel = ui.page.locator(".gate-panel.manual")
+    expect(panel).to_contain_text("Make")
+    expect(panel).to_contain_text(facts["pack_id"])
+    expect(panel.get_by_role("button", name="Open the pack folder")).to_be_visible()
+    clean(ui, "manual import panel")
+    ui.shot("18_build_manual_pack")
+
+    # the sample model is dropped on the drop box; the wizard asks which Tripo plan made it, then imports it
+    sample = MESHES / "plush_pet.glb"
+    panel.locator("input[type=file]").set_input_files(str(sample))
+    wizard = ui.page.locator(".import-wizard")
+    expect(wizard).to_contain_text("Import plush_pet.glb")
+    wizard.get_by_label("Tripo, a paid plan").check()
+    ui.shot("19_build_import_wizard")
+    wizard.get_by_role("button", name="Import this file").click()
+    ui.wait_until(lambda: api.gate(pid, "manual_import") is None, 120, "the manual import gate to close")
+    ui.shot("20_build_after_import")
+
+    # ---- approve everything that is left; the build and the duo run on their own
+    ui.goto(f"/p/{pid}/board")
+    approve = ui.page.get_by_role("button", name=re.compile(r"Approve all remaining"))
+    expect(approve).to_be_visible()
+    approve.click()
+    approve_anyway()
+    ui.wait_until(lambda: stage_is(api, pid, "building", "duo", "gate3"), 120, "the project to advance to the build")
+    ui.page.goto(f"{live.url}/#/p/{pid}/build")
+    expect(ui.page.get_by_role("heading", name="Build")).to_be_visible()
+    ui.wait_until(lambda: api.project(pid)["project"]["stage"] in ("building", "duo", "gate3"), 60, "the build stage")
+    ui.shot("21_build_progress")
+    clean(ui, "build progress")
+    ui.wait_until(lambda: api.gate(pid, "final_pick") is not None, 1500, "Gate 3 (the final pick)")
+    states = {p["id"]: p["state"] for p in api.project(pid)["parts"]}
+    assert {s for k, s in states.items() if k != "duo"} == {"built"}, states
+
+    # ------------------------------------------------------------------------------------------------- 5. The duo and Gate 3
+    ui.page.goto(f"{live.url}/#/p/{pid}/gate3")
+    expect(ui.page.get_by_role("heading", name="Pick the final duo")).to_be_visible()
+    cand = ui.page.locator(".candidate")
+    expect(cand).to_have_count(1)
+    expect(cand.locator("img").first).to_be_visible()
+    expect(cand.locator(".sides")).to_have_count(2)                                                    # both characters from every side
+    expect(cand).to_contain_text("The whole duo")
+    expect(cand).to_contain_text("On a phone screen")
+    expect(cand).to_contain_text("The face in five poses")
+    expect(cand).to_contain_text("DEMO")
+    assert not ui.page.locator(".heads-up").count(), "no heads-up at Gate 3 before the first choice"
+    clean(ui, "gate 3")
+    ui.shot("22_gate3")
+    cand.get_by_role("button", name="Pick this duo").click()
+    approve_anyway()
+    expect(cand.get_by_role("button", name=re.compile("Picked"))).to_be_visible(timeout=60000)
+    assert ui.page.locator(".heads-up li").count() <= 2, "at most two heads-ups after the pick"
+    clean(ui, "gate 3 after the pick")
+    ui.shot("23_gate3_picked")
+
+    # ------------------------------------------------------------------------------------------------- 6. Export: demo mode shows a preview
+    ui.page.goto(f"{live.url}/#/p/{pid}/export")
+    ui.page.get_by_role("button", name="Make the upload kit").click()
+    expect(ui.page.get_by_role("heading", name="Export preview: nothing was written")).to_be_visible(timeout=300000)
+    expect(ui.page.locator("main")).to_contain_text("practice")
+    expect(ui.page.locator("main")).to_contain_text("What the kit would contain")
+    assert ui.page.locator(".check-item").count() >= 10 and ui.page.locator(".check-item input[type=checkbox]:not([disabled])").count() == 0
+    clean(ui, "export preview")
+    ui.shot("24_export_preview_demo")
+    assert not (live.exports.exists() and list(live.exports.rglob("*.zip"))), "nothing was written"
+
+    # normal mode (every service set to a practice stand-in in Settings, demo mode off): the same block, said without the demo wording
+    rt = live.rt
+    rt.provider_override = None
+    rt.update_settings({"demo_mode": False, "providers": {"modes": {p: "mock" for p in ("anthropic", "openai", "recraft", "tripo", "gemini")}}})
+    ui.page.reload()
+    ui.page.get_by_role("link", name="Back to the final pick").click()
+    ui.page.goto(f"{live.url}/#/p/{pid}/export")
+    expect(ui.page.locator("#demo-banner")).to_be_hidden()
+    expect(ui.page.get_by_role("heading", name=re.compile("Export preview|not ready to upload"))).to_be_visible()
+    expect(ui.page.locator("main")).to_contain_text("Nothing here can be exported")
+    expect(ui.page.locator("main")).to_contain_text("practice stand-ins")
+    clean(ui, "export blocked, normal mode")
+    ui.shot("25_export_blocked_normal_mode")
+
+    # ------------------------------------------------------------------------------------------------- 7. the cost bar and the ledger agree
+    server_spent = api.project(pid)["project"]["spent_usd"]
+    totals = api.get("/api/costs", project_id=pid)["totals"]
+    assert abs(totals["spent_usd"] - server_spent) < 1e-6, (totals, server_spent)
+    ui.goto(f"/p/{pid}")
+    shown = ui.page.locator(".cost-item .cost-value").first.inner_text()
+    assert shown.startswith(f"${server_spent:.2f}"), (shown, server_spent)
+    rows = [r for r in api.get("/api/costs", project_id=pid, limit=5000)["rows"] if r["state"] in ("committed", "orphan")]
+    keys = [(r["step_id"], r["attempt"], r["operation"], r.get("request_id")) for r in rows if r["step_id"]]
+    assert len(keys) == len(set(keys)), "no step is charged twice for the same call"
+    ui.no_errors()

@@ -311,8 +311,8 @@ export function licenceLabel(lic) {
   })[lic] ?? humanize(lic);
 }
 
-/** What a check says in plain words. The ids (A_PALETTE, F_LINE_SKIN, CHK-M08) never reach the page: an id this list does not know reads "A required check". @param {string} id */
-export function checkLabel(id) {
+/** What a check says in plain words. The ids (A_PALETTE, F_LINE_SKIN, CHK-M08) never reach the page: an id this list does not know reads `fallback`. @param {string} id @param {string} [fallback] */
+export function checkLabel(id, fallback = "A required check") {
   const words = /** @type {Record<string, string>} */ ({
     A_ALPHA: "Clean see-through background", "CHK-A02": "Clean see-through background", A_COMPONENTS: "One solid piece, not scattered bits", "CHK-A04": "One solid piece, not scattered bits",
     A_MARGIN: "Enough empty space around it", "CHK-A03": "Enough empty space around it", A_OCR: "No writing in the picture", A_GLYPH: "No writing in the picture", "CHK-A06": "No writing in the picture",
@@ -334,5 +334,5 @@ export function checkLabel(id) {
     dj_no_leak: "No colours borrowed from the partner", dj_not_clones: "The two do not look like clones", cn_back_view: "The back view has no face",
     cn_front_face: "The front view shows the face", cn_blocky_body: "A Roblox blocky body", cn_views_match: "Front and back match",
   });
-  return words[id] ?? "A required check";
+  return words[id] ?? fallback;
 }

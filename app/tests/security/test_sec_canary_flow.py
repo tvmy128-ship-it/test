@@ -111,6 +111,8 @@ def flow(tmp_path_factory):
     finally:
         client.__exit__(None, None, None)
         handle.shutdown()
+        for value in CANARY.values():
+            logsetup.forget_secret(value)
         mp.undo()
         provider_registry.reset()
         eng_registry.clear()

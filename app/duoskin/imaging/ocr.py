@@ -87,9 +87,14 @@ def get_engine() -> Callable[..., Any] | None:
     try:
         if importlib.util.find_spec("rapidocr") is not None:
             from rapidocr import RapidOCR  # type: ignore[import-not-found]
+
+            try:   # rapidocr 3.x logs a coloured warning to the console for every image that has no text (the normal case)
+                _ENGINE = RapidOCR(params={"Global.log_level": "error"})
+            except TypeError:
+                _ENGINE = RapidOCR()
         else:
             from rapidocr_onnxruntime import RapidOCR  # type: ignore[import-not-found,no-redef]
-        _ENGINE = RapidOCR()
+            _ENGINE = RapidOCR()
     except Exception as e:  # noqa: BLE001 - a missing DLL or model must never crash a check
         _ENGINE_ERROR = f"{type(e).__name__}: {e}"
         return None
@@ -138,9 +143,12 @@ def _parse(result: Any) -> list[tuple[list[list[float]], str, float]]:
     return out
 
 
-def run_ocr(im: Image.Image, engine: Callable[..., Any]) -> list[TextBox]:
-    """Run the engine on each flattened variant and merge the boxes (coordinates mapped back to the input size)."""
-    min_score = float(TH.get("ocr.rec_score_min"))
+def run_ocr(im: Image.Image, engine: Callable[..., Any], *, score_key: str = "ocr.rec_score_min") -> list[TextBox]:
+    """Run the engine on each flattened variant and merge the boxes (coordinates mapped back to the input size).
+
+    ``score_key`` names the recognition-score floor: ``ocr.rec_score_min`` for art (a stray letter must fail), the stricter
+    ``ocr.template_rec_score_min`` for code-composed clothing templates, whose fold shading makes rapidocr read "M" or "7" at 0.65."""
+    min_score = float(TH.get(score_key))
     min_px = float(TH.get("ocr.min_box_px"))
     w0, h0 = im.size
     found: list[TextBox] = []
@@ -177,7 +185,8 @@ def _dedupe(boxes: list[TextBox]) -> list[TextBox]:
     return out
 
 
-def detect_text(im: Image.Image, *, engine: Literal["auto", "rapidocr", "glyph"] = "auto") -> OcrResult:
+def detect_text(im: Image.Image, *, engine: Literal["auto", "rapidocr", "glyph"] = "auto",
+                score_key: str = "ocr.rec_score_min") -> OcrResult:
     """Find text in an image: rapidocr when it works, else the glyph fallback; raises ``CheckUnavailable`` when neither can run.
 
     ``engine="rapidocr"`` never falls back (strict mode); ``engine="glyph"`` forces the fallback.
@@ -191,7 +200,7 @@ def detect_text(im: Image.Image, *, engine: Literal["auto", "rapidocr", "glyph"]
             note = f"OCR unavailable ({engine_status()}); "
         else:
             try:
-                return OcrResult("rapidocr", boxes=run_ocr(im, eng))
+                return OcrResult("rapidocr", boxes=run_ocr(im, eng, score_key=score_key))
             except Exception as e:
                 if engine == "rapidocr":
                     raise CheckUnavailable(f"rapidocr failed: {type(e).__name__}: {e}") from e
@@ -205,14 +214,14 @@ def detect_text(im: Image.Image, *, engine: Literal["auto", "rapidocr", "glyph"]
 
 
 def check_no_text(im: Image.Image, *, allow_text: bool = False, engine: Literal["auto", "rapidocr", "glyph"] = "auto",
-                  subject_sha: str = "") -> CheckResult:
+                  subject_sha: str = "", score_key: str = "ocr.rec_score_min") -> CheckResult:
     """A_OCR (CHK-A06, HARD, class stray_text): no text box with confidence >= 0.5 unless the spec has text.
 
     With rapidocr missing the glyph fallback decides and the evidence starts with ``degraded``. With neither available the result is
     ``ran=False`` (fail closed).
     """
     try:
-        res = detect_text(im, engine=engine)
+        res = detect_text(im, engine=engine, score_key=score_key)
     except CheckUnavailable as e:
         return fail_closed("A_OCR", str(e), subject_sha)
     n = len(res.boxes)
@@ -224,7 +233,7 @@ def check_no_text(im: Image.Image, *, allow_text: bool = False, engine: Literal[
         shown = ", ".join(f"'{b.text[:12]}' {b.score:.2f}" for b in res.boxes[:4])
         ev = f"{label}{n} text box(es) {shown}"
     return build_result("A_OCR", passed=ok, subject_sha=subject_sha, metric="text_boxes", value=float(n),
-                        threshold=TH.describe("ocr.rec_score_min", ">=") + "; 0 boxes allowed", evidence=ev, fix_hint="regenerate")
+                        threshold=TH.describe(score_key, ">=") + "; 0 boxes allowed", evidence=ev, fix_hint="regenerate")
 
 
 def check_no_text_any(images: Sequence[Image.Image], **kw: Any) -> CheckResult:

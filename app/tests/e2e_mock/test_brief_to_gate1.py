@@ -59,8 +59,9 @@ def l3(seen: list[dict]) -> list[str]:
 
 
 def strip_hints(text: str) -> str:
-    """The planner message without the memory hints (the only part that may differ between two duos with the same brief)."""
-    return re.sub(r"<(recently_used|recent_cards)>.*?</\1>", r"<\1>…</\1>", text, flags=re.DOTALL)
+    """The planner message without the memory hints and the seeded rotation suggestions (the only parts that may differ between two duos with
+    the same brief: the suggestions steer an open brief away from what the person has already seen, and are never an example)."""
+    return re.sub(r"<(recently_used|recent_cards|structure_suggestion|palette_suggestion)>.*?</\1>", r"<\1>…</\1>", text, flags=re.DOTALL)
 
 
 @pytest.mark.timeout(900)

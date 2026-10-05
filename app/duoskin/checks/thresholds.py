@@ -74,6 +74,7 @@ T: dict[str, tuple[Any, Status, list[str]]] = {
     "svg.max_paths":              (300, "DES", ["IMG-14"]),
     "svg.border_sentinel_min":    (0.95, "DES", ["IMG-14"]),
     "ocr.rec_score_min":          (0.5, "DES", ["POL-04"]),
+    "ocr.template_rec_score_min": (0.85, "DES", ["POL-04", "CLO-18"]),   # code-composed clothing templates only: fold shading reads as "M" at ~0.65 [CALIBRATE]
     "ocr.min_box_px":             (8, "DES", ["POL-04"]),
     "ocr.glyph_score_max":        (0.3, "DES", ["POL-04"]),            # A_GLYPH: a score at or above this fails [CALIBRATE]
     # ---- concept (CON) ----

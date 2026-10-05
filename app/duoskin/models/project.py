@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from pydantic import Field, field_validator
 
+from duoskin.logsetup import reject_key_text
 from duoskin.models.common import Sha256, Slug, Strict, UtcDatetime
 
 
@@ -106,6 +107,18 @@ class ProjectCreate(Strict):
                 raise ValueError("each must-include line has at most 12 words")
         return cleaned
 
+    @field_validator("name", "brief")
+    @classmethod
+    def _no_key(cls, v: str) -> str:
+        return reject_key_text(v)
+
+    @field_validator("must_include")
+    @classmethod
+    def _no_key_lines(cls, v: list[str]) -> list[str]:
+        for line in v:
+            reject_key_text(line)
+        return v
+
 
 class ProjectPatch(Strict):
     """Body of ``PATCH /api/projects/{id}``. Settings may change only before the PLAN job starts."""
@@ -113,6 +126,11 @@ class ProjectPatch(Strict):
     expected_version: int
     name: str | None = Field(default=None, min_length=1, max_length=60)
     settings: dict[str, Any] | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _no_key(cls, v: str | None) -> str | None:
+        return reject_key_text(v) if v else v
 
 
 class ProjectSummary(Strict):

@@ -445,7 +445,7 @@ class Scheduler:
                 cache_key_ = key or done.cache_key
                 if (cache_key_ and getattr(handler, "cacheable", True) and not out.result.get("validation_errors")):
                     rt.cache.store(cache_key_, CachedResult(step_kind=step.kind, outputs=outputs, result=dict(out.result)))
-                rt.budget.settle_step(done, outcome="success")
+                rt.budget.settle_step(done, outcome="success", provider_called=ctx.provider_called)
         if done is None:
             log.info("step %s attempt %s finished after its lease was lost; result discarded", step.id, step.attempt)
             rt.budget.settle_step(step, outcome="cancelled", billed="yes" if ctx.cost_recorded else "unknown")
@@ -482,7 +482,7 @@ class Scheduler:
 
                 with rt.db.tx():
                     ops.transition(step.id, StepState.SUCCEEDED, expect=StepState.RUNNING, attempt=step.attempt, update=ok)
-                    rt.budget.settle_step(step, outcome="success")
+                    rt.budget.settle_step(step, outcome="success", provider_called=True if ctx is None else ctx.provider_called)
             elif decision.action == "wait_remote":
                 def uncertain(s: Step) -> None:
                     s.remote_state = "submission_uncertain"

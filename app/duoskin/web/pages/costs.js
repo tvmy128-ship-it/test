@@ -32,8 +32,9 @@ export async function render(ctx) {
     for (const r of rows) if (["committed", "orphan"].includes(r.state)) byProject.set(r.project_id ?? "", (byProject.get(r.project_id ?? "") ?? 0) + r.usd);
     const orphans = rows.filter((r) => r.state === "orphan" || r.basis === "orphan");
     const card = (/** @type {string} */ label, /** @type {string} */ value, /** @type {string} */ sub = "") => h("div", { class: "stat-card" }, h("span", { class: "stat-label" }, label), h("span", { class: "stat-value" }, value), sub ? h("span", { class: "muted small" }, sub) : null);
+    const demo = Boolean(store.health?.demo);      // practice stand-ins have pretend prices: nothing was charged
     const summary = h("div", { class: "stat-grid" },
-      card("Spent", money(t.spent_usd), "charged so far"),
+      card(demo ? "Pretend spend" : "Spent", money(t.spent_usd), demo ? "practice prices, nothing is charged" : "charged so far"),
       card("Today", money(t.today_usd), "all duos"),
       card("Set aside for steps running now", money(t.reserved_usd), "released if a step does not run"),
       card("Tripo credits left", data.tripo_available_credits == null ? "Not known yet" : String(Math.round(data.tripo_available_credits)), "for 3D models"));

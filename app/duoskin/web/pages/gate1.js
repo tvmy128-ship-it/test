@@ -13,7 +13,7 @@ import { followChange } from "../components/changeflow.js";
 import { warningList } from "../components/warnings.js";
 import { toast } from "../components/toast.js";
 import { openGatePanels } from "../components/gatepanels.js";
-import { structureLabel, roleLabel, DNA_USED_BY, nextAction } from "../text.js";
+import { structureLabel, roleLabel, DNA_USED_BY, nextAction, checkLabel } from "../text.js";
 import { state } from "../store.js";
 
 const SHEET_ROLES = ["a_front", "a_back", "b_front", "b_back"];
@@ -106,7 +106,7 @@ function planTile(gate, tile, i, dna, firstChoice, project, refresh, ctx) {
   const wildcard = facts.wildcard === true || (tile.badges || []).some((/** @type {string} */ b) => /wild/i.test(b));
   // a character whose drawings all failed the required checks (the plan loop says which, in words)
   const failedBy = Object.entries(facts.failed || {}).map(([c, f]) => `Character ${c.toUpperCase()}: ${f?.message || "no usable drawing yet"}`);
-  const hardLines = failedBy.length ? failedBy : lines(facts.hard_failures).map((x) => humanize(x));
+  const hardLines = failedBy.length ? failedBy : lines(facts.hard_failures).map((x) => checkLabel(x, humanize(x)));
   const noteLines = [...lines(facts.notice), ...lines(facts.notes)].filter(Boolean);
   const ackId = uid("ack");
   const ack = h("input", { type: "checkbox", id: ackId });

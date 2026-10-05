@@ -258,11 +258,13 @@ class BudgetService:
                 with self._lock:
                     self._low_sent.discard(key)
 
-    def settle_step(self, step: Step, *, outcome: str, billed: str = "unknown") -> None:
+    def settle_step(self, step: Step, *, outcome: str, billed: str = "unknown", provider_called: bool = True) -> None:
         """Close the reservation of ``step``'s current attempt after it ended.
 
         ``outcome``: ``success`` | ``failed`` | ``cancelled`` | ``waiting`` (nothing to settle yet). ``billed`` is the
-        error's ``billed`` flag (``no`` | ``yes`` | ``unknown``)."""
+        error's ``billed`` flag (``no`` | ``yes`` | ``unknown``). ``provider_called`` is False when the handler never asked for a provider: a step
+        that succeeded without calling one (nothing to revise, every rule already answered) was not billed, so its hold is released. A step that
+        did call a provider and recorded no cost keeps the conservative rule: committed at its estimate."""
         if outcome == "waiting":
             return
         with self.db.tx() as c:
@@ -274,7 +276,7 @@ class BudgetService:
             for r in rows:
                 hold = float(r["usd"])
                 if outcome == "success":
-                    new_state = "released" if recorded or hold <= 0 else "committed"
+                    new_state = "released" if recorded or hold <= 0 or not provider_called else "committed"
                 elif billed == "no":
                     new_state = "released"
                 elif billed == "yes":

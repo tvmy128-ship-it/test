@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from pydantic import Field, field_validator
 
-from duoskin.logsetup import redact_data
+from duoskin.logsetup import redact_data, reject_key_text
 from duoskin.models.common import PartId, Sha256, Strict, UtcDatetime
 from duoskin.models.part import ApprovalRecord
 
@@ -102,6 +102,11 @@ class GateDecisionIn(Strict):           # API request body
                                         # "iris" | "lash" | "brow" | "mouth_closed" | "mouth_open" | "all"
     expected_version: int               # optimistic lock: 409 if the tile changed (ENG-11)
     client_decision_id: str = Field(min_length=1, max_length=80)   # idempotency key
+
+    @field_validator("text")
+    @classmethod
+    def _no_key(cls, v: str) -> str:
+        return reject_key_text(v)
 
 
 class GateDecision(Strict):             # stored

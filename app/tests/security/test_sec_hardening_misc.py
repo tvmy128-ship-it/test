@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from duoskin.logsetup import register_secret
+from duoskin.logsetup import forget_secret, register_secret
 
 CNRY = "CNRYenvsecretvalue0123456789abcdef"
 
@@ -165,6 +165,7 @@ def test_debug_logging_switches_of_the_sdks_are_dropped_at_start(monkeypatch):
 
 
 def test_http_library_loggers_are_held_at_warning_so_no_url_or_header_is_logged(tmp_path):
+    request_cleanup: list[str] = []
     from duoskin import logsetup
     from duoskin.providers._http import httpx
 
@@ -174,10 +175,13 @@ def test_http_library_loggers_are_held_at_warning_so_no_url_or_header_is_logged(
             assert logging.getLogger(name).level == logging.WARNING, name
         key = "CNRYhttpxlogkey0123456789abcdef"
         register_secret(key)
+        request_cleanup.append(key)
         with httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200)), headers={"Authorization": f"Bearer {key}"}) as c:
             c.get("https://tripo-data.example.com/a.glb?Signature=abcdef0123456789abcdef&Policy=zzzzzzzzzzzzzzzz")
     finally:
         handle.shutdown()
+        for k in request_cleanup:
+            forget_secret(k)
     text = "".join(f.read_text(encoding="utf-8", errors="replace") for f in (tmp_path / "logs").glob("duoskin.log*"))
     assert key not in text and "Signature=abcdef" not in text and "Policy=zzzz" not in text
 
