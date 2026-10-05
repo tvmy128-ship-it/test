@@ -76,10 +76,18 @@ def test_the_index_never_serves_a_stale_token(app, client):
 
 
 def test_the_shell_page_has_no_inline_script_or_style(client):
-    html = client.get("/").text
     import re
 
-    assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>\s*\S", html) and " style=" not in html and "<style" not in html
+    from duoskin.security import importmap_csp_source
+
+    r = client.get("/")
+    html = r.text
+    # the one allowed inline script is the import map, and only because its hash is in the CSP
+    source = importmap_csp_source(html)
+    if source:
+        assert f"'{source}'" in r.headers["content-security-policy"]
+    rest = re.sub(r"<script[^>]*type=[\"']importmap[\"'][^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>\s*\S", rest) and " style=" not in html and "<style" not in html
     assert not re.search(r"\son[a-z]+=", html)
 
 
