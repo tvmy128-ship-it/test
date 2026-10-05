@@ -1,0 +1,26 @@
+{
+ "version": 1,
+ "_notes": "Procedural fold/shading sets (APP_SPEC S23): code-drawn soft creases from the recipe geometry, used whenever a recipe's fold library set is missing. All panels are neutral grey (128) in the outer 8% so neighbouring panels join without a seam; amplitude is the grey swing (0.5 = full range) of a crease trough. imaging/folds.py reads this file.",
+ "edge_band": 0.08,
+ "defaults": {
+  "torso_fb":   {"creases": 4, "sigma": 2.4, "strength": 0.055, "length": 0.75, "tilt_deg": 24, "start": "top"},
+  "torso_side": {"creases": 2, "sigma": 2.0, "strength": 0.045, "length": 0.7, "tilt_deg": 14, "start": "top"},
+  "limb_side":  {"creases": 2, "sigma": 1.8, "strength": 0.05, "length": 0.45, "tilt_deg": 50, "start": "elbow"},
+  "elbow":      {"rings": 2, "sigma": 2.2, "strength": 0.05, "row": 418.5, "span": 14},
+  "cap":        {"creases": 0}
+ },
+ "sets": {
+  "tee_soft":      {"seed": 11, "scale": 1.0},
+  "raglan_soft":   {"seed": 12, "scale": 1.0},
+  "vest_soft":     {"seed": 13, "scale": 0.9, "no_elbow": true},
+  "hoodie_heavy":  {"seed": 14, "scale": 1.5, "sigma_scale": 1.4, "extra_creases": 2},
+  "jacket_stiff":  {"seed": 15, "scale": 1.2, "sigma_scale": 0.8, "tilt_scale": 0.6},
+  "crop_light":    {"seed": 16, "scale": 0.75},
+  "skirt_pleats":  {"seed": 17, "scale": 1.0, "pleats": {"period": 9, "strength": 0.05, "rows": [170, 466], "no_elbow": true}, "no_elbow": true},
+  "skirt_drape":   {"seed": 18, "scale": 1.0, "sigma_scale": 1.5, "tilt_scale": 0.3, "no_elbow": true},
+  "denim_folds":   {"seed": 19, "scale": 1.2, "extra_creases": 1},
+  "shorts_light":  {"seed": 20, "scale": 0.8},
+  "cargo_folds":   {"seed": 21, "scale": 1.3, "extra_creases": 1},
+  "default":       {"seed": 7, "scale": 1.0}
+ }
+}

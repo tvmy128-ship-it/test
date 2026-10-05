@@ -75,6 +75,12 @@ T: dict[str, tuple[Any, Status, list[str]]] = {
     "img.checker_peak_ratio":     (0.12, "DES", ["IMG-01"]),        # FFT periodic-peak share of the non-DC spectrum energy
     "img.edge_lum_ratio_min":     (0.90, "DES", ["IMG-13"]),        # edge luminance >= 90% of interior neighbours
     "img.alpha_binarize":         (128, "DES", ["IMG-02"]),         # cel-art alpha threshold (bible 2.5)
+    "img.checker_block_px":       (256, "DES", ["IMG-01"]),         # FFT block size for the painted-checkerboard test
+    "img.checker_k_min":          (4, "DES", ["IMG-01"]),           # lowest FFT frequency index that counts (period <= block/k)
+    "img.stroke_thin_tol":        (0.10, "DES", ["IMG-16"]),        # share of skeleton allowed to be thinner than the minimum
+    "img.stroke_tip_px":          (3, "DES", ["IMG-16"]),           # skeleton ends this close to a tip are ignored (tapers)
+    "img.guide_left_de":          (5.0, "DES", ["HAIR-04"]),        # a pixel this close to the guide grey counts as guide left
+    "img.highlight_blob_frac":    (0.15, "DES", ["FACE-04"]),       # a white blob smaller than this share of the iris is a highlight
     "img.glyph_score_max":        (0.30, "DES", ["POL-04"]),        # A_GLYPH: score < 0.3
     "img.slab_solidity_min":      (0.80, "DES", ["ACC-18"]),        # I6 badge: solidity (area / convex hull) >= 0.8
     "img.badge_outline_min":      (0.03, "DES", ["ACC-18"]),        # I6 A_STROKE: outline >= 3% of the width

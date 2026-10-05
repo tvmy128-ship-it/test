@@ -195,7 +195,7 @@ def _canvas(n: int, seed: int, r: int) -> np.ndarray:
 
 
 def _leather(n: int, seed: int, r: int) -> np.ndarray:
-    f1 = _worley(n, seed, 20 * r)
+    f1 = _worley(n, seed, 36 * r)
     bump = 1.0 - _smoothstep(0.15, 0.95, f1)
     return bump + 0.08 * _periodic_noise(n, seed + 1, 1.2)
 

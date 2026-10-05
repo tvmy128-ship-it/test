@@ -418,6 +418,8 @@ The Python packages in `optional.lock` and three model files are installed from 
 | Local matting model | `DATA\models\matting\<name>.onnx` | the last transparency fallback (§10.4.1) | [UNVERIFIED] The model file, its source and its sha256 are named when the component is first vendored. Until then the manifest entry has `status: "not_available"` and the fallback is skipped (Recraft `removeBackground` or the sentinel unmix runs instead). |
 | Extra OCR models | `DATA\models\ocr\*.onnx` | kana and Hangul recognition (§2 S13) | [UNVERIFIED], same rule as the matting model. |
 
+**CHK-S14** (doctor, FAILURE_MODES §7.0): every installed optional file matches its sha256 in the manifest; `dreamsim.onnx` also loads in onnxruntime, has the expected input and output shapes, and the fixture pair gives the expected distance ±0.01 (values in `dreamsim.onnx.json`). A missing file is **not** a failure: it sets `dreamsim_present=false` and the degraded clone check (§10.12). A present file that fails any step is switched off (degraded mode plus a warning); it never blocks paid features.
+
 **`tools/export_dreamsim_onnx.py`** runs once, in CI or on a machine that has torch. It never runs on the user's Windows install, and torch is not in `win-x64.lock`. At the top of the file it pins the DreamSim package version, the ONNX opset and the input preprocessing (size, mean and std) [versions UNVERIFIED until the first export]. It loads the model that the clone band was calibrated on, exports one graph that maps two image tensors to one distance, runs the fixture pairs of `tests/fixtures/dreamsim/` through both torch and onnxruntime (|Δ| ≤0.01), and writes `dreamsim.onnx` plus `dreamsim.onnx.json` {dreamsim_version, opset, input_size, preprocessing, sha256, fixture_expectations: [{pair, distance}]}. The published sha256 goes into `optional_components.json`. A CI job re-runs the export and fails if the hash changes without a version bump.
 
 ---
@@ -2233,7 +2235,7 @@ def lint_prompt(cp: CompiledPrompt) -> list[CheckResult]      # CHK-P01; ASSERT:
   - Empty slots remove their whole line; missing values raise (PRM-05). Joins are deterministic, so the same spec compiles to byte-identical text.
   - Style blocks (`HOUSE_STYLE_2D`, `HOUSE_STYLE_3D_INPUT`) are pasted verbatim from `data/style_guide.json`.
 - **DNA router** (`prompts/dna_router.py`): the routing table of bible §3.3; at most 2 DNA fields per call, from the asset's own character only.
-- **Router unit test** (`tests/unit/test_prompt_router.py`) compiles every template × 3 real fixture specs × both characters and fails the build if a prompt:
+- **Router unit test** (`tests/unit/test_prompt_router.py`) compiles every template (I1e included) × 3 real fixture specs × both characters and fails the build if a prompt:
   - has more than 5 MUST lines, or more than 2 DNA fields, or a DNA field of the other character;
   - carries the partner's style sheet or the combined sheet among its `images` (bible D29; only the asset's own character's sheet is allowed, §2 S35);
   - is longer than 1,500 characters without the STYLE block, or 2,200 in total;
