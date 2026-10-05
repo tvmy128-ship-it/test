@@ -1,10 +1,8 @@
 # Windows verification (APP_SPEC 17.5). The app is developed on Linux; this is the first thing that runs setup.bat, the doctor
-# and the tests on a real Windows machine. Run it by hand from the Actions tab ("Run workflow") or on every push.
+# and the tests on a real Windows machine. Run it by hand from the Actions tab ("Run workflow"); it is not triggered by pushes so it never uses minutes unasked.
 name: windows
 
 on:
-  push:
-  pull_request:
   workflow_dispatch:
 
 jobs:
