@@ -1,0 +1,757 @@
+{
+ "_notes": [
+  "Authoritative template geometry (APP_SPEC 5.2, FAILURE_MODES 5.2, bible 6.1). Boxes are INCLUSIVE pixel coordinates [x0,y0,x1,y1].",
+  "Derived from analysis/classic_template_r15_map.json (edge-exclusive [x0,y0,x1,y1)) and verified pixel for pixel against the official Shirt/Pants PNGs.",
+  "faces: outward normal / image-right / image-down of each face in the three.js frame (Y up, character faces +Z, character RIGHT = -X).",
+  "UP/U: front edge at the image bottom; DOWN/D: front edge at the image top. rlimb/llimb are the CHARACTER's right/left arm (Shirt) or leg (Pants).",
+  "seams: 36 derived from the face frames (roblox.template.derive_adjacency); checked against this list at import.",
+  "rows: the R15 split rows, bands and keep-outs. hidden_leg_rows and the 418.5 elbow/knee row are [UNVERIFIED] until FM-T1 is run in Studio."
+ ],
+ "version": 1,
+ "size": [
+  585,
+  559
+ ],
+ "inclusive_boxes": true,
+ "gap_px": 2,
+ "regions": {
+  "torso_u": {
+   "box": [
+    231,
+    8,
+    358,
+    71
+   ],
+   "part": "torso",
+   "face": "u"
+  },
+  "torso_r": {
+   "box": [
+    165,
+    74,
+    228,
+    201
+   ],
+   "part": "torso",
+   "face": "r"
+  },
+  "torso_f": {
+   "box": [
+    231,
+    74,
+    358,
+    201
+   ],
+   "part": "torso",
+   "face": "f"
+  },
+  "torso_l": {
+   "box": [
+    361,
+    74,
+    424,
+    201
+   ],
+   "part": "torso",
+   "face": "l"
+  },
+  "torso_b": {
+   "box": [
+    427,
+    74,
+    554,
+    201
+   ],
+   "part": "torso",
+   "face": "b"
+  },
+  "torso_d": {
+   "box": [
+    231,
+    204,
+    358,
+    267
+   ],
+   "part": "torso",
+   "face": "d"
+  },
+  "rlimb_u": {
+   "box": [
+    217,
+    289,
+    280,
+    352
+   ],
+   "part": "rlimb",
+   "face": "u"
+  },
+  "rlimb_l": {
+   "box": [
+    19,
+    355,
+    82,
+    482
+   ],
+   "part": "rlimb",
+   "face": "l"
+  },
+  "rlimb_b": {
+   "box": [
+    85,
+    355,
+    148,
+    482
+   ],
+   "part": "rlimb",
+   "face": "b"
+  },
+  "rlimb_r": {
+   "box": [
+    151,
+    355,
+    214,
+    482
+   ],
+   "part": "rlimb",
+   "face": "r"
+  },
+  "rlimb_f": {
+   "box": [
+    217,
+    355,
+    280,
+    482
+   ],
+   "part": "rlimb",
+   "face": "f"
+  },
+  "rlimb_d": {
+   "box": [
+    217,
+    485,
+    280,
+    548
+   ],
+   "part": "rlimb",
+   "face": "d"
+  },
+  "llimb_u": {
+   "box": [
+    308,
+    289,
+    371,
+    352
+   ],
+   "part": "llimb",
+   "face": "u"
+  },
+  "llimb_f": {
+   "box": [
+    308,
+    355,
+    371,
+    482
+   ],
+   "part": "llimb",
+   "face": "f"
+  },
+  "llimb_l": {
+   "box": [
+    374,
+    355,
+    437,
+    482
+   ],
+   "part": "llimb",
+   "face": "l"
+  },
+  "llimb_b": {
+   "box": [
+    440,
+    355,
+    503,
+    482
+   ],
+   "part": "llimb",
+   "face": "b"
+  },
+  "llimb_r": {
+   "box": [
+    506,
+    355,
+    569,
+    482
+   ],
+   "part": "llimb",
+   "face": "r"
+  },
+  "llimb_d": {
+   "box": [
+    308,
+    485,
+    371,
+    548
+   ],
+   "part": "llimb",
+   "face": "d"
+  }
+ },
+ "faces": {
+  "f": {
+   "normal": [
+    0,
+    0,
+    1
+   ],
+   "right": [
+    1,
+    0,
+    0
+   ],
+   "down": [
+    0,
+    -1,
+    0
+   ]
+  },
+  "b": {
+   "normal": [
+    0,
+    0,
+    -1
+   ],
+   "right": [
+    -1,
+    0,
+    0
+   ],
+   "down": [
+    0,
+    -1,
+    0
+   ]
+  },
+  "l": {
+   "normal": [
+    1,
+    0,
+    0
+   ],
+   "right": [
+    0,
+    0,
+    -1
+   ],
+   "down": [
+    0,
+    -1,
+    0
+   ]
+  },
+  "r": {
+   "normal": [
+    -1,
+    0,
+    0
+   ],
+   "right": [
+    0,
+    0,
+    1
+   ],
+   "down": [
+    0,
+    -1,
+    0
+   ]
+  },
+  "u": {
+   "normal": [
+    0,
+    1,
+    0
+   ],
+   "right": [
+    1,
+    0,
+    0
+   ],
+   "down": [
+    0,
+    0,
+    1
+   ]
+  },
+  "d": {
+   "normal": [
+    0,
+    -1,
+    0
+   ],
+   "right": [
+    1,
+    0,
+    0
+   ],
+   "down": [
+    0,
+    0,
+    -1
+   ]
+  }
+ },
+ "parts": {
+  "torso": {
+   "dims_px": [
+    128,
+    128,
+    64
+   ],
+   "side_cycle": [
+    "torso_r",
+    "torso_f",
+    "torso_l",
+    "torso_b"
+   ]
+  },
+  "rlimb": {
+   "dims_px": [
+    64,
+    128,
+    64
+   ],
+   "side_cycle": [
+    "rlimb_l",
+    "rlimb_b",
+    "rlimb_r",
+    "rlimb_f"
+   ]
+  },
+  "llimb": {
+   "dims_px": [
+    64,
+    128,
+    64
+   ],
+   "side_cycle": [
+    "llimb_f",
+    "llimb_l",
+    "llimb_b",
+    "llimb_r"
+   ]
+  }
+ },
+ "rows": {
+  "torso_split": 170,
+  "upper_torso": [
+   74,
+   169
+  ],
+  "lower_torso": [
+   170,
+   201
+  ],
+  "limb_rows": [
+   355,
+   482
+  ],
+  "limb_splits": [
+   418.5,
+   467
+  ],
+  "limb_bands": [
+   [
+    355,
+    416
+   ],
+   [
+    421,
+    465
+   ],
+   [
+    469,
+    482
+   ]
+  ],
+  "dashed": [
+   407,
+   446
+  ],
+  "shoe_top_row_range": [
+   446,
+   465
+  ],
+  "hidden_leg_rows": [
+   355,
+   377
+  ],
+  "split_margin_px": 2,
+  "bevel_inset_px": 5,
+  "open_side_bleed_px": [
+   2,
+   4
+  ]
+ },
+ "seams": [
+  {
+   "a": "torso_r",
+   "side_a": "right",
+   "b": "torso_f",
+   "side_b": "left",
+   "reverse": false,
+   "kind": "side",
+   "gap": true,
+   "edge": 3
+  },
+  {
+   "a": "torso_f",
+   "side_a": "right",
+   "b": "torso_l",
+   "side_b": "left",
+   "reverse": false,
+   "kind": "side",
+   "gap": true,
+   "edge": 11
+  },
+  {
+   "a": "torso_l",
+   "side_a": "right",
+   "b": "torso_b",
+   "side_b": "left",
+   "reverse": false,
+   "kind": "side",
+   "gap": true,
+   "edge": 9
+  },
+  {
+   "a": "torso_b",
+   "side_a": "right",
+   "b": "torso_r",
+   "side_b": "left",
+   "reverse": false,
+   "kind": "side",
+   "gap": false,
+   "edge": 2
+  },
+  {
+   "a": "torso_u",
+   "side_a": "bottom",
+   "b": "torso_f",
+   "side_b": "top",
+   "reverse": false,
+   "kind": "cap",
+   "gap": true,
+   "edge": 10
+  },
+  {
+   "a": "torso_f",
+   "side_a": "bottom",
+   "b": "torso_d",
+   "side_b": "top",
+   "reverse": false,
+   "kind": "cap",
+   "gap": true,
+   "edge": 6
+  },
+  {
+   "a": "torso_u",
+   "side_a": "left",
+   "b": "torso_r",
+   "side_b": "top",
+   "reverse": false,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 4
+  },
+  {
+   "a": "torso_u",
+   "side_a": "right",
+   "b": "torso_l",
+   "side_b": "top",
+   "reverse": true,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 12
+  },
+  {
+   "a": "torso_u",
+   "side_a": "top",
+   "b": "torso_b",
+   "side_b": "top",
+   "reverse": true,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 8
+  },
+  {
+   "a": "torso_r",
+   "side_a": "bottom",
+   "b": "torso_d",
+   "side_b": "left",
+   "reverse": true,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 1
+  },
+  {
+   "a": "torso_l",
+   "side_a": "bottom",
+   "b": "torso_d",
+   "side_b": "right",
+   "reverse": false,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 7
+  },
+  {
+   "a": "torso_b",
+   "side_a": "bottom",
+   "b": "torso_d",
+   "side_b": "bottom",
+   "reverse": true,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 5
+  },
+  {
+   "a": "rlimb_l",
+   "side_a": "right",
+   "b": "rlimb_b",
+   "side_b": "left",
+   "reverse": false,
+   "kind": "side",
+   "gap": true,
+   "edge": 9
+  },
+  {
+   "a": "rlimb_b",
+   "side_a": "right",
+   "b": "rlimb_r",
+   "side_b": "left",
+   "reverse": false,
+   "kind": "side",
+   "gap": true,
+   "edge": 2
+  },
+  {
+   "a": "rlimb_r",
+   "side_a": "right",
+   "b": "rlimb_f",
+   "side_b": "left",
+   "reverse": false,
+   "kind": "side",
+   "gap": true,
+   "edge": 3
+  },
+  {
+   "a": "rlimb_f",
+   "side_a": "right",
+   "b": "rlimb_l",
+   "side_b": "left",
+   "reverse": false,
+   "kind": "side",
+   "gap": false,
+   "edge": 11
+  },
+  {
+   "a": "rlimb_u",
+   "side_a": "bottom",
+   "b": "rlimb_f",
+   "side_b": "top",
+   "reverse": false,
+   "kind": "cap",
+   "gap": true,
+   "edge": 10
+  },
+  {
+   "a": "rlimb_f",
+   "side_a": "bottom",
+   "b": "rlimb_d",
+   "side_b": "top",
+   "reverse": false,
+   "kind": "cap",
+   "gap": true,
+   "edge": 6
+  },
+  {
+   "a": "rlimb_u",
+   "side_a": "left",
+   "b": "rlimb_r",
+   "side_b": "top",
+   "reverse": false,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 4
+  },
+  {
+   "a": "rlimb_u",
+   "side_a": "right",
+   "b": "rlimb_l",
+   "side_b": "top",
+   "reverse": true,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 12
+  },
+  {
+   "a": "rlimb_u",
+   "side_a": "top",
+   "b": "rlimb_b",
+   "side_b": "top",
+   "reverse": true,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 8
+  },
+  {
+   "a": "rlimb_r",
+   "side_a": "bottom",
+   "b": "rlimb_d",
+   "side_b": "left",
+   "reverse": true,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 1
+  },
+  {
+   "a": "rlimb_l",
+   "side_a": "bottom",
+   "b": "rlimb_d",
+   "side_b": "right",
+   "reverse": false,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 7
+  },
+  {
+   "a": "rlimb_b",
+   "side_a": "bottom",
+   "b": "rlimb_d",
+   "side_b": "bottom",
+   "reverse": true,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 5
+  },
+  {
+   "a": "llimb_f",
+   "side_a": "right",
+   "b": "llimb_l",
+   "side_b": "left",
+   "reverse": false,
+   "kind": "side",
+   "gap": true,
+   "edge": 11
+  },
+  {
+   "a": "llimb_l",
+   "side_a": "right",
+   "b": "llimb_b",
+   "side_b": "left",
+   "reverse": false,
+   "kind": "side",
+   "gap": true,
+   "edge": 9
+  },
+  {
+   "a": "llimb_b",
+   "side_a": "right",
+   "b": "llimb_r",
+   "side_b": "left",
+   "reverse": false,
+   "kind": "side",
+   "gap": true,
+   "edge": 2
+  },
+  {
+   "a": "llimb_r",
+   "side_a": "right",
+   "b": "llimb_f",
+   "side_b": "left",
+   "reverse": false,
+   "kind": "side",
+   "gap": false,
+   "edge": 3
+  },
+  {
+   "a": "llimb_u",
+   "side_a": "bottom",
+   "b": "llimb_f",
+   "side_b": "top",
+   "reverse": false,
+   "kind": "cap",
+   "gap": true,
+   "edge": 10
+  },
+  {
+   "a": "llimb_f",
+   "side_a": "bottom",
+   "b": "llimb_d",
+   "side_b": "top",
+   "reverse": false,
+   "kind": "cap",
+   "gap": true,
+   "edge": 6
+  },
+  {
+   "a": "llimb_u",
+   "side_a": "left",
+   "b": "llimb_r",
+   "side_b": "top",
+   "reverse": false,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 4
+  },
+  {
+   "a": "llimb_u",
+   "side_a": "right",
+   "b": "llimb_l",
+   "side_b": "top",
+   "reverse": true,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 12
+  },
+  {
+   "a": "llimb_u",
+   "side_a": "top",
+   "b": "llimb_b",
+   "side_b": "top",
+   "reverse": true,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 8
+  },
+  {
+   "a": "llimb_r",
+   "side_a": "bottom",
+   "b": "llimb_d",
+   "side_b": "left",
+   "reverse": true,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 1
+  },
+  {
+   "a": "llimb_l",
+   "side_a": "bottom",
+   "b": "llimb_d",
+   "side_b": "right",
+   "reverse": false,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 7
+  },
+  {
+   "a": "llimb_b",
+   "side_a": "bottom",
+   "b": "llimb_d",
+   "side_b": "bottom",
+   "reverse": true,
+   "kind": "cap_rot",
+   "gap": false,
+   "edge": 5
+  }
+ ]
+}

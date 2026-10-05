@@ -1,0 +1,4106 @@
+{
+ "version": 1,
+ "thresholds_version": "2026-10-05.1",
+ "checks": [
+  {
+   "check_id": "A_ALPHA",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.clear_share_min",
+    "img.border_frame",
+    "img.haze_share_max",
+    "img.checker_peak_ratio"
+   ],
+   "fm_ids": [
+    "IMG-01",
+    "IMG-02"
+   ],
+   "title": "Real transparency: clear share, border frame, no painted checkerboard, no haze",
+   "warn_text": "Real transparency: clear share, border frame, no painted checkerboard, no haze did not pass.",
+   "contract_ids": [
+    "CHK-A02"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_BADGE",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.slab_solidity_min"
+   ],
+   "fm_ids": [
+    "ACC-18"
+   ],
+   "title": "Badge outline is one compact solid shape",
+   "warn_text": "Badge outline is one compact solid shape did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_CLONE",
+   "kind": "hard",
+   "policy_class": "clone_lower_edge",
+   "stage": "always",
+   "threshold_keys": [
+    "clone.lower_edge",
+    "clone.concept_lower_edge",
+    "clone.gate2_lower_edge"
+   ],
+   "fm_ids": [
+    "DUO-01"
+   ],
+   "title": "Clone band lower edge",
+   "warn_text": "The two characters look too alike.",
+   "contract_ids": [
+    "CHK-D02"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_COMPONENTS",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.component_min_area"
+   ],
+   "fm_ids": [
+    "IMG-04"
+   ],
+   "title": "Component count",
+   "warn_text": "Component count did not pass.",
+   "contract_ids": [
+    "CHK-A04"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_DRIFT",
+   "kind": "hard",
+   "policy_class": "consistency",
+   "stage": "gate1",
+   "threshold_keys": [
+    "img.final_iou_min",
+    "img.final_de_max"
+   ],
+   "fm_ids": [
+    "IMG-06"
+   ],
+   "title": "Finalize drift",
+   "warn_text": "Finalize drift did not pass.",
+   "contract_ids": [
+    "CHK-A10"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_GLYPH",
+   "kind": "hard",
+   "policy_class": "stray_text",
+   "stage": "always",
+   "threshold_keys": [
+    "img.glyph_score_max"
+   ],
+   "fm_ids": [
+    "POL-04"
+   ],
+   "title": "Glyph-shape detector finds no text-like marks",
+   "warn_text": "The image has marks that look like letters.",
+   "contract_ids": [
+    "CHK-A06"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_GUIDE_LEFT",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.guide_left_max",
+    "hair.guide_de_min"
+   ],
+   "fm_ids": [
+    "HAIR-04"
+   ],
+   "title": "No guide-grey left behind",
+   "warn_text": "No guide-grey left behind did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_HALO",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.halo_de_max"
+   ],
+   "fm_ids": [
+    "IMG-02"
+   ],
+   "title": "No halo ring on black or white",
+   "warn_text": "No halo ring on black or white did not pass.",
+   "contract_ids": [
+    "CHK-A02"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_HIGHLIGHT",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.highlight_max_blobs"
+   ],
+   "fm_ids": [
+    "FACE-04"
+   ],
+   "title": "No highlights inside the iris",
+   "warn_text": "No highlights inside the iris did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_INGEST",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "always",
+   "threshold_keys": [],
+   "fm_ids": [
+    "IMG-07",
+    "IMG-11"
+   ],
+   "title": "Ingest output is 8-bit sRGB RGBA",
+   "warn_text": "Ingest output is 8-bit sRGB RGBA did not pass.",
+   "contract_ids": [
+    "CHK-A01"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_LEAK",
+   "kind": "hard",
+   "policy_class": "consistency",
+   "stage": "gate1",
+   "threshold_keys": [
+    "con.leak_area_max",
+    "con.partner_only_de"
+   ],
+   "fm_ids": [
+    "CON-01"
+   ],
+   "title": "Partner-only colours do not leak",
+   "warn_text": "A figure carries colours that belong to the partner.",
+   "contract_ids": [
+    "CHK-G1-04"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_MARGIN",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.margin_min"
+   ],
+   "fm_ids": [
+    "IMG-03"
+   ],
+   "title": "Margin",
+   "warn_text": "Margin did not pass.",
+   "contract_ids": [
+    "CHK-A03"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_MESH",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "MESH-01"
+   ],
+   "title": "Accessory and hair file gate",
+   "warn_text": "Accessory and hair file gate did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_OCR",
+   "kind": "hard",
+   "policy_class": "stray_text",
+   "stage": "always",
+   "threshold_keys": [
+    "ocr.rec_score_min",
+    "ocr.min_box_px"
+   ],
+   "fm_ids": [
+    "POL-04"
+   ],
+   "title": "OCR finds no text",
+   "warn_text": "Text was found in the image.",
+   "contract_ids": [
+    "CHK-A06"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_PALETTE",
+   "kind": "hard",
+   "policy_class": "consistency",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.palette_de_max",
+    "img.palette_large_reject_de",
+    "img.palette_min_cluster"
+   ],
+   "fm_ids": [
+    "IMG-05"
+   ],
+   "title": "Dominant colours are in the palette",
+   "warn_text": "Dominant colours are in the palette did not pass.",
+   "contract_ids": [
+    "CHK-A05"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_PASTE",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.pasteback_ring_de_max",
+    "img.pasteback_ring_px"
+   ],
+   "fm_ids": [
+    "GEN-03"
+   ],
+   "title": "Paste-back is clean",
+   "warn_text": "Paste-back is clean did not pass.",
+   "contract_ids": [
+    "CHK-A09"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_PHASH",
+   "kind": "soft",
+   "policy_class": "novelty",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.reimagine_phash_max"
+   ],
+   "fm_ids": [
+    "IMG-08"
+   ],
+   "title": "pHash distance to rejected drafts",
+   "warn_text": "This draft is very close to one you rejected.",
+   "contract_ids": [
+    "CHK-A14"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_REFLEAK",
+   "kind": "hard",
+   "policy_class": "ip",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.styleref_phash_max",
+    "img.styleref_dreamsim_min"
+   ],
+   "fm_ids": [
+    "IMG-15"
+   ],
+   "title": "Reference leakage",
+   "warn_text": "Reference leakage did not pass.",
+   "contract_ids": [
+    "CHK-A15"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_REGISTRY",
+   "kind": "hard",
+   "policy_class": "registry",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.registry_phash_max",
+    "face.registry_dreamsim_min",
+    "face.registry_window_duos"
+   ],
+   "fm_ids": [
+    "FACE-11",
+    "PLN-16"
+   ],
+   "title": "Registry: exact reuse forever, near-duplicates within the window",
+   "warn_text": "This file or look was used by a recent duo.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_RESIZE",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "always",
+   "threshold_keys": [
+    "img.edge_lum_ratio_min"
+   ],
+   "fm_ids": [
+    "IMG-13"
+   ],
+   "title": "No dark fringes after a resize",
+   "warn_text": "No dark fringes after a resize did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_SENTINEL",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "gate2",
+   "threshold_keys": [
+    "svg.border_sentinel_min"
+   ],
+   "fm_ids": [
+    "IMG-14"
+   ],
+   "title": "Border is the sentinel colour",
+   "warn_text": "Border is the sentinel colour did not pass.",
+   "contract_ids": [
+    "CHK-A11"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_SENTINEL_DE",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.sentinel_de_min"
+   ],
+   "fm_ids": [
+    "IMG-12"
+   ],
+   "title": "Sentinel colour is far from every palette colour",
+   "warn_text": "Sentinel colour is far from every palette colour did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_SIL_GUIDE",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate1",
+   "threshold_keys": [
+    "con.body_iou_min",
+    "con.volume_outside_max",
+    "hair.guide_iou_min"
+   ],
+   "fm_ids": [
+    "CON-02",
+    "HAIR-03"
+   ],
+   "title": "Silhouette matches the code guide",
+   "warn_text": "Silhouette matches the code guide did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_SINGLE_COLOUR",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.line_colours"
+   ],
+   "fm_ids": [
+    "FACE-01"
+   ],
+   "title": "Line features have one colour",
+   "warn_text": "Line features have one colour did not pass.",
+   "contract_ids": [
+    "CHK-A08"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_SIZE",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "call",
+   "threshold_keys": [],
+   "fm_ids": [
+    "GEN-01"
+   ],
+   "title": "Decoded size equals the requested size",
+   "warn_text": "Decoded size equals the requested size did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_STROKE",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.stroke_px_min_placed",
+    "img.gradient_share_max",
+    "img.badge_outline_min"
+   ],
+   "fm_ids": [
+    "IMG-16"
+   ],
+   "title": "Thinnest stroke at the placed size",
+   "warn_text": "Thinnest stroke at the placed size did not pass.",
+   "contract_ids": [
+    "CHK-A08"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_STYLE",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.stroke_ratio_band",
+    "img.shading_steps_max",
+    "img.specular_share_max",
+    "img.hf_energy_ratio_max"
+   ],
+   "fm_ids": [
+    "IMG-09"
+   ],
+   "title": "Style profile",
+   "warn_text": "The line weight or shading differs from this duo's style.",
+   "contract_ids": [
+    "CHK-A08-STYLE"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_SVG",
+   "kind": "hard",
+   "policy_class": "security",
+   "stage": "gate2",
+   "threshold_keys": [
+    "svg.max_paths"
+   ],
+   "fm_ids": [
+    "SYS-03",
+    "IMG-14"
+   ],
+   "title": "SVG sanity",
+   "warn_text": "SVG sanity did not pass.",
+   "contract_ids": [
+    "CHK-A11"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_SWATCH",
+   "kind": "soft",
+   "policy_class": "colour_distance",
+   "stage": "gate1",
+   "threshold_keys": [
+    "con.swatch_de_warn"
+   ],
+   "fm_ids": [
+    "CON-05"
+   ],
+   "title": "Zone colours versus the planned colours",
+   "warn_text": "Some zone colours differ from the plan; the palette is re-extracted after Gate 1.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_SYMMETRY",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.symmetry_iou_min"
+   ],
+   "fm_ids": [
+    "IMG-10"
+   ],
+   "title": "Left-right symmetry",
+   "warn_text": "Left-right symmetry did not pass.",
+   "contract_ids": [
+    "CHK-A07"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "A_TEMPLATE",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "CLO-01",
+    "CLO-02"
+   ],
+   "title": "585x559 RGBA template file",
+   "warn_text": "585x559 RGBA template file did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "A_VIEWS",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.views_height_tol",
+    "img.views_ground_tol",
+    "img.views_centre_tol"
+   ],
+   "fm_ids": [
+    "ACC-03"
+   ],
+   "title": "Multiview set: heights, ground line, centring",
+   "warn_text": "Multiview set: heights, ground line, centring did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-A01",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [
+    "IMG-07",
+    "IMG-11"
+   ],
+   "title": "Ingest normalisation to 8-bit sRGB RGBA",
+   "warn_text": "Ingest normalisation to 8-bit sRGB RGBA did not pass.",
+   "contract_ids": [
+    "A_INGEST"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-A02",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.clear_share_min",
+    "img.border_frame",
+    "img.haze_share_max",
+    "img.halo_de_max",
+    "img.checker_peak_ratio"
+   ],
+   "fm_ids": [
+    "IMG-01",
+    "IMG-02",
+    "IMG-12",
+    "IMG-13"
+   ],
+   "title": "Real transparency, no checkerboard, haze or halo",
+   "warn_text": "Real transparency, no checkerboard, haze or halo did not pass.",
+   "contract_ids": [
+    "A_ALPHA",
+    "A_HALO"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-A03",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.margin_min"
+   ],
+   "fm_ids": [
+    "IMG-03"
+   ],
+   "title": "Margin on every side",
+   "warn_text": "Margin on every side did not pass.",
+   "contract_ids": [
+    "A_MARGIN"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-A04",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.component_min_area"
+   ],
+   "fm_ids": [
+    "IMG-04",
+    "GEN-10"
+   ],
+   "title": "Connected components match the asset type",
+   "warn_text": "Connected components match the asset type did not pass.",
+   "contract_ids": [
+    "A_COMPONENTS"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-A05",
+   "kind": "hard",
+   "policy_class": "consistency",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.palette_de_max",
+    "img.palette_large_reject_de",
+    "img.palette_min_cluster"
+   ],
+   "fm_ids": [
+    "IMG-05"
+   ],
+   "title": "Palette stays within the spec colours",
+   "warn_text": "Palette stays within the spec colours did not pass.",
+   "contract_ids": [
+    "A_PALETTE"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-A06",
+   "kind": "hard",
+   "policy_class": "stray_text",
+   "stage": "gate2",
+   "threshold_keys": [
+    "ocr.rec_score_min",
+    "ocr.min_box_px",
+    "img.glyph_score_max"
+   ],
+   "fm_ids": [
+    "POL-04"
+   ],
+   "title": "No text in the image",
+   "warn_text": "Text or letter-like marks were found in the image.",
+   "contract_ids": [
+    "A_OCR",
+    "A_GLYPH"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-A07",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.symmetry_iou_min"
+   ],
+   "fm_ids": [
+    "IMG-10"
+   ],
+   "title": "Parts declared symmetric are symmetric",
+   "warn_text": "Parts declared symmetric are symmetric did not pass.",
+   "contract_ids": [
+    "A_SYMMETRY"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-A08",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.stroke_px_min_placed",
+    "img.gradient_share_max",
+    "face.line_colours"
+   ],
+   "fm_ids": [
+    "IMG-16",
+    "FACE-01",
+    "FACE-06"
+   ],
+   "title": "Strokes and flat fills survive the placed size",
+   "warn_text": "Strokes and flat fills survive the placed size did not pass.",
+   "contract_ids": [
+    "A_STROKE",
+    "A_SINGLE_COLOUR"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-A08-STYLE",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.stroke_ratio_band",
+    "img.shading_steps_max",
+    "img.specular_share_max",
+    "img.hf_energy_ratio_max"
+   ],
+   "fm_ids": [
+    "IMG-09"
+   ],
+   "title": "Style profile: line weight band, shading steps, specular share, high-frequency energy",
+   "warn_text": "The line weight or shading differs from this duo's style.",
+   "contract_ids": [
+    "A_STYLE"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-A09",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.pasteback_ring_de_max",
+    "img.pasteback_ring_px"
+   ],
+   "fm_ids": [
+    "GEN-03"
+   ],
+   "title": "Masked edits keep the outside identical and the ring close",
+   "warn_text": "Masked edits keep the outside identical and the ring close did not pass.",
+   "contract_ids": [
+    "A_PASTE"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-A10",
+   "kind": "hard",
+   "policy_class": "consistency",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.final_iou_min",
+    "img.final_de_max"
+   ],
+   "fm_ids": [
+    "IMG-06",
+    "GEN-14"
+   ],
+   "title": "Finalize drift versus the chosen draft",
+   "warn_text": "Finalize drift versus the chosen draft did not pass.",
+   "contract_ids": [
+    "A_DRIFT"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-A11",
+   "kind": "hard",
+   "policy_class": "security",
+   "stage": "gate2",
+   "threshold_keys": [
+    "svg.max_paths",
+    "svg.border_sentinel_min"
+   ],
+   "fm_ids": [
+    "SYS-03",
+    "IMG-14"
+   ],
+   "title": "Recraft SVG sanitizer and matte",
+   "warn_text": "Recraft SVG sanitizer and matte did not pass.",
+   "contract_ids": [
+    "A_SVG",
+    "A_SENTINEL"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-A12",
+   "kind": "hard",
+   "policy_class": "ip",
+   "stage": "gate2",
+   "threshold_keys": [
+    "vlm.costly_votes"
+   ],
+   "fm_ids": [
+    "VLM-02",
+    "VLM-05",
+    "VLM-06",
+    "POL-01",
+    "POL-03"
+   ],
+   "title": "Per-rule yes/no judge",
+   "warn_text": "Per-rule yes/no judge did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-A13",
+   "kind": "hard",
+   "policy_class": "consistency",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.palette_de_max"
+   ],
+   "fm_ids": [
+    "DUO-07"
+   ],
+   "title": "Palette consistency with the concept crop",
+   "warn_text": "Palette consistency with the concept crop did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-A14",
+   "kind": "soft",
+   "policy_class": "novelty",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.reimagine_phash_max"
+   ],
+   "fm_ids": [
+    "IMG-08"
+   ],
+   "title": "Reimagine dedupe against rejected drafts",
+   "warn_text": "This draft is very close to one you rejected.",
+   "contract_ids": [
+    "A_PHASH"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-A15",
+   "kind": "hard",
+   "policy_class": "ip",
+   "stage": "gate2",
+   "threshold_keys": [
+    "img.styleref_phash_max",
+    "img.styleref_dreamsim_min"
+   ],
+   "fm_ids": [
+    "IMG-15",
+    "POL-08"
+   ],
+   "title": "Reference leakage",
+   "warn_text": "Reference leakage did not pass.",
+   "contract_ids": [
+    "A_REFLEAK"
+   ],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-B01",
+   "kind": "assert",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "CLO-01"
+   ],
+   "title": "Region crop sizes exact",
+   "warn_text": "Region crop sizes exact did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-B02",
+   "kind": "assert",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "tpl.size_wh"
+   ],
+   "fm_ids": [
+    "CLO-02",
+    "EXP-07"
+   ],
+   "title": "585x559 RGBA 8-bit PNG without colour chunks",
+   "warn_text": "585x559 RGBA 8-bit PNG without colour chunks did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-B03",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "tpl.gap_px",
+    "tpl.open_side_bleed_px"
+   ],
+   "fm_ids": [
+    "CLO-03"
+   ],
+   "title": "Shared gaps filled; open sides bled",
+   "warn_text": "Shared gaps filled; open sides bled did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-B04",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "tpl.seam_de_mean_max",
+    "tpl.seam_de_max"
+   ],
+   "fm_ids": [
+    "CLO-04"
+   ],
+   "title": "Fabric seams match across region edges",
+   "warn_text": "Fabric seams match across region edges did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-B05",
+   "kind": "assert",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "tpl.limb_bands",
+    "tpl.split_margin_px"
+   ],
+   "fm_ids": [
+    "CLO-07",
+    "CLO-08"
+   ],
+   "title": "Shoes, gloves and bracelets sit inside their bands",
+   "warn_text": "Shoes, gloves and bracelets sit inside their bands did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-B06",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "tpl.semi_alpha_share_max",
+    "tpl.skin_in_clothing_de"
+   ],
+   "fm_ids": [
+    "CLO-10",
+    "CLO-11",
+    "CLO-09"
+   ],
+   "title": "Semi-alpha share inside garments",
+   "warn_text": "Semi-alpha share inside garments did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-B07",
+   "kind": "assert",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "CLO-12",
+    "CLO-15",
+    "CLO-16"
+   ],
+   "title": "Layer-stack hash; prints inside their region",
+   "warn_text": "Layer-stack hash; prints inside their region did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-B08",
+   "kind": "assert",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "CLO-05",
+    "CLO-06",
+    "CLO-17",
+    "PRM-11"
+   ],
+   "title": "Numbered-edge preview",
+   "warn_text": "Numbered-edge preview did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-B09",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "face.neck_seam_de_max",
+    "face.warp_iou_min",
+    "face.facs_stretch_max"
+   ],
+   "fm_ids": [
+    "FACE-01",
+    "FACE-12",
+    "FACE-16"
+   ],
+   "title": "Final head texture passes the face checks on all poses",
+   "warn_text": "Final head texture passes the face checks on all poses did not pass.",
+   "contract_ids": [
+    "F_NECK_SEAM"
+   ],
+   "requires": [
+    "head_base"
+   ],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-B10",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "BODY-01",
+    "BODY-02",
+    "BODY-03"
+   ],
+   "title": "Body bundle: modesty zones, budgets, names",
+   "warn_text": "Body bundle: modesty zones, budgets, names did not pass.",
+   "contract_ids": [],
+   "requires": [
+    "body_base"
+   ],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-B11",
+   "kind": "assert",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "CLO-18"
+   ],
+   "title": "Template base is transparent outside the regions",
+   "warn_text": "Template base is transparent outside the regions did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-D01",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "gate3",
+   "threshold_keys": [],
+   "fm_ids": [
+    "DUO-05",
+    "DUO-09"
+   ],
+   "title": "Render manifest complete",
+   "warn_text": "Render manifest complete did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-D02",
+   "kind": "hard",
+   "policy_class": "clone_lower_edge",
+   "stage": "gate3",
+   "threshold_keys": [
+    "duo.dreamsim_clone_min",
+    "duo.degraded_phash_clone_max",
+    "duo.degraded_palette_overlap_max",
+    "duo.degraded_spec_dist_min"
+   ],
+   "fm_ids": [
+    "DUO-01"
+   ],
+   "title": "Clone band: A and B are different enough",
+   "warn_text": "The two characters look too alike.",
+   "contract_ids": [
+    "A_CLONE"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-D03",
+   "kind": "soft",
+   "policy_class": "colour_distance",
+   "stage": "gate3",
+   "threshold_keys": [
+    "pln.anchor_colour_de_max",
+    "duo.anchor_area_min"
+   ],
+   "fm_ids": [
+    "DUO-02"
+   ],
+   "title": "Colour anchors at phone size",
+   "warn_text": "The shared colour anchor is hard to see at phone size.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-D04",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate3",
+   "threshold_keys": [
+    "duo.interpenetration_max"
+   ],
+   "fm_ids": [
+    "DUO-06"
+   ],
+   "title": "Interpenetration per view",
+   "warn_text": "Interpenetration per view did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-D05",
+   "kind": "hard",
+   "policy_class": "consistency",
+   "stage": "gate3",
+   "threshold_keys": [
+    "img.palette_de_max"
+   ],
+   "fm_ids": [
+    "DUO-07"
+   ],
+   "title": "Each part against its concept crop",
+   "warn_text": "Each part against its concept crop did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-D06",
+   "kind": "hard",
+   "policy_class": "ip",
+   "stage": "gate3",
+   "threshold_keys": [],
+   "fm_ids": [
+    "POL-01",
+    "POL-02",
+    "POL-03",
+    "POL-04",
+    "POL-06"
+   ],
+   "title": "Logo, brand, character, appropriateness and text on the renders",
+   "warn_text": "Logo, brand, character, appropriateness and text on the renders did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-D07",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate3",
+   "threshold_keys": [],
+   "fm_ids": [
+    "DUO-08",
+    "VLM-04"
+   ],
+   "title": "Duo judge ranking",
+   "warn_text": "The judge preferred another candidate.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-D08",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate3",
+   "threshold_keys": [
+    "taste.silhouette_iou_warn",
+    "duo.nearest_very_close"
+   ],
+   "fm_ids": [
+    "DUO-03",
+    "DUO-04",
+    "DUO-10",
+    "FACE-13"
+   ],
+   "title": "Phone-size colours, silhouettes, nearest past duo, hidden eyes",
+   "warn_text": "A taste warning applies to this duo.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-D09",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "gate3",
+   "threshold_keys": [],
+   "fm_ids": [
+    "ENG-01"
+   ],
+   "title": "Approval hashes still valid",
+   "warn_text": "Approval hashes still valid did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-E01",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "export",
+   "threshold_keys": [],
+   "fm_ids": [
+    "ENG-02"
+   ],
+   "title": "Manifest complete",
+   "warn_text": "Manifest complete did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-E02",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "export",
+   "threshold_keys": [],
+   "fm_ids": [
+    "ENG-01",
+    "ENG-08"
+   ],
+   "title": "Approval hashes and pinned versions",
+   "warn_text": "Approval hashes and pinned versions did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-E03",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "export",
+   "threshold_keys": [],
+   "fm_ids": [
+    "ENG-09",
+    "EXP-06"
+   ],
+   "title": "Provenance complete",
+   "warn_text": "Provenance complete did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-E04",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "export",
+   "threshold_keys": [],
+   "fm_ids": [
+    "EXP-04",
+    "MESH-19",
+    "EXP-07"
+   ],
+   "title": "Exported files re-opened and re-validated",
+   "warn_text": "Exported files re-opened and re-validated did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-E05",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "export",
+   "threshold_keys": [],
+   "fm_ids": [
+    "POL-05"
+   ],
+   "title": "Category consistent with attachment",
+   "warn_text": "Category consistent with attachment did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-E06",
+   "kind": "hard",
+   "policy_class": "security",
+   "stage": "export",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-01"
+   ],
+   "title": "Secret scan over the export",
+   "warn_text": "Secret scan over the export did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-E07",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "export",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-15"
+   ],
+   "title": "Path and slug linter",
+   "warn_text": "Path and slug linter did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-E08",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "export",
+   "threshold_keys": [],
+   "fm_ids": [
+    "EXP-01",
+    "EXP-02",
+    "EXP-03",
+    "EXP-05",
+    "EXP-08",
+    "EXP-09",
+    "EXP-10",
+    "MESH-18",
+    "BODY-04",
+    "POL-02",
+    "ACC-10"
+   ],
+   "title": "Checklist generated per item type (the Studio tests are ticked by the user)",
+   "warn_text": "Checklist generated per item type (the Studio tests are ticked by the user) did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-E09",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "export",
+   "threshold_keys": [],
+   "fm_ids": [
+    "POL-07",
+    "POL-08"
+   ],
+   "title": "Kit lineage: origin and sha256",
+   "warn_text": "Kit lineage: origin and sha256 did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G0-01",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "G0",
+   "threshold_keys": [],
+   "fm_ids": [
+    "PLN-01"
+   ],
+   "title": "Kit ids resolve and features are on the allow-lists",
+   "warn_text": "Kit ids resolve and features are on the allow-lists did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G0-02",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "G0",
+   "threshold_keys": [],
+   "fm_ids": [
+    "PLN-02",
+    "POL-05",
+    "FACE-15",
+    "FACE-16"
+   ],
+   "title": "Roblox rules in the plan",
+   "warn_text": "Roblox rules in the plan did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G0-03",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "G0",
+   "threshold_keys": [
+    "pln.anchors",
+    "pln.contrasts_min",
+    "pln.face_features_diff_min"
+   ],
+   "fm_ids": [
+    "PLN-03"
+   ],
+   "title": "Duo contract: anchors, contrasts, faces, hair, accessories",
+   "warn_text": "Duo contract: anchors, contrasts, faces, hair, accessories did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G0-04",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "G0",
+   "threshold_keys": [
+    "pln.contrast_colour_de",
+    "pln.contrast_value_dl"
+   ],
+   "fm_ids": [
+    "PLN-04"
+   ],
+   "title": "Contrasts are measurable",
+   "warn_text": "Contrasts are measurable did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-G0-05",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "G0",
+   "threshold_keys": [],
+   "fm_ids": [
+    "PLN-05"
+   ],
+   "title": "Garment-cut lint",
+   "warn_text": "Garment-cut lint did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G0-06",
+   "kind": "soft",
+   "policy_class": "colour_distance",
+   "stage": "G0",
+   "threshold_keys": [
+    "pln.contrast_colour_de",
+    "pln.anchor_colour_de_max",
+    "pln.mirror_role_de_max"
+   ],
+   "fm_ids": [
+    "PLN-06",
+    "PLN-07"
+   ],
+   "title": "Structure-profile colour rules",
+   "warn_text": "The main colours are closer (or farther) than this pair structure usually wants.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G0-07",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "G0",
+   "threshold_keys": [],
+   "fm_ids": [
+    "PLN-08",
+    "PLN-09"
+   ],
+   "title": "Plan set: three specs, one wildcard",
+   "warn_text": "Plan set: three specs, one wildcard did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G0-08",
+   "kind": "hard",
+   "policy_class": "ip",
+   "stage": "G0",
+   "threshold_keys": [],
+   "fm_ids": [
+    "PLN-12",
+    "POL-01"
+   ],
+   "title": "Banned terms and quote characters in free text",
+   "warn_text": "Banned terms and quote characters in free text did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G0-09",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "G0",
+   "threshold_keys": [
+    "pln.lash_iris_de_min"
+   ],
+   "fm_ids": [
+    "PLN-13",
+    "FACE-10"
+   ],
+   "title": "Palette integrity and lash-vs-iris contrast",
+   "warn_text": "Palette integrity and lash-vs-iris contrast did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-G0-10",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "G0",
+   "threshold_keys": [
+    "pln.acc_per_char_warn_hard"
+   ],
+   "fm_ids": [
+    "PLN-14"
+   ],
+   "title": "Accessories per character: HARD at 4 or more",
+   "warn_text": "Accessories per character: HARD at 4 or more did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-G0-10-SOFT",
+   "kind": "soft",
+   "policy_class": "restraint",
+   "stage": "G0",
+   "threshold_keys": [
+    "pln.acc_per_char_warn_hard"
+   ],
+   "fm_ids": [
+    "PLN-14"
+   ],
+   "title": "Restraint: 3 accessories, many prints or many main colours",
+   "warn_text": "This design carries a lot of separate details.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G0-11",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "G0",
+   "threshold_keys": [
+    "revise.max_rounds"
+   ],
+   "fm_ids": [
+    "PLN-10",
+    "LLM-02",
+    "PLN-17"
+   ],
+   "title": "Patches touch only allowed paths",
+   "warn_text": "Patches touch only allowed paths did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G0-12",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "G0",
+   "threshold_keys": [
+    "pln.kit_hair_iou_warn",
+    "pln.adjacent_de_min"
+   ],
+   "fm_ids": [
+    "PLN-11",
+    "PLN-13",
+    "PLN-15",
+    "PLN-16",
+    "PLN-18",
+    "HAIR-11"
+   ],
+   "title": "Kit-hair pair IoU, adjacent-area contrast, nearest past plan",
+   "warn_text": "The two hairstyles have similar outlines, or a neighbouring area has low contrast.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G1-01",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [
+    "CON-08"
+   ],
+   "title": "Concept guide geometry",
+   "warn_text": "Concept guide geometry did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G1-02",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [
+    "GEN-01",
+    "GEN-03",
+    "CON-06",
+    "POL-04"
+   ],
+   "title": "Size drift, paste-back, no text, one figure per slot",
+   "warn_text": "Size drift, paste-back, no text, one figure per slot did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G1-03",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate1",
+   "threshold_keys": [
+    "con.body_iou_min",
+    "con.volume_outside_max"
+   ],
+   "fm_ids": [
+    "CON-02"
+   ],
+   "title": "Figures keep the guide body",
+   "warn_text": "Figures keep the guide body did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-G1-04",
+   "kind": "hard",
+   "policy_class": "consistency",
+   "stage": "gate1",
+   "threshold_keys": [
+    "con.leak_area_max",
+    "con.partner_only_de"
+   ],
+   "fm_ids": [
+    "CON-01"
+   ],
+   "title": "Partner-only colours do not leak onto a figure",
+   "warn_text": "Partner-only colours do not leak onto a figure did not pass.",
+   "contract_ids": [
+    "A_LEAK"
+   ],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-G1-04-ADHERE",
+   "kind": "soft",
+   "policy_class": "colour_distance",
+   "stage": "gate1",
+   "threshold_keys": [
+    "img.palette_de_max"
+   ],
+   "fm_ids": [
+    "CON-01"
+   ],
+   "title": "Figure colours stay near the planned colours",
+   "warn_text": "A figure uses colours that are not close to the plan.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G1-05",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [
+    "CON-03"
+   ],
+   "title": "Back views have no face; front and back agree",
+   "warn_text": "Back views have no face; front and back agree did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G1-06",
+   "kind": "hard",
+   "policy_class": "ip",
+   "stage": "gate1",
+   "threshold_keys": [
+    "pol.ref_dreamsim_min",
+    "pol.ref_phash_max"
+   ],
+   "fm_ids": [
+    "POL-01",
+    "POL-02",
+    "POL-03"
+   ],
+   "title": "Logo, brand, known character, appropriateness",
+   "warn_text": "Logo, brand, known character, appropriateness did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G1-07",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [
+    "CON-07"
+   ],
+   "title": "Gate 1 shows 3 plans with the wildcard label",
+   "warn_text": "Gate 1 shows 3 plans with the wildcard label did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-G1-08",
+   "kind": "hard",
+   "policy_class": "consistency",
+   "stage": "gate1",
+   "threshold_keys": [
+    "img.final_iou_min",
+    "img.final_de_max",
+    "con.palette_snap_de"
+   ],
+   "fm_ids": [
+    "IMG-06",
+    "CON-05"
+   ],
+   "title": "Finalize drift and palette snap-or-confirm",
+   "warn_text": "Finalize drift and palette snap-or-confirm did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-G1-09",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate1",
+   "threshold_keys": [
+    "gate.max_soft_warnings"
+   ],
+   "fm_ids": [
+    "CON-04",
+    "ENG-10"
+   ],
+   "title": "Not-buildable panel and warnings",
+   "warn_text": "Some details of the drawing may not be buildable as drawn.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M01",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "upload.max_mb"
+   ],
+   "fm_ids": [
+    "SYS-04",
+    "ACC-12",
+    "MESH-14"
+   ],
+   "title": "Mesh load: size cap, magic bytes, no required extensions",
+   "warn_text": "Mesh load: size cap, magic bytes, no required extensions did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M02",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "MESH-02"
+   ],
+   "title": "One mesh, one primitive, one material, one UV set",
+   "warn_text": "One mesh, one primitive, one material, one UV set did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M03",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "mesh.tris_max",
+    "hair.tris_target"
+   ],
+   "fm_ids": [
+    "MESH-01",
+    "HAIR-07"
+   ],
+   "title": "Triangle budget",
+   "warn_text": "Triangle budget did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M04",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "mesh.normals_out_min",
+    "mesh.thickness_min"
+   ],
+   "fm_ids": [
+    "MESH-08"
+   ],
+   "title": "Watertight, outward normals, thickness",
+   "warn_text": "Watertight, outward normals, thickness did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M05",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "mesh.shells_warn",
+    "mesh.components_max"
+   ],
+   "fm_ids": [
+    "MESH-09"
+   ],
+   "title": "Shell count",
+   "warn_text": "Shell count did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M06",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "mesh.tex_warn_hard"
+   ],
+   "fm_ids": [
+    "MESH-04",
+    "HAIR-01"
+   ],
+   "title": "Opaque texture within size limits",
+   "warn_text": "Opaque texture within size limits did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M07",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "MESH-03",
+    "MESH-05"
+   ],
+   "title": "No vertex colours, emissive or metallic",
+   "warn_text": "No vertex colours, emissive or metallic did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M08",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "build",
+   "threshold_keys": [
+    "mesh.orient_iou_min"
+   ],
+   "fm_ids": [
+    "MESH-12",
+    "ACC-01"
+   ],
+   "title": "Orientation matches the approved front",
+   "warn_text": "Orientation matches the approved front did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-M09",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "MESH-06",
+    "HAIR-02"
+   ],
+   "title": "Fits the Classic accessory box",
+   "warn_text": "Fits the Classic accessory box did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M10",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "mesh.surface_area_max"
+   ],
+   "fm_ids": [
+    "MESH-07"
+   ],
+   "title": "Surface area",
+   "warn_text": "Surface area did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M11",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "mesh.coplanar_max_frac",
+    "mesh.center_offset_max",
+    "mesh.scale_min"
+   ],
+   "fm_ids": [
+    "MESH-11"
+   ],
+   "title": "Coplanar faces, centring, scale",
+   "warn_text": "Coplanar faces, centring, scale did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M12",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "build",
+   "threshold_keys": [
+    "mesh.sparse_cover_warn_fail"
+   ],
+   "fm_ids": [
+    "MESH-10"
+   ],
+   "title": "Sparse bounds and spikes",
+   "warn_text": "Sparse bounds and spikes did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-M13",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "build",
+   "threshold_keys": [
+    "acc.view_iou_min",
+    "acc.front_iou_min",
+    "acc.view_palette_de_max"
+   ],
+   "fm_ids": [
+    "ACC-07",
+    "ACC-08"
+   ],
+   "title": "Match to the approved views",
+   "warn_text": "Match to the approved views did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-M14",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "build",
+   "threshold_keys": [
+    "mesh.clip_depth_max",
+    "mesh.gap_max"
+   ],
+   "fm_ids": [
+    "MESH-16",
+    "HAIR-06"
+   ],
+   "title": "Fit on the mannequin with the chosen hair",
+   "warn_text": "Fit on the mannequin with the chosen hair did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-M15",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "MESH-15"
+   ],
+   "title": "UVs and look survive decimation",
+   "warn_text": "UVs and look survive decimation did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M16",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "ACC-09",
+    "ACC-10",
+    "ACC-11"
+   ],
+   "title": "Manual import matches the tile; licence recorded",
+   "warn_text": "Manual import matches the tile; licence recorded did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M17",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "HAIR-10"
+   ],
+   "title": "Hair recolour bands match the spec colours",
+   "warn_text": "Hair recolour bands match the spec colours did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M18",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "HAIR-05",
+    "ACC-14",
+    "ACC-16",
+    "MESH-17"
+   ],
+   "title": "Flat card, lighting ramp, shading bands, vertex density",
+   "warn_text": "The mesh may look flat or unevenly lit.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M19",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [
+    "MESH-13"
+   ],
+   "title": "Exporter round trip with the asymmetric F",
+   "warn_text": "Exporter round trip with the asymmetric F did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M20",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "slab.thickness_min",
+    "slab.extent_ratio_min",
+    "slab.back_mirror_phash_min"
+   ],
+   "fm_ids": [
+    "ACC-17",
+    "ACC-18"
+   ],
+   "title": "Sticker slab rules",
+   "warn_text": "Sticker slab rules did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-M21",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "build",
+   "threshold_keys": [
+    "hair.guide_texel_share_max",
+    "hair.front_face_visible_min"
+   ],
+   "fm_ids": [
+    "HAIR-12"
+   ],
+   "title": "Hair mesh has no leftover guide head",
+   "warn_text": "Hair mesh has no leftover guide head did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "CHK-P01",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "call",
+   "threshold_keys": [],
+   "fm_ids": [
+    "PRM-01",
+    "PRM-10"
+   ],
+   "title": "Prompt lint",
+   "warn_text": "Prompt lint did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-P02",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "call",
+   "threshold_keys": [],
+   "fm_ids": [
+    "GEN-01",
+    "GEN-02",
+    "GEN-04",
+    "GEN-06",
+    "GEN-07",
+    "GEN-08"
+   ],
+   "title": "OpenAI pre-flight",
+   "warn_text": "OpenAI pre-flight did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-P03",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "call",
+   "threshold_keys": [],
+   "fm_ids": [
+    "GEN-09"
+   ],
+   "title": "Recraft pre-flight",
+   "warn_text": "Recraft pre-flight did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-P04",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "call",
+   "threshold_keys": [],
+   "fm_ids": [
+    "ACC-02",
+    "ACC-13",
+    "ENG-03"
+   ],
+   "title": "Tripo pre-flight",
+   "warn_text": "Tripo pre-flight did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-P05",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "call",
+   "threshold_keys": [],
+   "fm_ids": [
+    "LLM-03",
+    "VLM-01"
+   ],
+   "title": "Claude pre-flight",
+   "warn_text": "Claude pre-flight did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-P06",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "call",
+   "threshold_keys": [
+    "budget.per_duo_usd"
+   ],
+   "fm_ids": [
+    "ENG-05",
+    "GEN-13"
+   ],
+   "title": "Budget estimate fits the remaining budget",
+   "warn_text": "The estimated cost is above the remaining budget, so a budget gate opens.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-P07",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "call",
+   "threshold_keys": [],
+   "fm_ids": [
+    "ENG-04"
+   ],
+   "title": "Cache key covers every output-affecting field",
+   "warn_text": "Cache key covers every output-affecting field did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-P08",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "call",
+   "threshold_keys": [],
+   "fm_ids": [
+    "GEN-01",
+    "GEN-05",
+    "ENG-09",
+    "PRM-13"
+   ],
+   "title": "OpenAI post-call size and bookkeeping",
+   "warn_text": "OpenAI post-call size and bookkeeping did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-P09",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "call",
+   "threshold_keys": [],
+   "fm_ids": [
+    "LLM-01",
+    "LLM-02",
+    "LLM-06",
+    "LLM-07",
+    "VLM-03",
+    "GEN-12"
+   ],
+   "title": "Claude / Gemini post-call validation",
+   "warn_text": "Claude / Gemini post-call validation did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-P10",
+   "kind": "assert",
+   "policy_class": "security",
+   "stage": "call",
+   "threshold_keys": [
+    "upload.max_mb"
+   ],
+   "fm_ids": [
+    "ACC-05",
+    "ACC-06",
+    "GEN-09",
+    "GEN-11"
+   ],
+   "title": "Download hygiene",
+   "warn_text": "Download hygiene did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-P11",
+   "kind": "assert",
+   "policy_class": "security",
+   "stage": "call",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-23"
+   ],
+   "title": "Privacy of provider calls",
+   "warn_text": "Privacy of provider calls did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-P12",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "call",
+   "threshold_keys": [
+    "vlm.costly_votes"
+   ],
+   "fm_ids": [
+    "VLM-07"
+   ],
+   "title": "Three-vote majority before a costly step",
+   "warn_text": "Three-vote majority before a costly step did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S01",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-05"
+   ],
+   "title": "Unicode paths round-trip through OpenCV and Pillow",
+   "warn_text": "Unicode paths round-trip through OpenCV and Pillow did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S02",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-06"
+   ],
+   "title": "UTF-8 files and subprocess text round-trip",
+   "warn_text": "UTF-8 files and subprocess text round-trip did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S03",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-10"
+   ],
+   "title": "Python environment is the supported one",
+   "warn_text": "Python environment is the supported one did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S04",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-08",
+    "SYS-09",
+    "SYS-21"
+   ],
+   "title": "Native components load",
+   "warn_text": "A native component (OCR, OpenCV, SVG renderer or mesh tools) failed to load, so checks that need it fail closed.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S05",
+   "kind": "hard",
+   "policy_class": "security",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-07"
+   ],
+   "title": "TLS trust store and provider handshakes",
+   "warn_text": "TLS trust store and provider handshakes did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S06",
+   "kind": "assert",
+   "policy_class": "security",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-02",
+    "SYS-12"
+   ],
+   "title": "Local-only binding and host/origin checks",
+   "warn_text": "Local-only binding and host/origin checks did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S07",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-13",
+    "ENG-11"
+   ],
+   "title": "Static file MIME types and no-store index",
+   "warn_text": "Static file MIME types and no-store index did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S08",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-14",
+    "SYS-15"
+   ],
+   "title": "Data folder writable, safe paths",
+   "warn_text": "Data folder writable, safe paths did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S09",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-11"
+   ],
+   "title": "Blender version and colour chart",
+   "warn_text": "Blender version and colour chart did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S10",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "LLM-03",
+    "LLM-04"
+   ],
+   "title": "Claude capabilities and schema smoke test",
+   "warn_text": "Claude capabilities and schema smoke test did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S11",
+   "kind": "hard",
+   "policy_class": "integrity",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "PLN-01",
+    "PRM-06"
+   ],
+   "title": "Kit manifest loads, kit enums build, colour dictionary has no banned term",
+   "warn_text": "Kit manifest loads, kit enums build, colour dictionary has no banned term did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S12",
+   "kind": "assert",
+   "policy_class": "security",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-01",
+    "SYS-20"
+   ],
+   "title": "Log redaction self-test and key length limit",
+   "warn_text": "Log redaction self-test and key length limit did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S13",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-19"
+   ],
+   "title": "No module shadows the standard library",
+   "warn_text": "No module shadows the standard library did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S14",
+   "kind": "soft",
+   "policy_class": "buildability",
+   "stage": "startup",
+   "threshold_keys": [
+    "dreamsim.fixture_tol"
+   ],
+   "fm_ids": [
+    "DUO-01",
+    "SYS-08"
+   ],
+   "title": "DreamSim ONNX model loads and matches the fixture pair",
+   "warn_text": "The DreamSim model is missing or not verified, so the clone check runs in degraded mode.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-S15",
+   "kind": "soft",
+   "policy_class": "buildability",
+   "stage": "startup",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-08"
+   ],
+   "title": "Kit availability flags (head base, body base, house style, hair kit)",
+   "warn_text": "A kit is not installed, so that part runs in its reduced mode.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-X01",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "always",
+   "threshold_keys": [],
+   "fm_ids": [
+    "ENG-06",
+    "ENG-03"
+   ],
+   "title": "Startup recovery",
+   "warn_text": "Startup recovery did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-X02",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "always",
+   "threshold_keys": [],
+   "fm_ids": [
+    "ENG-07"
+   ],
+   "title": "Remote poll timeout never resubmits",
+   "warn_text": "Remote poll timeout never resubmits did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-X03",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "always",
+   "threshold_keys": [],
+   "fm_ids": [
+    "ENG-12"
+   ],
+   "title": "GC refuses referenced assets",
+   "warn_text": "GC refuses referenced assets did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-X04",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "always",
+   "threshold_keys": [],
+   "fm_ids": [
+    "LLM-05",
+    "LLM-08",
+    "LLM-09",
+    "LLM-10"
+   ],
+   "title": "LLM hygiene",
+   "warn_text": "LLM hygiene did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-X05",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "always",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-16",
+    "SYS-17"
+   ],
+   "title": "Responsiveness and shutdown",
+   "warn_text": "Responsiveness and shutdown did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-X06",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "always",
+   "threshold_keys": [],
+   "fm_ids": [
+    "SYS-08",
+    "SYS-18",
+    "SYS-19",
+    "SYS-22"
+   ],
+   "title": "CI on Windows",
+   "warn_text": "CI on Windows did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "CHK-X07",
+   "kind": "assert",
+   "policy_class": "integrity",
+   "stage": "always",
+   "threshold_keys": [],
+   "fm_ids": [
+    "ENG-13"
+   ],
+   "title": "SQLite concurrency",
+   "warn_text": "SQLite concurrency did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "DUO-03",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate3",
+   "threshold_keys": [
+    "duo.thumb_height_px"
+   ],
+   "fm_ids": [
+    "DUO-03"
+   ],
+   "title": "Phone-size top colours",
+   "warn_text": "The planned main colour is not among the top colours at phone size.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "DUO-04",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate3",
+   "threshold_keys": [
+    "taste.silhouette_iou_warn",
+    "taste.acc_min_px"
+   ],
+   "fm_ids": [
+    "DUO-04"
+   ],
+   "title": "A-vs-B hair and accessory silhouette",
+   "warn_text": "The two hair and accessory outlines are very similar, or an accessory is tiny at phone size.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "DUO-10",
+   "kind": "soft",
+   "policy_class": "novelty",
+   "stage": "gate3",
+   "threshold_keys": [
+    "duo.nearest_very_close"
+   ],
+   "fm_ids": [
+    "DUO-10"
+   ],
+   "title": "Nearest past duo",
+   "warn_text": "This duo looks very close to a past one.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "FACE-13",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate3",
+   "threshold_keys": [],
+   "fm_ids": [
+    "FACE-13"
+   ],
+   "title": "Eyes or brows hidden by hair",
+   "warn_text": "Hair may cover the eyes or brows.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "F_AB_FACE_DIFF",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "pln.face_features_diff_min"
+   ],
+   "fm_ids": [
+    "FACE-11"
+   ],
+   "title": "A and B faces differ in at least 3 of 7 features",
+   "warn_text": "A and B faces differ in at least 3 of 7 features did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "F_BLINK_IRIS",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "build",
+   "threshold_keys": [
+    "face.blink_iris_px_max"
+   ],
+   "fm_ids": [
+    "FACE-03"
+   ],
+   "title": "No iris pixels in the blink render",
+   "warn_text": "Iris shows through when the eyes close.",
+   "contract_ids": [],
+   "requires": [
+    "head_base"
+   ],
+   "demotable": false
+  },
+  {
+   "check_id": "F_CATCHLIGHT",
+   "kind": "assert",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.catchlight_tol_px"
+   ],
+   "fm_ids": [
+    "FACE-04"
+   ],
+   "title": "Catchlights sit on the same side in both eyes",
+   "warn_text": "Catchlights sit on the same side in both eyes did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "F_FACE_2D",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [
+    "FACE-01",
+    "FACE-02",
+    "FACE-03"
+   ],
+   "title": "2D face canvas profile (no head base)",
+   "warn_text": "2D face canvas profile (no head base) did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "F_LASH_LID_SPLIT",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "pln.lash_iris_de_min"
+   ],
+   "fm_ids": [
+    "FACE-10"
+   ],
+   "title": "Lash is on the lid layer only; eyeball layer has none",
+   "warn_text": "Lash is on the lid layer only; eyeball layer has none did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "F_LID_COVERS",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.lid_cover_min",
+    "face.blink_iris_px_max"
+   ],
+   "fm_ids": [
+    "FACE-03"
+   ],
+   "title": "Closed-lid layer covers the eye opening (2D blink preview)",
+   "warn_text": "The eyes do not fully close in the blink preview.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "F_LINE_COLOURS",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.line_colours",
+    "face.lid_shade_alpha_max"
+   ],
+   "fm_ids": [
+    "FACE-01"
+   ],
+   "title": "Line features are single-colour; no stray face paint",
+   "warn_text": "Lashes, brows or lips use more than one colour.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "F_LINE_SKIN",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.line_skin_de_min",
+    "face.line_edge_ring_de_max",
+    "face.stroke_px_min",
+    "face.stroke_px_min_2x_down",
+    "face.skin_tones"
+   ],
+   "fm_ids": [
+    "FACE-06"
+   ],
+   "title": "Lines stay visible on all 5 skin tones",
+   "warn_text": "Some face lines are hard to see on at least one skin tone.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "F_MOUTH_INTERIOR",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.mouth_inner_min_alpha"
+   ],
+   "fm_ids": [
+    "FACE-14"
+   ],
+   "title": "Open-mouth interior is painted",
+   "warn_text": "Open-mouth interior is painted did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "F_NECK_SEAM",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "build",
+   "threshold_keys": [
+    "face.neck_seam_de_max"
+   ],
+   "fm_ids": [
+    "FACE-12"
+   ],
+   "title": "Head and torso colours match at the neck",
+   "warn_text": "Head and torso colours match at the neck did not pass.",
+   "contract_ids": [
+    "CHK-B09"
+   ],
+   "requires": [
+    "head_base"
+   ],
+   "demotable": false
+  },
+  {
+   "check_id": "F_NO_HAIR",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.hair_on_head_area_max",
+    "face.nonfeature_alpha_max"
+   ],
+   "fm_ids": [
+    "FACE-16"
+   ],
+   "title": "No hair or hairline on the head texture",
+   "warn_text": "No hair or hairline on the head texture did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "F_SHADING",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.blush_l_max",
+    "face.blush_alpha_max",
+    "face.lid_shade_alpha_max"
+   ],
+   "fm_ids": [
+    "FACE-07"
+   ],
+   "title": "Shading and blush darken every skin tone",
+   "warn_text": "Shading or blush makes a dark skin tone lighter.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": true
+  },
+  {
+   "check_id": "F_SIDE_NAMING",
+   "kind": "assert",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [
+    "FACE-09",
+    "PRM-11"
+   ],
+   "title": "Eye and brow sides use image-space naming",
+   "warn_text": "Eye and brow sides use image-space naming did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "F_SKIN_TRANSPARENT",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.skin_alpha_zero_min"
+   ],
+   "fm_ids": [
+    "FACE-12"
+   ],
+   "title": "Skin zone of the face texture is transparent",
+   "warn_text": "Skin zone of the face texture is transparent did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "F_STRETCH",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "build",
+   "threshold_keys": [
+    "face.facs_stretch_max"
+   ],
+   "fm_ids": [
+    "FACE-08"
+   ],
+   "title": "Features do not smear under face poses",
+   "warn_text": "Features do not smear under face poses did not pass.",
+   "contract_ids": [],
+   "requires": [
+    "head_base"
+   ],
+   "demotable": true
+  },
+  {
+   "check_id": "F_WARP_IOU",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "build",
+   "threshold_keys": [
+    "face.warp_iou_min"
+   ],
+   "fm_ids": [
+    "FACE-05"
+   ],
+   "title": "Warped face matches the canvas",
+   "warn_text": "Warped face matches the canvas did not pass.",
+   "contract_ids": [],
+   "requires": [
+    "head_base"
+   ],
+   "demotable": true
+  },
+  {
+   "check_id": "F_ZONES",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "gate2",
+   "threshold_keys": [
+    "face.zone_inside_min"
+   ],
+   "fm_ids": [
+    "FACE-02"
+   ],
+   "title": "Feature pixels stay inside their canvas zones",
+   "warn_text": "Face paint is outside the landmark zones.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "PLN-15",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "G0",
+   "threshold_keys": [
+    "pln.kit_hair_iou_warn",
+    "taste.silhouette_iou_warn"
+   ],
+   "fm_ids": [
+    "PLN-15"
+   ],
+   "title": "Hair silhouettes of A and B",
+   "warn_text": "The two hairstyles have similar outlines.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "PLN-DNA-01",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "G0",
+   "threshold_keys": [
+    "pln.dna_char_diff_min"
+   ],
+   "fm_ids": [
+    "PLN-DNA-01"
+   ],
+   "title": "A and B differ in at least 2 CHARACTER DNA fields",
+   "warn_text": "A and B differ in at least 2 CHARACTER DNA fields did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "PLN-STR-01",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "G0",
+   "threshold_keys": [],
+   "fm_ids": [
+    "PLN-STR-01"
+   ],
+   "title": "Pair structure follows the brief and the plan-set rule",
+   "warn_text": "Pair structure follows the brief and the plan-set rule did not pass.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "TASTE_DETAIL",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "G0",
+   "threshold_keys": [],
+   "fm_ids": [
+    "PLN-14"
+   ],
+   "title": "Detail level versus detail count",
+   "warn_text": "The number of details does not match the detail level.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "TASTE_LAYOUT",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "build",
+   "threshold_keys": [
+    "taste.layout_ari_warn"
+   ],
+   "fm_ids": [
+    "DUO-04"
+   ],
+   "title": "Garment layout similarity A vs B",
+   "warn_text": "The two garments have a very similar colour-block layout.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "TASTE_RATIO",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "build",
+   "threshold_keys": [
+    "taste.plan_ratio_share_off"
+   ],
+   "fm_ids": [
+    "DUO-03"
+   ],
+   "title": "Declared colour plan versus built shares",
+   "warn_text": "The built colour shares differ from the declared plan.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "ac_flat_light",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule ac_flat_light",
+   "warn_text": "Lighting is soft and even, with no strong shine, reflections or cast shadow.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "ac_front_ortho",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule ac_front_ortho",
+   "warn_text": "The object is shown from straight in front with no perspective tilt.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "ac_matches_concept",
+   "kind": "hard",
+   "policy_class": "consistency",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule ac_matches_concept",
+   "warn_text": "The object matches the accessory in the reference crop in shape, parts and colours.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "ac_no_thin_parts",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule ac_no_thin_parts",
+   "warn_text": "The object has no thin strings, chains, rings, holes, spikes or loose floating pieces.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "ac_single_object",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule ac_single_object",
+   "warn_text": "Exactly one object is shown, whole, centred, with nothing cropped.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "bd_compact_outline",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule bd_compact_outline",
+   "warn_text": "The artwork forms one compact shape with a smooth outer edge.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "cn_accessories_listed",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule cn_accessories_listed",
+   "warn_text": "The only accessories visible are: {accessory list}.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "cn_back_view",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule cn_back_view",
+   "warn_text": "The right figure is seen from behind: no eyes or mouth are visible, and the back of the hair and clothing is shown.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "cn_blocky_body",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule cn_blocky_body",
+   "warn_text": "The figures keep the blocky body from the guide: a cube head, a box torso, and straight box arms and legs.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "cn_flat_clothing",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule cn_flat_clothing",
+   "warn_text": "Clothing is flat artwork on the boxes; nothing (skirt, cape, sleeve, ruffle) sticks out past the body boxes.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "cn_front_face",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule cn_front_face",
+   "warn_text": "The left figure shows a flat 2D anime-style face (eyes and mouth) on the front of the cube head.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "cn_hair_in_box",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule cn_hair_in_box",
+   "warn_text": "The hair stays within about one head-height below the head and within one head-width to each side.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "cn_restraint",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule cn_restraint",
+   "warn_text": "The design reads clearly at a glance; there are no scattered small decorations.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "cn_views_match",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule cn_views_match",
+   "warn_text": "Both figures wear the same outfit, hair colour, hairstyle and accessories.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "dj_anchor_visible",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule dj_anchor_visible",
+   "warn_text": "{anchor} is visible on both characters in the front views.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "dj_no_leak",
+   "kind": "hard",
+   "policy_class": "consistency",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule dj_no_leak",
+   "warn_text": "Character B does not wear {A signature item} and character A does not wear {B signature item}.\" Code builds the item lists from the spec: only items one charact",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "dj_not_clones",
+   "kind": "hard",
+   "policy_class": "clone_lower_edge",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule dj_not_clones",
+   "warn_text": "The two characters are easy to tell apart at a glance by hair shape and outfit.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "dj_same_world",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate1",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule dj_same_world",
+   "warn_text": "The two characters look like they belong to the same world (matching drawing style and related colours or motifs).",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fb_flat_even",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fb_flat_even",
+   "warn_text": "The texture is a flat, evenly lit fabric surface filling the whole image, with no objects, folds or seams.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fb_greyscale",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fb_greyscale",
+   "warn_text": "The image is neutral grey only, with no colour tint.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fh_expression_reads",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fh_expression_reads",
+   "warn_text": "The happy render looks happy and the sad render looks sad.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fh_eyes_covered",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fh_eyes_covered",
+   "warn_text": "In the blink render, no iris or eye-white is visible; only the eyelid shows.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fh_lines_visible",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fh_lines_visible",
+   "warn_text": "On every skin tone shown, the lash lines, brows and mouth are clearly visible.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fh_matches_concept",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fh_matches_concept",
+   "warn_text": "The face matches the reference face crop in eye shape, iris style, brows and mouth.\" (the neutral render beside the concept face crop; R1, the default face rout",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fh_no_smear",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fh_no_smear",
+   "warn_text": "In every pose, the painted features keep their shape (no stretching or tearing).",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fh_symmetric",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fh_symmetric",
+   "warn_text": "Ignoring the white highlight dots and the mouth, the two eyes and brows are mirror images in shape and position.\" (catchlights are deliberately not mirrored, D2",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fp_front_view",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fp_front_view",
+   "warn_text": "The {part} is drawn straight-on (front view), not tilted or in three-quarter view.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fp_no_highlight",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fp_no_highlight",
+   "warn_text": "The iris has no white highlight dots or shine marks.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fp_one_line_colour",
+   "kind": "hard",
+   "policy_class": "roblox",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fp_one_line_colour",
+   "warn_text": "All lines of the {part} are one single flat colour.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fp_orientation",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fp_orientation",
+   "warn_text": "The {part}'s outer end is at the right side of the image and its inner end toward the centre-left.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fp_shape_word",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fp_shape_word",
+   "warn_text": "The {part} matches this description: {grammar phrase}.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fp_single_feature",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fp_single_feature",
+   "warn_text": "Only one {part} is shown, with no other facial features, skin or head.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fp_style_match",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fp_style_match",
+   "warn_text": "The line weight and shapes match the style sheet's face parts.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "fp_thick_shapes",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule fp_thick_shapes",
+   "warn_text": "Lines are thick and chunky, with no hair-thin strokes.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "gm_matches_concept",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate3",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule gm_matches_concept",
+   "warn_text": "The flat front/back shows the same garment design as the concept figure.\" (the flat tile beside the figure crop: block layout, trims and painted details that th",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "gm_print_placed",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate3",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule gm_print_placed",
+   "warn_text": "{print} sits at {region phrase} and is not cut by a body-part edge.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "gm_seams_continuous",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate3",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule gm_seams_continuous",
+   "warn_text": "Patterns and bands line up across the edges between the front, sides and back.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "gm_shoes_read",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate3",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule gm_shoes_read",
+   "warn_text": "The shoes read as shoes, separate from the trousers.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "hr_bangs_clear",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule hr_bangs_clear",
+   "warn_text": "If there are bangs, they end above where the eyes would be (upper part of the head's front); otherwise the forehead is bare.\" (a no-fringe style, `fringe_id: no",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "hr_chunky",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule hr_chunky",
+   "warn_text": "The hair is made of large chunky clumps, not thin strands.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "hr_front_ortho",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule hr_front_ortho",
+   "warn_text": "The hair is seen straight-on from the front, level and without perspective.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "hr_head_unchanged",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule hr_head_unchanged",
+   "warn_text": "The grey head keeps its exact cube shape, size and position.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "hr_matches_concept",
+   "kind": "hard",
+   "policy_class": "consistency",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule hr_matches_concept",
+   "warn_text": "The hairstyle matches the reference hairstyle in shape, length and parting.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "hr_no_face",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule hr_no_face",
+   "warn_text": "No eyes, mouth or other facial features are drawn.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "hr_volume_readable",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule hr_volume_readable",
+   "warn_text": "The hair looks like a solid 3D volume, not a flat paper cut-out.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "ip_age_appropriate",
+   "kind": "hard",
+   "policy_class": "ip",
+   "stage": "always",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule ip_age_appropriate",
+   "warn_text": "Clothing covers torso and hips as everyday casual wear; nothing is suggestive, revealing, violent, or crude, and no hate or drug symbols appear.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "ip_no_brand",
+   "kind": "hard",
+   "policy_class": "ip",
+   "stage": "always",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule ip_no_brand",
+   "warn_text": "No logo, brand mark, trademark-like symbol, mascot of a company, or platform icon is visible anywhere.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "ip_no_known_character",
+   "kind": "hard",
+   "policy_class": "ip",
+   "stage": "always",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule ip_no_known_character",
+   "warn_text": "Nothing depicts or closely imitates a well-known character from games, anime, films, cartoons or toys.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "ip_no_text",
+   "kind": "hard",
+   "policy_class": "stray_text",
+   "stage": "always",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule ip_no_text",
+   "warn_text": "No letters, numbers, words or letter-like marks (in any script) are visible.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "m3_front_matches",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule m3_front_matches",
+   "warn_text": "The rendered front view matches the approved front view in silhouette, parts and colours.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "m3_no_fragments",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule m3_no_fragments",
+   "warn_text": "There are no floating fragments, holes or broken thin parts.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "m3_sides_match",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule m3_sides_match",
+   "warn_text": "The rendered side and back views match the approved views.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "m3_texture_clean",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "build",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule m3_texture_clean",
+   "warn_text": "The surface colours are clean and flat, without smears, baked shine or dark blotches.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "mv_back_plausible",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule mv_back_plausible",
+   "warn_text": "The back view is a believable back of the front design (no face, no front print showing through).",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "mv_no_new_parts",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule mv_no_new_parts",
+   "warn_text": "No view adds parts that are absent from the front view and plausible from the concept.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "mv_same_object",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule mv_same_object",
+   "warn_text": "All four views show the same object (or hairstyle) with the same parts, colours and proportions.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "mv_view_direction",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule mv_view_direction",
+   "warn_text": "In the {view} image, the object's front faces the image's {expected} side.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "pr_flat_front",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule pr_flat_front",
+   "warn_text": "The graphic is flat, straight-on artwork, not drawn on clothing or in perspective.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "pr_matches_concept",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule pr_matches_concept",
+   "warn_text": "The graphic matches the print in the reference crop in motif and colours.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "pr_motif_matches",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule pr_motif_matches",
+   "warn_text": "The graphic depicts {motif}.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "pr_readable_small",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule pr_readable_small",
+   "warn_text": "At this small size (the 100-px version), the motif is still recognisable.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "pr_single_graphic",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule pr_single_graphic",
+   "warn_text": "Exactly one graphic is shown, whole and centred, with empty space around it.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "rs_not_copied",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule rs_not_copied",
+   "warn_text": "The candidate does not reproduce the reference's specific outfit, print, hairstyle or character; shared general style is fine.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "sh_outline_kept",
+   "kind": "hard",
+   "policy_class": "buildability",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule sh_outline_kept",
+   "warn_text": "The grey panel keeps exactly the same outline as the input.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  },
+  {
+   "check_id": "sh_soft_folds",
+   "kind": "soft",
+   "policy_class": "taste",
+   "stage": "gate2",
+   "threshold_keys": [],
+   "fm_ids": [],
+   "title": "Gate B rule sh_soft_folds",
+   "warn_text": "The shading shows a few large soft folds, not busy wrinkles.",
+   "contract_ids": [],
+   "requires": [],
+   "demotable": false
+  }
+ ]
+}

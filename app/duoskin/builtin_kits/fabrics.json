@@ -1,0 +1,16 @@
+{
+ "version": 1,
+ "_notes": "Built-in procedural fabric tiles (imaging/fabric.py generates them deterministically; no user kit needed). amplitude_dL is the peak-to-peak lightness swing in L* applied at gradient-map time (cap: thresholds fabric amplitude 6 L*). px_per_repeat is template pixels per weave repeat; repeats is the weave repeats across the tile width.",
+ "fabrics": {
+  "jersey_plain":   {"material_family": "jersey",    "kind": "knit_v",   "seed": 101, "size": 256, "repeats": 24, "px_per_repeat": 3.0, "amplitude_dL": 5.0, "prompt_phrase": "smooth cotton jersey knit"},
+  "knit_rib":       {"material_family": "knit",      "kind": "knit_rib", "seed": 102, "size": 256, "repeats": 16, "px_per_repeat": 4.0, "amplitude_dL": 5.5, "prompt_phrase": "chunky ribbed knit"},
+  "twill_fine":     {"material_family": "twill",     "kind": "twill",    "seed": 103, "size": 256, "repeats": 24, "px_per_repeat": 3.0, "amplitude_dL": 4.0, "prompt_phrase": "fine cotton twill"},
+  "denim_classic":  {"material_family": "denim",     "kind": "denim",    "seed": 104, "size": 256, "repeats": 24, "px_per_repeat": 3.5, "amplitude_dL": 6.0, "prompt_phrase": "classic indigo denim"},
+  "fleece_soft":    {"material_family": "fleece",    "kind": "fleece",   "seed": 105, "size": 256, "repeats": 8,  "px_per_repeat": 6.0, "amplitude_dL": 4.0, "prompt_phrase": "soft brushed fleece"},
+  "nylon_smooth":   {"material_family": "nylon",     "kind": "nylon",    "seed": 106, "size": 256, "repeats": 8,  "px_per_repeat": 6.0, "amplitude_dL": 3.0, "prompt_phrase": "smooth ripstop nylon"},
+  "wool_felt":      {"material_family": "knit",      "kind": "wool",     "seed": 107, "size": 256, "repeats": 8,  "px_per_repeat": 6.0, "amplitude_dL": 5.0, "prompt_phrase": "felted wool"},
+  "canvas_plain":   {"material_family": "canvas",    "kind": "canvas",   "seed": 108, "size": 256, "repeats": 24, "px_per_repeat": 3.0, "amplitude_dL": 5.0, "prompt_phrase": "plain cotton canvas"},
+  "leather_pebble": {"material_family": "canvas",    "kind": "leather",  "seed": 109, "size": 256, "repeats": 8,  "px_per_repeat": 6.0, "amplitude_dL": 6.0, "prompt_phrase": "pebbled leather"},
+  "corduroy_fine":  {"material_family": "corduroy",  "kind": "corduroy", "seed": 110, "size": 256, "repeats": 16, "px_per_repeat": 4.0, "amplitude_dL": 6.0, "prompt_phrase": "fine corduroy"}
+ }
+}

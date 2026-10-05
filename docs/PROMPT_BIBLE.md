@@ -1,6 +1,12 @@
 # DuoSkin Studio: Prompt Bible
 
-`docs/PROMPT_BIBLE.md` · version 1.1 · 2026-09-29 · Status: the single source of truth for every prompt and every generation call in the app.
+`docs/PROMPT_BIBLE.md` · version 1.2 · 2026-10-05 · Status: the single source of truth for every prompt and every generation call in the app.
+
+**Changes in v1.2** (design-study critique applied; the PROPOSAL_DECISION safeguards are unchanged: split DNA card, at most 2 DNA fields per image prompt, at most 5 constraints, rotating structures, warnings-only taste checks, sliding-window registries):
+- **Plan loop:** exactly one wildcard in every case; `brief_constraints`, PLN-DNA-01, the lash-versus-iris rule and the structure-profile table added to C1 and the planner; `<avoid>` limited to this session; A_LEAK and dj_no_leak keyed by structure profile (partner-only colours).
+- **New steps and templates:** L15 concept inventory; I1e (concept edit), I1f, I1b, I1j, I1p, I4k, I5g; the `*e` edit variants and the I11 global form; frame guides; the S0 bootstrap with fixtures and a ratings route; phrase maps and `Hair.parting`.
+- **Checks:** concept-level and Gate 2 clone band; IP calls on faces, hair and composites; change-aware `*_matches_concept` plus `fh_`/`gm_matches_concept`; the `not_applicable` status and the no-head-base profile; `approval_hash` versus `build_hash`; `hair.register` and CHK-M21; DreamSim model source and degraded mode.
+- **Calls:** at most 4 images per request (`n_total` above 4 is split); R1 pixel sizes; per-route Tripo bodies; Tripo views never transformed; prompt fixes for I1, I3, I4, I5; registries register at the Gate 3 pick; the variety guard rejects only a drop above about 5%.
 
 **Changes in v1.1** (re-checked against the seven fact-checked research reports and the local sources):
 - Failure references now use the stable **FAILURE_MODES IDs** (`CON-01`, `FACE-06`, …). The red-team report's own `R##` numbers changed between report versions (for example R79 is "custom body UVs" in the fact-checked report but "finalize drift" in FAILURE_MODES' source column), so this bible no longer cites `R##` numbers.
@@ -24,18 +30,18 @@ Code must not send a prompt to any model unless the prompt comes from a template
 **Companion documents**
 - `docs/PROPOSAL_DECISION.md` is **binding**. It defines the DNA card (world and character fields), the pair structures, the rule of at most 2 DNA fields per image prompt, the hard/soft check split, the wildcard plan, and the sliding-window registries. This bible implements it.
 - `docs/FAILURE_MODES.md`: the failure catalogue and the **single threshold registry** (`duoskin/checks/thresholds.py`, its §4). Failure IDs in this bible (`CON-01`, `GEN-02`, `FACE-06`, …) are FAILURE_MODES IDs. **Where a number in this bible differs from `thresholds.py`, `thresholds.py` wins.** The numbers here state the design intent.
-- `docs/APP_SPEC.md` (to be written) covers modules, the job engine, the UI and storage. This bible only covers what is sent to models and how the replies are judged.
+- `docs/APP_SPEC.md` covers modules, the job engine, the UI and storage. This bible only covers what is sent to models and how the replies are judged.
 
 **Where each user requirement is enforced**
 
 | # | Requirement | Enforced by (sections) |
 |---|---|---|
-| 1 | Coherent 2-character sets for bb/gg/bg/gb; together but never clones | `combo` + presentation lint (§9.4 #4); duo contract, face-grammar ≥3 rule, garment cut lint (§4, §6.2, §9.4); clone band (§17.1); dj_* rules (§7.2) |
+| 1 | Coherent 2-character sets for bb/gg/bg/gb; together but never clones | `combo` + presentation lint (§9.4 #4); duo contract, face-grammar ≥3 rule, garment cut lint, ≥2 CHARACTER DNA differences (§4, §6.2, §9.4); clone band at Gate 1 (§10.2), before BUILD (§11.10) and after it (§17.1); dj_* rules (§7.2) |
 | 2 | Mostly 2D, 3D only when needed; quality textures; no generic AI look, no random details, no excess accessories | Recipe compositor with fabric, folds, seams (§6); code draws layout (U7); restraint + accessory ceiling (§9.4 #14–16); I-step house style blocks (§5.2); IMG-09 checks |
 | 3 | Different faces, never the same AI face twice; different hair, outfits, accessories, colours, silhouettes; accessories complement | Face grammar + registry window (§4); hair-pair IoU lint; accessory "complement, never repeat" lint (§9.4 #16); A_PHASH / DreamSim (§7.1, §17.1) |
-| 4 | Consistency reference → concept → parts → final | Per-duo style sheet + concept crops as references (§5.3, §8.3); palette lock after Gate 1 (§10.4); A_DRIFT (§2.7); `*_matches_concept` rules (§7.2); m3_* view match (§15.3) |
+| 4 | Consistency reference → concept → parts → final | Per-duo style sheet + concept crops as references (§5.3, §8.3); palette lock after Gate 1 (§10.4); A_DRIFT (§2.7); `*_matches_concept` rules and their change-aware reference (§7.2, §10.5); concept inventory L15 (§10.6); m3_* view match (§15.3) |
 | 5 | Everything self-made; design focus | No catalogue items anywhere; kits are human-made (§8.1.4); export checklist only |
-| 6 | Plan first; Gates 1–3 before spending; reimagine / change per part | Plan loop §9 (text only); Gate 1 §10; Gate 2 §11–§14; Gate 3 §17; gate actions §18; L7 change interpreter |
+| 6 | Plan first; Gates 1–3 before spending; reimagine / change per part | Plan loop §9 (text only); Gate 1 §10; Gate 2 §11–§14; Gate 3 §17; gate actions §18; L7 change interpreter and the I1e / `*e` edit variants (§10.5, §10.7) |
 | 7 | Reference-similarity only when switched on; logo/brand/character always on | L14 toggle (§17.4); L13 + `ip_*` rules always on (§17.3, §7.2); D13 mood-image default off |
 | 8 | Tripo API or manual Tripo website; app always makes the views and accepts models back | T1/T2 views (§14); T3 API (§15.1); H1 pack + import wizard (§15.2); same repair for both (§15.3) |
 | 9 | Windows local app; keys Anthropic/OpenAI/Tripo required, Recraft recommended, Gemini/fal optional | D22/D23 routing; §8.1.6 probes; Appendix A Windows-safe renderer |
@@ -52,10 +58,10 @@ Code must not send a prompt to any model unless the prompt comes from a template
 - §7 Check libraries (Gate A IDs, Gate B rule library)
 - §8 Shared inputs (cached LLM blocks, code-drawn guides, reference preparation)
 - §9 Plan loop: L1–L6, C1
-- §10 Gate 1 concept: I1, C2, C3, L7
-- §11 Part board 2D: R1, I3, C4, I2, R2, I6, I7, I8
-- §12 Hair: I4, L9
-- §13 Accessory front view: I5
+- §10 Gate 1 concept: I1, C2, C3, L7, L15, I1 variants (I1e, I1f, I1b, I1j, I1p)
+- §11 Part board 2D: R1, I3, C4, I2, R2, I6, I7, I8, pre-build pair check (§11.10)
+- §12 Hair: I4, I4k, L9
+- §13 Accessory front view: I5, I5g
 - §14 Multiview: T1, T2, I10
 - §15 3D: T3/T4, H1 manual mode, import checks, T5 Tripo import/convert
 - §16 Checker and repair: L11, L10, I11
@@ -119,7 +125,7 @@ background: transparent
 images: [ref_crop, duo_style_sheet]   # ordered; Image 1 = first entry
 mask: none
 must_lines: 5                 # router test: must be <= 5
-dna_fields: [shape_language, detail_level]   # router test: <= 2, and only from this character's card
+dna_fields: [shape_language, detail_level]   # router test: <= 2; CHARACTER fields only from this asset's own character; WORLD fields (such as detail_level) allowed
 slots:
   motif: {source: print.motif, max_words: 12, lint: [banned, text_words]}
   ...
@@ -132,16 +138,18 @@ checks: {gate_a: [A_SIZE, A_ALPHA, A_COMPONENTS, A_MARGIN, A_OCR, A_GLYPH, A_PAL
 **Router unit test** (`tests/unit/test_prompt_router.py`). It fails the build if any compiled prompt breaks one of these limits:
 - more than 5 MUST lines;
 - more than 2 DNA fields;
-- a DNA field that belongs to the other character;
+- a CHARACTER DNA field that belongs to the other character (WORLD fields such as `detail_level` are shared by both characters and are allowed);
 - more than 1,500 characters, not counting the verbatim STYLE block (which is fixed and cached in wording, about 330 characters), or more than 2,200 characters in total;
 - more than 10 nouns in the EXCLUDE line;
 - a hex code;
 - any banned word (§2.4) outside the places §2.4a allows.
 
+The test compiles **every** template and variant in this document: the base templates, the global-edit variants (I1e, I2e, I3e, I4e, I5e, I6e; §10.5), the I11 global form (§16.3), and every technique-ladder rung that sends a prompt (I1f, I1b, I1j, I1p, I4k, I5g, the no-crop frame variants of I2, I5 and I6; §10.7, §19). Its fixture specs together include a `plush_pet` and a `prop` accessory, a hair with `fringe_id: none`, a `hair_custom` hair, and one spec in which every optional slot is empty (§2.3 rule 8).
+
 **Versioning.**
 - Changing any template bumps `version`.
 - The provenance record stores `prompt_id`, `version` and `prompt_sha256`.
-- A change is kept only if it passes the fixed 40-brief regression **and** does not lower variety (PROPOSAL_DECISION variety guard).
+- A change is kept only if it passes the fixed 40-brief regression **and** variety on the same 40 briefs does not drop by more than about 5% (PROPOSAL_DECISION variety guard; a smaller drop is logged, not a reason to reject).
 
 ### 0.5 Step card layout
 
@@ -162,8 +170,8 @@ Each generation step in §§9–17 uses the same headings:
 |---|---|---|
 | Setup (once) | S0 house-style bootstrap (§5.3); I7 fabric library; I8 shading library; Recraft face `style_id` | — |
 | Plan loop | L1 reference analyst → L2 taste profile → L3 planner → C1 linter → L4 critic + L5 pairwise → L6 reviser (≤2 rounds) | G0 (plan checks) |
-| Concept | I1 per character (A and B in parallel, drafts) → Gate A/B (L11) → C2 assembly + duo coherence | **Gate 1** → C3 (redraw, palette lock, per-duo style sheet); L7 on "Change…" |
-| Part board | Face: R1 (or I3) → C4 assembly and head renders · Prints: I2 (or R2) · Badges: I6 · Hair: I4 → T1 (T2/I10 fixes) · Accessories: I5 → T1 · Clothing tiles: compositor (code) · L11 on everything | **Gate 2** |
+| Concept | I1 per character (A and B in parallel, drafts) → Gate A/B (L11) → L15 concept inventory → C2 assembly + duo coherence (incl. the concept clone band) | **Gate 1** → C3 (redraw, palette lock, per-duo style sheet); L7 → I1e on "Change…" |
+| Part board | Face: R1 (or I3) → C4 assembly and head renders · Prints: I2 (or R2) · Badges: I6 · Hair: I4 → T1 (T2/I10 fixes) · Accessories: I5 → T1 · Clothing tiles: compositor (code) · L11 on everything · pre-build pair check (§11.10) | **Gate 2** |
 | Build | L9 hair kit match → code fit → human polish · T3 Tripo P2 or H1 manual → §15.3 repair and checks · final templates | — |
 | Duo loop | C5 renders and code checks → L12 duo judge (+ G1) → L13 IP screen → L14 reference similarity (only if on) | **Gate 3** → export kit |
 
@@ -179,27 +187,35 @@ Costs are per call and [ESTIMATE] unless marked; §20 has the basis. "→" = dra
 | L4 / L5 | Critic / pairwise ranker | Claude · `claude-opus-5`, medium | `Critique` ×3 / `PairJudgment` ×6 | none | JSON | $1.0–1.7 per round |
 | L6 | Reviser | Claude · `claude-opus-5`, medium | `Revision` (JSON Patch) | none | JSON | $0.10–0.25 per round |
 | I1 | Concept, one character front + back | OpenAI edit · Flare → Sunburst | 1536x1024 · low (n=4) → high (n=1) · opaque | guide, house style sheet, [mood] | PNG | $0.03–0.06 draft; ~$0.05 final |
+| I1e | Concept edit (Gate 1 "Change…": L7 `global_edit` / `local_edit`; also "Remove from picture") | OpenAI edit · Flare → Sunburst | 1536x1024 · low (n=4) → high (n=1) · opaque | the character's chosen draft (mask), house style sheet | PNG | $0.03–0.06 draft; ~$0.05 final |
+| I1f / I1b | Concept, front only / back from the front (I1 ladder) | OpenAI edit · Flare → Sunburst | 768x1024 · low (n=4) → high (n=1) · opaque | front guide (or back guide), house style sheet (I1b: the approved front instead) | PNG | $0.02–0.04 each |
+| I1j | Joint 4-figure concept (A/B arm on pilot day only) | OpenAI edit · Flare → Sunburst | 3072x1024 · low (n=4) → high (n=1) · opaque | joint guide, house style sheet | PNG | $0.04–0.08 |
+| I1p | Concept with a partner style reference (I1 ladder; same-world failures) | OpenAI edit · Flare → Sunburst | 1536x1024 · low (n=4) → high (n=1) · opaque | guide, house style sheet, partner front crop (the mood image is dropped) | PNG | $0.03–0.06 draft |
 | L7 | Change-request interpreter | Claude · `claude-opus-5`, medium | `ChangePlan` | clicked tile | JSON | $0.08–0.2 |
-| R1 | Face part (vector) | Recraft · `recraftv4_styles_vector` + `style_id` (bootstrap `recraftv4_1_utility_vector`) | preset 1:1 or 2:1 · n=3 (bootstrap 4) · sentinel bg | none | SVG | $0.15 (bootstrap $0.32) |
-| I3 | Face part (guided raster) | OpenAI edit · Flare → Sunburst | 1024² · low (n=6) → high · transparent | part guide, concept face crop, style sheet | PNG | $0.12–0.14 |
-| I2 | Print / motif | OpenAI edit · Flare → Sunburst | 1024² or 816x1632 · low (n=4) → high · transparent | concept print crop, style sheet | PNG | $0.10–0.13 |
+| L15 | Concept inventory (element list vs spec) | Claude · `claude-sonnet-5`, medium | `ElementList` per character | front and back figure crops (concept of record or chosen draft) | JSON | $0.01–0.03 |
+| R1 | Face part (vector) | Recraft · `recraftv4_styles_vector` + `style_id` (bootstrap `recraftv4_1_utility_vector`) | size `1024x1024` (iris, mouths) or `1536x768` (lash, brow, closed-lid line) · n=3 (bootstrap 4) · sentinel bg | none | SVG | $0.15 (bootstrap $0.32) |
+| I3 | Face part (guided raster) | OpenAI edit · Flare → Sunburst | 1024² · low (n=4; a larger n is 2 × 4, §2.7) → high · transparent | part guide, concept face crop, style sheet | PNG | $0.10–0.14 |
+| I2 | Print / motif | OpenAI edit · Flare → Sunburst | 1024² or 816x1632 · low (n=4) → high · transparent | concept print crop (or a frame guide when the concept does not show the print), style sheet | PNG | $0.10–0.13 |
 | R2 | Print (vector A/B, ladder) | Recraft · `recraftv4_1_vector` (or styles) | preset 1:1 / 1:2 · n=4 | none | SVG | $0.32 ($0.20 styles) |
-| I6 | Badge art for slab items | OpenAI edit · Flare → Sunburst | 1024² · low → high · transparent | concept crop, style sheet | PNG | $0.12–0.15 |
+| I6 | Badge art for slab items | OpenAI edit · Flare → Sunburst | 1024² · low → high · transparent | concept crop (or a frame guide), style sheet | PNG | $0.12–0.15 |
 | I7 | Fabric swatch (library) | OpenAI generate → edit · Flare → Sunburst | 1024² · low → medium · opaque | none | PNG | ~$0.10 per tile, once |
 | I8 | Garment shading panel (library) | OpenAI edit · Flare → Sunburst | 1024² or 816x1632 · low → high · opaque | panel guide | PNG | ~$0.10 per panel, once |
 | I4 | Hair front view | OpenAI edit · Flare → Sunburst | 1024x1536 · low → high (A/B xhigh) · opaque | bald-head guide, hair crops, kit render | PNG | ~$0.10 |
-| I5 | Accessory front view | OpenAI edit · Flare → Sunburst | 1024² · low → high · transparent | concept crop, style sheet | PNG | $0.12–0.15 |
+| I4k | Hair front view, kit-first edit (I4 ladder) | OpenAI edit · Flare → Sunburst | 1024x1536 · low → high · opaque | kit hair on the bald-head guide (mask), approved hair crops | PNG | ~$0.10 |
+| I5 | Accessory front view | OpenAI edit · Flare → Sunburst | 1024² · low → high · transparent | concept crop (or a frame guide), style sheet | PNG | $0.12–0.15 |
+| I5g | Accessory front view with a size guide (I5 ladder) | OpenAI edit · Flare → Sunburst | 1024² · low → high · transparent | `guide_acc_box_<attachment>`, concept crop, style sheet | PNG | $0.12–0.15 |
 | T1 | Multiview (4 views) | Tripo v3 `/generation/image-to-multiview` | `{"input": file_token}` | approved front (2048²) | 4 PNG views | 10 credits |
 | T2 | Fix one view by text | Tripo v3 `/generation/edit-multiview` | ≤4 prompts, ≤1024 chars | (task) | views | 5 credits per view |
 | I10 | Side/back view (last resort) | OpenAI edit · Flare → Sunburst | 1024² · low → high · transparent | front view, back reference | PNG | ~$0.12 per view |
 | L9 | Hair kit matcher | Claude · `claude-sonnet-5`, medium | `HairMatch` | 4 views, 5 candidate sheets | JSON | $0.03–0.06 |
 | T3 | 3D model | Tripo v3 `/generation/multiview-to-model` · `P2-20260801` | Appendix B body | 4 view tokens | GLB | 110 credits per run |
-| T4 | 3D fallbacks | Tripo · P2 image-to-model / P1 / H3.1 | §15.1 | front or views | GLB | 110 / 50 / 40 credits |
+| T4 | 3D fallbacks (each route has its own params class and validator, Appendix B) | Tripo · P2 image-to-model / P1 / H3.1 | §15.1 | front or views | GLB | 110 / 50 / 40 credits |
 | T5 | Server-side import / convert (optional) | Tripo v3 `/models/import`, `/models/convert` | §15.4 | model file | GLTF | 0 / 5–10 credits |
 | H1 | Manual Tripo pack | text + files for the human | — | — | folder | $0 |
 | L11 | Asset checker (Gate B) | Claude · `claude-sonnet-5`, medium | `AssetCheck`, ≤5 rules | style refs, candidate ×2 composites | JSON | $0.02–0.045 |
 | L10 | Repair-instruction writer | Claude · `claude-sonnet-5`, medium | `RepairPlan` | candidate | JSON | $0.02–0.04 |
-| I11 | Masked repair edit | OpenAI edit · Sunburst | same size/quality/background as the asset · n=2 | asset, [style ref] | PNG | $0.10–0.18 |
+| I11 | Masked repair edit (also the **global form**, no mask: §16.3) | OpenAI edit · Sunburst | same size/quality/background as the asset · n=2 | asset, [style ref] | PNG | $0.10–0.18 |
+| I2e / I3e / I4e / I5e / I6e | Global-edit variants of the part templates (L7 `global_edit`, L10 `simplify`; §10.5) | OpenAI edit · Flare → Sunburst | the base template's size and background · low (n=4) → high (n=1) | the current asset, [style sheet] | PNG | as the base template |
 | L12 | Duo judge | Claude · `claude-opus-5`, high | `DuoJudgment` / `DuoReview` | duo sheets | JSON | $0.20–0.30 per ordered call |
 | L13 | IP / brand / character / appropriateness | Claude · `claude-opus-5`, high | `IpCheck` | renders, prints at 2× | JSON | $0.10–0.25 |
 | L14 | Reference similarity (toggle) | Claude · `claude-opus-5`, high | `SimCheck` | references, candidate sheet | JSON | $0.15–0.3 |
@@ -215,7 +231,7 @@ Costs are per call and [ESTIMATE] unless marked; §20 has the basis. "→" = dra
 |---|---|---|---|---|
 | D1 | Colours in image prompts | The GPT report wrote `#hex (name)` into prompts. PROPOSAL_DECISION says palette hexes never go into an image prompt. | **No hex codes in any image prompt.** Colour reaches the model in five ways: code-painted guide figures, a code-drawn swatch strip (outside the mask), reference crops, Recraft `controls.colors` (API field, not prompt text), and dictionary colour **names** in SUBJECT only (at most 3 names per prompt). Code enforces exact colour with palette snap. | PROPOSAL_DECISION is binding. Models follow hex loosely anyway, and V4 Recraft may draw hex text. |
 | D2 | Side convention for face parts | The GPT face template said "outer corner points to the image's left". The Recraft report generates `eye_imgR` with the outer corner pointing image-right. | **One convention everywhere:** generate the part for the **image-right** position. Its outer end points to the image's right edge and its inner end toward image centre. Code mirrors it for image-left. Parts are named `*_imgR` / `*_imgL` in image space, never "left eye". | Mixing conventions produces swapped or inverted eyes and brows (PRM-11, FACE-09). |
-| D3 | Concept: one call or two | The GPT report used one 4-figure call (about 30 attributes). The red-team report wants one call per character (FAILURE_MODES X3). | **One call per character** (front and back views, 1536x1024). The A and B calls run in parallel without referencing each other, and code assembles the 4-up sheet. A joint 4-figure call is an A/B arm on pilot day. If the duo coherence check fails, B is re-run with A as Image 3 (§10, ladder). | Halves attribute load and removes the main cause of A↔B attribute leakage (CON-01). |
+| D3 | Concept: one call or two | The GPT report used one 4-figure call (about 30 attributes). The red-team report wants one call per character (FAILURE_MODES X3). | **One call per character** (front and back views, 1536x1024). The A and B calls run in parallel without referencing each other, and code assembles the 4-up sheet. A joint 4-figure call (I1j) is an A/B arm on pilot day. If the duo coherence check fails, B is re-run with A as a style reference (I1p, §10.7, ladder). | Halves attribute load and removes the main cause of A↔B attribute leakage (CON-01). |
 | D4 | What Gate 1 shows | "Cheap preview" in the summary versus "finalize with Sunburst" in the protocol. | Gate 1 shows **Flare drafts**: the best-checked draft per character, with the other drafts one click away. On approval, code runs **one Sunburst redraw per character** and a drift check (A_DRIFT). If drift fails twice, the user sees the draft and the redraw side by side and picks the concept of record (default: the draft). | Keeps Gate 1 cheap. The user approves a picture, and the drift check guarantees the final is the same design (IMG-06; FAILURE_MODES X4). |
 | D5 | When Gate 2 assets are finalized | A final after the gate means the user approved a draft, not the final. | **Finalize before Gate 2.** Tiles show the Sunburst final, which passed A_DRIFT against its draft. Drafts can be viewed. | The user approves exactly what ships (IMG-06). |
 | D6 | `moderation` parameter | The GPT report sent `moderation="low"` on generate. FAILURE_MODES X2 keeps `auto` (the SDK default). `moderation` is not in the SDK `edit` signature (`edit.py` has no such field). | **Omit `moderation` on every call** (server default `auto`). Refusals are handled by the rewrite rule in §2.4. | Child-audience platform. Also avoids an unverified form field on edits. |
@@ -236,7 +252,7 @@ Costs are per call and [ESTIMATE] unless marked; §20 has the basis. "→" = dra
 | D21 | Tripo `orientation` | Tripo report: `align_image` for single-image input, `default` for multiview [UNVERIFIED effect]. Red-team: `align_image` rotates the model; leave `default`. | **`default` on every route.** `align_image` only behind the A/B flag on test day (§22 #5). The importer re-orients every mesh anyway (§15.3 step 8). | Unverified effect; our own orientation detection is the authority (ACC-14, MESH-12). |
 | D22 | Missing optional keys | Recraft is "recommended"; Gemini and fal are optional (requirement 9). | **No Recraft key:** face parts default to I3, prints to I2, badges to I6; the Recraft utility rungs (vectorize, removeBackground) are skipped on the ladders (local matting instead). **No Gemini key:** G1 second opinions use a second Sonnet 5 juror (L11 route, pairwise rules) and G2 is removed from the ladders. | The pipeline must run with the three required keys (Anthropic, OpenAI, Tripo) only. |
 | D23 | fal | Listed as optional in requirement 9; no report defines a use. | **No default step uses fal.** `providers/fal.py` is an adapter slot for a future "other model" ladder rung (§17.7). Until a model is chosen and its template is written into this bible, fal calls are disabled. | Nothing may be sent to a model without a template in this bible. |
-| D24 | Hair while the hair kit is empty | Workflow: kit styles + code fit + human polish; "kit may not exist yet; Tripo P2 as backup". | **While `kits/hair/` has no compatible style, every hair is `hair_custom`:** I4 (without Image 3) → T1 → Gate 2 → T3 (`face_limit` 3500) → §15.3 repair → Hair-box check. L9 is skipped. | The app must work before the kit exists. |
+| D24 | Hair while the hair kit is empty | Workflow: kit styles + code fit + human polish; "kit may not exist yet; Tripo P2 as backup". | **While `kits/hair/` has no compatible style, every hair is `hair_custom`:** I4 (without Image 3) → T1 (fed the hair-only RGBA, §12.1) → Gate 2 → T3 (`face_limit` 3500) → §15.3 repair, including `hair.register` → Hair-box check. L9 is skipped. | The app must work before the kit exists. |
 | D25 | Hair on the head texture | Policy: "Heads can include hair, eyelashes, and eyebrows, but these must also be separate items." | **Never paint hair, a hairline or sideburns onto the head texture.** Hair is always a Hair accessory. Brows and lashes stay single-colour paint. | Conservative reading (Roblox report §3e; FACE-16). |
 | D26 | Eye highlight and pupil shapes | Roblox report: treat anime extras such as heart pupils as face paint unless plainly shading. | **Pupils are never hearts, stars or symbols.** Highlights are code-drawn and **white only**. `sparkle_star` stays available as a white catchlight but is flagged [UNVERIFIED policy] and can be switched off in Settings; if moderation objects, it falls back to `dual_dot`. | Conservative policy reading. |
 | D27 | Presentation in image prompts | "boy/girl" are spec enums; the GPT report describes presentation through hair and clothing ("feminine-styled"). | Only I1 carries **`{presentation_style}` = "masculine-styled" or "feminine-styled"** (derived from `presentation`) in its SUBJECT. Never "boy", "girl", age words or body words. Part templates (I2–I11) carry no presentation words. | The concept reads as the intended presentation without moderation-risk words (PRM-06). |
@@ -252,7 +268,7 @@ Costs are per call and [ESTIMATE] unless marked; §20 has the basis. "→" = dra
 | ID | Rule | Enforced by |
 |---|---|---|
 | U1 | **One asset per call.** Never ask for two things (for example "eye and brow") in one image. The concept is the only multi-part call, and it is one character per call (D3). | Template design |
-| U2 | **At most 5 MUST lines.** Each is one sentence, stated positively. **At most 2 DNA fields**, and only from that character's card. | Router unit test (§0.4) |
+| U2 | **At most 5 MUST lines.** Each is one sentence, stated positively. **At most 2 DNA fields**: CHARACTER fields only from the asset's own character, WORLD fields (`detail_level`) allowed. | Router unit test (§0.4) |
 | U3 | **Fixed order:** PURPOSE → IMAGES → SUBJECT → MUST 1–5 → STYLE → KEEP → OUTPUT/EXCLUDE (§2.2). | Compiler |
 | U4 | **Refer to references by index and role:** "Image 1 = layout guide … Image 2 = house style reference; match its rendering only." Say how the images relate to each other. The image being edited is always Image 1 (the mask applies to it). | Compiler |
 | U5 | **Say what you want, not what you don't.** Name each unwanted thing **once**, in EXCLUDE, never in PURPOSE, SUBJECT or MUST. Naming a thing primes it. | Priming lint (§2.4c) |
@@ -269,10 +285,10 @@ Costs are per call and [ESTIMATE] unless marked; §20 has the basis. "→" = dra
 | U16 | **Sides in image space** for face parts (D2). For bodies and limbs, use "the character's own left/right", and every guide carries the convention in code, never as visible text. | Templates |
 | U17 | **Slots are short noun phrases.** Each field value is at most 12 words, or its schema cap. Composite slots built by code from several fields have the caps listed with each template (never more than 20 words). Slots are filled from spec fields and human-written kit catalogue text, never from raw user text (§2.3). | Compiler |
 | U18 | **Moderation-safe vocabulary:** no brand, franchise, artist or "Roblox" names; no age words; no romance words; describe presentation through hair and clothing (§2.4). | Banned-word lint |
-| U19 | **Draft cheap, finalize one.** Flare `low`, n=4 (up to 8), then code checks, then yes/no checks, then one Sunburst `high` final (§2.7). | Protocol |
+| U19 | **Draft cheap, finalize one.** Flare `low`, n=4 (n_total up to 8 as 2 requests of 4, U22), then code checks, then yes/no checks, then one Sunburst `high` final (§2.7). | Protocol |
 | U20 | **0% pass means change the technique.** Never just re-roll the same prompt a third time (§19). | Scheduler |
 | U21 | **References are prepared by code:** long edge at most 1024 px; tiny crops upscaled with Lanczos to 512–1024 px; EXIF transposed; converted to sRGB with ICC/gAMA dropped; drawn onto a sheet when there are several; background handled per U26. | `imaging/files.py` (not `io.py`: stdlib-name shadowing) |
-| U22 | **n at most the IPM limit** (Tier 1 is reportedly 5 IPM [UNVERIFIED]: use n ≤ 4). | Scheduler |
+| U22 | **n at most the IPM limit, and at most 4 per request** (Tier 1 is reportedly 5 IPM [UNVERIFIED]). A larger n_total is `ceil(n_total / 4)` **separate requests** of at most 4 images each: they share the same compiled prompt, each carries the nonce plus a batch index (the cache key includes both, §2.10), and each passes through the IPM limiter. No single request ever has `n` above `min(IPM, 4)` (FAILURE_MODES CHK-P02, GEN-07). | Scheduler, adapter ASSERT |
 | U23 | **No reference image from the user reaches an image model** unless the user switches on "mood image" (D13). | Adapter guard |
 | U24 | **Every prompt is compiled, linted, hashed and stored** before sending. The compiled text is the one in provenance. | Compiler |
 | U25 | **Streaming only for gate previews** (`stream=True, partial_images=2`; events `image_generation.partial_image` / `image_edit.partial_image`, then `…completed` with `usage`). Pipeline calls are not streamed. Partial-image cost and `n>1` streaming on 2.5 are [UNVERIFIED]. | Adapter |
@@ -304,7 +320,7 @@ EXCLUDE: <at most 10 nouns, comma-separated>             (fixed per template; no
 
 1. **Where slot values come from.** Slots are filled only from:
    - spec fields (§3);
-   - the human-written phrase maps in §3.4;
+   - the human-written phrase maps in §3.4 and `data/phrases.json` (every slot named in a template has exactly one source there or in the kit manifest; a slot with no source is a template bug, caught by the router test);
    - the human-written kit catalogue (`kits/manifest.json`, field `prompt_phrase`).
    
    Model-written free text (for example `print.motif`) is allowed only after the free-text lint.
@@ -321,8 +337,8 @@ EXCLUDE: <at most 10 nouns, comma-separated>             (fixed per template; no
 4. **Colour names** come from `data/colour_names.json`: about 150 plain names derived from xkcd, each mapped to CIELAB. The name is chosen as the nearest by ΔE2000 to the palette hex. The planner's own names ("midnight whisper") are never used in prompts. A unit test proves the dictionary contains no banned term (for example "baby blue" trips the age list); such entries, and any name containing "hot" or "sexy", are renamed ("light sky blue", "vivid pink").
 5. **Empty slots.** An empty slot removes its whole MUST line or clause. A slot is never filled with "none".
 6. **Canonical rendering.** Slots are joined deterministically: sorted where order is not meaningful, and with fixed separators. The same spec always compiles to byte-identical prompts, which keeps the cache key stable.
-7. **Who writes image prompts.** Code does, from these templates (`prompts/compiler.py`). No model writes a whole image prompt. The only model-written pieces are the linted free-text slots (spec fields, L7 `fix_sentence`, L10 `edit_prompt`). An optional Sonnet 5 "prompt polish" route (it returns a subject plus up to 5 constraints chosen from a closed list, rendered by code) stays **off** until an A/B run shows it helps (Claude report §2.10).
-8. **Missing or empty values never render** as `None`, `null`, `{hair}` or `, ,`: the compiler raises (PRM-05), and the router test compiles every template against 3 real fixture specs.
+7. **Who writes image prompts.** Code does, from these templates (`prompts/compiler.py`). No model writes a whole image prompt. The only model-written pieces are the linted free-text slots (spec fields, L7 `fix_sentence`, L10 `edit_prompt` and `subject_sentence`). An optional Sonnet 5 "prompt polish" route (it returns a subject plus up to 5 constraints chosen from a closed list, rendered by code) stays **off** until an A/B run shows it helps (Claude report §2.10).
+8. **Missing or empty values never render** as `None`, `null`, `{hair}` or `, ,`: the compiler raises (PRM-05), and the router test compiles every template against 3 real fixture specs. One of the fixtures leaves every optional slot empty (no accessory, no print, no fringe, no hair kit, no legwear, no motif), to prove that each empty slot removes its clause or line instead of raising or inventing text.
 
 ### 2.4 Banned and risky vocabulary
 
@@ -426,7 +442,7 @@ OpenAI client: `OpenAI(timeout=900, max_retries=0)`. The job queue owns retries,
 ### 2.7 The draft → final protocol (image reliability protocol)
 
 ```
-compile prompt (template + slots) ─► lint ─► DRAFT: Flare low, n=4 (n=6–8 for face parts / prints if pass-rate < 50%)
+compile prompt (template + slots) ─► lint ─► DRAFT: Flare low, n=4 (n_total 8 = two requests of 4 for face parts / prints if pass-rate < 50%; U22)
    ─► Gate A (code, per draft; free) ─► drop failures
    ─► Gate B (Sonnet 5, ≤5 rules per call) on the top 2 surviving drafts by Gate A score (the next 2 if both fail;
        other drafts are judged only if the user opens them); rank by #soft passes, then code scores
@@ -453,6 +469,7 @@ EXCLUDE: text, letters, watermark, logos.
 ```
 
 - Params: `images.edit`, `gpt-image-2.5-sunburst-2026-09-08`, `quality="high"` (the concept and hair use `xhigh` as an A/B arm), `n=1`, with n=2 if first-pass final acceptance is below 80% [CALIBRATE]. Size, `background` and `output_format="png"` are the same as the draft.
+- **More than 4 drafts (U22).** Every request has `n ≤ min(IPM, 4)`. When a ladder rung or a low pass rate asks for `n_total` above 4 (at most 8), the scheduler sends `ceil(n_total / 4)` separate requests with the same compiled prompt. Each request carries the nonce plus its batch index, so the drafts differ, and each passes through the IPM limiter. The drafts of all batches go into one Gate A/B pool. The adapter ASSERTs `n ≤ min(IPM, 4)` before every call (FAILURE_MODES CHK-P02, GEN-07).
 - **Quality naming (PRM-13):** 2.5 `high` spends 1,756 output tokens at 1024², the same as GPT Image 2 `medium`; 2.5 `xhigh` (3,122) and `max` (7,024) are the old "high" levels [third-party; matches ComfyUI price presets]. If finals look soft, move that template's final to `xhigh`, not `max`.
 - **Transparent drafts (U26):** Image 1 is the RGBA draft **plus an explicit all-editable mask** (alpha 0 everywhere), so its transparency is never read as an implicit mask. When `mask_multi_ok` is false, Image 2 is dropped.
 - **A/B on pilot day:** Flare→Sunburst versus Flare→Flare `high`, because the model switch can shift the style.
@@ -484,7 +501,7 @@ EXCLUDE: text, letters, watermark, logos.
    A `ValidationError` goes to L6 as findings; this counts as a revision round.
 10. **Stream every route.** Send no `temperature`, `top_p`, `top_k`, `budget_tokens` or prefill (all return 400 on these models).
 11. **Stable, cached prefix:**
-    - system = shared context, then Roblox rules, then style guide, then sorted kit inventory, then the role text;
+    - system = shared context, then Roblox rules, then style guide, then sorted kit inventory, then (plan-loop routes) the structure profiles, then the role text;
     - `cache_control` goes on the last system block;
     - images come by `file_id` before the variable text;
     - no timestamps or IDs in the system prompt;
@@ -512,6 +529,7 @@ EXCLUDE: text, letters, watermark, logos.
    - Every rule has a golden set of 30–50 user-labelled images, including known negatives (blank, wrong character, a planted logo), with a target of at least 90% agreement on clear cases.
    - Re-run 20 items to measure the flip rate.
    - Re-calibrate whenever the prompt, schema or model ID changes.
+   - Required fixtures: a hairstyle with no fringe (`fringe_id: none`) for `hr_bangs_clear`; a face whose catchlights sit on the same side in both eyes, which must pass `fh_symmetric`; a plush pet and a prop accessory for `ac_single_object` and the I1/I5 EXCLUDE wording; a part after an applied change, for the `*_matches_concept` rules (§10.5).
    - `prompt_version` and `schema_hash` are logged with every verdict.
 8. **Code checks always outrank the judge.** A judge "pass" never overrides a Gate A fail.
 9. **Hard vs soft (PROPOSAL_DECISION).**
@@ -526,7 +544,7 @@ EXCLUDE: text, letters, watermark, logos.
 - `prompt_id`, `prompt_version`, `prompt_sha256`;
 - all params (size, quality, background, n, seeds, Recraft controls, Tripo body);
 - the ordered SHA-256 of each input image, computed on **decoded RGBA pixels**, not file bytes;
-- `mask_sha`, `nonce`.
+- `mask_sha`, `nonce`, `batch_index` (0 for a single request; U22).
 
 "Reimagine" changes only the nonce.
 
@@ -580,7 +598,7 @@ Keys, signed URLs and the user's email never appear in provenance or logs.
   1. Turn the largest kit enum into `str`, keep its ID list in the prompt, and let the linter reject unknown IDs.
   2. Split the Planner into a "brief" call followed by 3 per-spec calls (fan-out).
 - **Colour fields reference palette IDs** (`p1`…). Hex values appear only in `palette[]`. After Gate 1, code replaces the palette hexes with the colours extracted from the approved concept (C3, §10.4).
-- **The DNA card is a view of the spec.** World fields live in `DuoSpec.world` and `shared_anchors`. Character fields live in `Character.dna`. Only the fields listed in the routing table (§3.3) may enter image prompts, at most 2 per call.
+- **The DNA card is a view of the spec.** World fields live in `DuoSpec.world` and `shared_anchors`. Character fields live in `Character.dna`. Only the fields listed in the routing table (§3.3) may enter image prompts, at most 2 per call: CHARACTER fields only from the asset's own character, WORLD fields allowed.
 
 ### 3.2 Schema (Pydantic v2, LLM-facing; `duoskin/models/spec.py`)
 
@@ -640,6 +658,10 @@ class Anchor(Strict):
     visible_from: E("front", "both")
 
 class Contrast(Strict):
+    # Every axis must be measurable from spec fields (top_type = the recipe families differ, sleeve_length = top.sleeve, ...).
+    # The linter also credits each differing CHARACTER DNA field (shape_language, colour_plan, focal_location, motif_object,
+    # accessory_style, hair kit style) as one contrast on a code-side axis "dna_<field>" (never a duplicate of a declared axis),
+    # so the >= 2 differing CHARACTER fields of PLN-DNA-01 count toward the 5 (PROPOSAL_DECISION #1).
     axis: E("colour_temperature", "value", "hair_shape", "hair_length", "top_type", "bottom_type", "sleeve_length",
             "leg_length", "neckline", "layering", "block_layout", "pattern_scale", "fabric", "accessory_kind",
             "accessory_slot", "face_eyes", "face_mouth", "expression", "shape_language")
@@ -678,7 +700,9 @@ class Hair(Strict):
     kit_style_id: HairKit = Field(description="a kit style; hair_custom only when no kit style fits (Tripo backup path)")
     fringe_id: FringeKit
     back_id: BackKit
-    description: str = Field(description="at most 12 words; visible shape only (length, parting, volume, bangs)")
+    parting: E("left", "right", "centre", "none") = Field(description="which side the parting falls on, as seen from the front; "
+                                                                     "'centre' or 'none' means a symmetric front. For a kit style, code overwrites it from the style's manifest value")
+    description: str = Field(description="at most 12 words; visible shape only (length, volume, bangs)")
     colour_ref: str; shadow_ref: str
     highlight_ref: str = Field(description="palette id or 'none'")
 
@@ -754,19 +778,27 @@ class DuoSpec(Strict):
     is_wildcard: bool
     world: WorldDNA
     shared_anchors: list[Anchor] = Field(description="2 or 3, each visible on both characters from the front")
-    contrasts: list[Contrast] = Field(description="at least 5, each on a different axis; at least 4 must be checkable "
-                                                  "from spec fields; not mostly colour axes")
+    contrasts: list[Contrast] = Field(description="at least 5, each on a different axis; every one must be measurable "
+                                                  "from spec fields (contrasts code cannot verify do not count); not mostly colour axes")
     palette: list[Colour] = Field(description="5 to 12 colours; ids unique")
     a: Character
     b: Character
 
+class BriefConstraint(Strict):
+    text: str = Field(description="one must-include line from <must_include>, copied or lightly shortened, at most 12 words")
+    spec_paths: list[str] = Field(description="1 to 3 JSON Pointers into a DuoSpec that carry this line, for example /a/accessories/0; "
+                                              "each pointer must resolve in all 3 specs")
+
 class PlanSet(Strict):
-    specs: list[DuoSpec] = Field(description="exactly 3; when the brief does not fix the pair structure, the 3 use "
-                                             "different structures and exactly one has is_wildcard true")
+    specs: list[DuoSpec] = Field(description="exactly 3, and exactly one has is_wildcard true. When the brief does not fix the "
+                                             "pair structure, the 3 use different structures. When the brief fixes it, all 3 use it, "
+                                             "and the wildcard keeps that structure but departs from the other two in palette family, "
+                                             "anchor kind or theme")
+    brief_constraints: list[BriefConstraint] = Field(description="one entry per line in <must_include>; empty list when there are none")
     how_they_differ: str = Field(description="at most 40 words")
 ```
 
-Verified on 2026-09-29: every schema class in this document (§3.2, §9, §10.5, §12.2, §16, §17) was compiled with pydantic 2.13.5 and converted with `anthropic.transform_schema` (SDK 1.9.0) plus the all-required pass, using stub kit enums. All produced 0 union-typed parameters and 0 optional parameters, and enum case normalisation worked (`"A_MAIN"` → `a_main`). The largest schema, `PlanSet`, is about 17 KB of JSON; every object carries `additionalProperties:false`. Re-checked for v1.1 by extracting every schema block from this file and validating the Appendix D fixture; `tests/unit/test_schemas.py` must repeat exactly that check on every change. Still run the live smoke test (§8.1.4), because the grammar-size limit is not published.
+Verified on 2026-09-29: every schema class in this document (§3.2, §9, §10.5, §12.2, §16, §17) was compiled with pydantic 2.13.5 and converted with `anthropic.transform_schema` (SDK 1.9.0) plus the all-required pass, using stub kit enums. All produced 0 union-typed parameters and 0 optional parameters, and enum case normalisation worked (`"A_MAIN"` → `a_main`). The largest schema, `PlanSet`, is about 17 KB of JSON; every object carries `additionalProperties:false`. Re-checked for v1.1 by extracting every schema block from this file and validating the Appendix D fixture; `tests/unit/test_schemas.py` must repeat exactly that check on every change. **v1.2 changes the schemas** (`Hair.parting`, `BriefConstraint` and `PlanSet.brief_constraints`, `ElementList`, `RepairPlan.subject_sentence`, the `simplify` repair method): run `test_schemas.py` again, refresh the Appendix D fixture and bump `SCHEMAS.lock` before the first build; the 2026-09-29 verification above does not cover them. Still run the live smoke test (§8.1.4), because the grammar-size limit is not published.
 
 Code-owned constants that are **not** model fields: `schema_version`, `text_policy="no_text"`, `spec_id`, `parent_spec_id`, `dna_card_version`, `palette_source ("planner" | "concept_extracted")`.
 
@@ -775,19 +807,22 @@ Code-owned constants that are **not** model fields: `schema_version`, `text_poli
 The router unit test enforces three things:
 - The DNA fields actually used in a template must be a subset of that template's "DNA fields" column below.
 - At most 2 DNA fields may be used.
-- The fields must come from the same character as the asset.
+- **CHARACTER fields** (`shape_language`, `colour_plan`, `focal_location`, `motif_object`, `accessory_style`, `energy`, and `hair.kit_style_id`) must come from the same character as the asset. **WORLD fields** (`theme`, `palette_family`, `material_family`, `detail_level`, and the anchors) belong to both characters and may enter any call; today only `detail_level` does (the face-part and print templates below).
 
 | Template | DNA fields (≤2) | Other spec fields used as SUBJECT slots | Never in the prompt |
 |---|---|---|---|
 | I1 concept (per character) | `shape_language`, `motif_object` | hair.description + kit phrase, top/bottom recipe phrases + cut words + print motif and placement, shoe kit phrase, accessory descriptions, face phrase, up to 3 colour names | palette hexes, story, pair structure, colour plan, focal location, anchors text |
-| I2 print / R2 print | `shape_language`, `detail_level` | print.motif, up to 3 colour names (Recraft: names in text, RGB in `controls.colors`) | hexes, region names |
-| R1 / I3 face part | `shape_language`, `detail_level` | part phrase from the face grammar (§4) | colours beyond the part's own |
-| I4 hair front view | `shape_language` | hair.description, kit style `prompt_phrase` | colour names (code recolours) |
-| I5 accessory front view | `motif_object`, `shape_language` | accessory.description, material phrase | slot, category |
+| I1e / I1f / I1b / I1p (variants of I1) | `shape_language`, `motif_object` (I1e, I1f, I1b, I1p; same slots as I1) | as I1 (I1e adds the L7 fix sentence) | as I1 |
+| I1j joint 4-figure arm | none (a joint call would mix both characters' CHARACTER fields; the two characters' details reach it only through the SUBJECT slots) | as I1, for both characters | as I1 |
+| I2 print / R2 print | `shape_language`, `detail_level` (**deviation from PROPOSAL_DECISION Q1**, which maps prints to "motif object + detail level": `print.motif`, a spec field in the SUBJECT, already names the motif of this print and may differ from the character's DNA `motif_object`, so the second DNA slot goes to `shape_language`) | print.motif, up to 3 colour names (Recraft: names in text, RGB in `controls.colors`) | hexes, region names |
+| R1 / I3 face part | `shape_language`, `detail_level` (PROPOSAL_DECISION Q1: part id + style ref + shape language + detail level). Line parts (lash, brow, mouth_closed) carry shape language only; iris and mouth_open carry both | part phrase from the face grammar (§4) | colours beyond the part's own |
+| I4 / I4k hair front view | `shape_language` | hair.description, kit style `prompt_phrase`, `hair.parting`, kit `clump_k` | colour names (code recolours) |
+| I5 / I5g accessory front view | `motif_object`, `shape_language` | accessory.description, material phrase | slot, category |
 | I6 badge (sticker slab art) | `motif_object`, `shape_language` | accessory.description | "sticker" |
-| I7 fabric swatch | `material_family` | fabric kit phrase | colour (the swatch is greyscale) |
+| I7 fabric swatch | none (the fabric kit phrase carries the material; the tile is a shared library asset built once per `fabric_id`, so it must not depend on any one duo's card) | fabric kit phrase | colour (the swatch is greyscale), DNA |
 | I8 shading panel | none | recipe and panel names | colour |
 | T2 edit-multiview | none | one fix sentence | — |
+| I2e / I3e / I4e / I5e / I6e global-edit variants; I10; I11 (masked and global) | none (Image 1 already carries the DNA-driven look; §10.5) | one fix sentence, the keep list, the base template's fixed shape and framing rules | DNA lines |
 
 ### 3.4 Phrase maps (human-written, versioned in `data/phrases.json`)
 
@@ -820,6 +855,45 @@ The router unit test enforces three things:
 
 **Garment and kit phrases** come from `kits/manifest.json` → `prompt_phrase` (for example `tee` → "short-sleeved crew-neck tee"; `cargos` → "loose cargo trousers with side pockets"). These are written by a human, at most 10 words, and pass the lint.
 
+**Every other slot has a human-written source too** (v1.2). The maps live in `data/phrases.json`, or in the kit manifest where they belong to one kit entry. The compiler raises (PRM-05) on a slot with no source, and the router test compiles every template with all optional slots empty (§2.3 rule 8).
+
+**Face phrase** (`face_phrase` in I1, at most 12 words: `{eye_phrase} with {iris_phrase}, {mouth_phrase}`; the keys are the face-grammar values of §4)
+
+| `eye_shape` | `eye_phrase` | `iris_style` | `iris_phrase` | `mouth_style` | `mouth_phrase` |
+|---|---|---|---|---|---|
+| round | "large round eyes" | oval_solid | "plain solid-colour irises" | smile_line | "a small curved smile" |
+| narrow | "narrow almond eyes" | oval_top_band | "irises with a dark top band" | cat_w | "a small w-shaped cat mouth" |
+| sleepy | "sleepy half-lidded eyes" | oval_two_step | "two-tone irises" | smirk_side | "a one-sided smirk" |
+| | | oval_ring | "ringed irises" | flat_line | "a flat straight mouth" |
+| | | round_small_pupil | "small round irises showing more white" | small_o | "a small round o mouth" |
+| | | vertical_slit | "slit pupils" | open_grin | "an open grin" |
+| | | | | fang_smile | "a smile with one small fang" |
+
+**Cut words** (for `top_phrase` and `bottom_phrase`, joined in the order shown; an empty value adds nothing)
+
+| Field | Value → words |
+|---|---|
+| `top.sleeve` | none "sleeveless" · short "short sleeves" · three_quarter "three-quarter sleeves" · long "long sleeves" |
+| `top.hem` | crop "cropped hem" · waist_tucked "hem tucked in at the waist" · hip_untucked "untucked hip-length hem" |
+| `top.neckline` | crew "crew neck" · v_neck "v-neck" · collar "collar" · hood "hood" · high_zip "high zip collar" · square "square neckline" |
+| `top.front` | closed "closed front" · open "open front over {inner recipe phrase}" · layered "layered over {inner recipe phrase}" |
+| `bottom.leg` | mini "mini length" · above_knee "above-knee length" · knee "knee length" · midi "midi length" · full "full length" |
+| `bottom.waist` | low "low waist" · mid "" · high "high waist" |
+| `bottom.legwear` | bare "" · socks_ankle "ankle socks" · socks_crew "crew socks" · socks_knee "knee socks" · tights "tights" |
+| `print.region` (placement clause) | torso_f "on the chest" · torso_b "on the back" · a limb region on a top "on the sleeve", on a bottom "on the leg" · regions that no concept view shows (up, down, side faces) give no clause |
+
+**Attachment phrase** (`attachment_phrase`, used as "on the {…}" in I1 and H1; "right" and "left" are the character's own sides, U16): hat "top of the head" · hair "hair" · face_front "front of the face" · face_center "middle of the face" · neck "neck" · right_shoulder "right shoulder" · left_shoulder "left shoulder" · right_collar "right collar" · left_collar "left collar" · body_front "front of the body" · body_back "back" · waist_front "front of the waist" · waist_center "middle of the waist" · waist_back "back of the waist".
+
+**Nouns.** `item_noun` (I5, I6) and `object_noun` (I10, T2) come from `accessory.kind`; a hairstyle asset uses "hairstyle". None may be a banned word ("sticker" and "badge" are banned in I6): plush_pet "plush pet" · keychain_charm "charm" · bag "bag" · small_hat "small hat" · hair_clip_slab "hair clip" · sticker_slab "flat charm" · prop "prop". `asset_noun` (I0, I11) comes from the part type and must also respect the priming lint (§2.4c): concept "character concept art" · face part "drawing element" · print "graphic" · hair "hairstyle view" · accessory "toy-like object" · badge "flat artwork" · fabric "fabric texture" · shading "shading panel".
+
+**Hair phrase and parting.** `hair_phrase` = the kit style's `prompt_phrase` + `hair.description`. A `hair_custom` hair has no kit entry, so its phrase is `hair.description` + `parting_phrase` + `fringe_phrase`: `parting_phrase` left "parted on the left" · right "parted on the right" · centre "parted in the centre" · none ""; `fringe_phrase` is "with a fringe" when a fringe is present and "with a bare forehead" when it is not. A **fringe is present** when `fringe_id` is a fringe module, or is `kit_default` and the kit style's manifest `default_fringe` is not `none`; `fringe_id: none` always means no fringe. I4 MUST 2 takes the symmetric-or-parting choice from `Hair.parting` (§3.2): centre or none → "symmetric left to right", left or right → "parting on the image's left|right as in Image 2". For a kit style the manifest `parting` wins over the spec value.
+
+**Counts `k`** are manifest fields written by a human per entry: `clump_k` per hair style (I4 "about {k} of them"; a `hair_custom` hair uses `hair_custom_clump_k` in `data/phrases.json`, default 6 [CALIBRATE]), `weave_k` per fabric (I7 "about {k} repeats"), `fold_k` per recipe × panel (I8 "{k} large soft folds").
+
+**Library phrases.** `recipe_phrase` (I8) is the recipe's `prompt_phrase`. `panel_phrase` (I8): torso_f "the front of the torso" · torso_b "the back of the torso" · torso_side "a side of the torso" · limb_face "one face of a sleeve" (Shirt recipes) or "one face of a trouser leg" (Pants recipes). `fabric_phrase` and the optional `pattern_phrase` (I7; default "plain weave") are manifest fields of the fabric entry and must not contain "garment", "shirt" or "folds" (§2.4c).
+
+**Kit manifest fields these maps need:** `prompt_phrase`, `clump_k`, `parting`, `default_fringe` (hair styles); `fabric_phrase`, `pattern_phrase`, `weave_k`, `material` (fabrics; `material` feeds the SOFT fabric-vs-world-material lint of §9.4); `fold_k` per panel (shading recipes).
+
 ---
 
 ## 4. Face grammar
@@ -830,13 +904,14 @@ The face is a fixed grammar. The planner picks one value per field. Each value i
 - **Registry rule:**
   - Exact reuse of a registered face-part file is blocked forever.
   - Near-duplicates of the assembled face canvas are blocked within the sliding window of the last ~30 duos (PROPOSAL_DECISION).
+  - Parts are **registered at the Gate 3 pick** (`duo.memory`, APP_SPEC §9.4/§9.5), not at Gate 2, so faces from abandoned duos never block future faces inside the window. Gate 2 only checks a candidate against what is already registered.
   - The "never the same AI face twice" requirement is met by: new AI parts per character, the phash/DreamSim check against the window, and the 3-field A/B rule.
 
 ### 4.1 Grammar lists
 
 | Field | Values | Produced by | Notes |
 |---|---|---|---|
-| **eye_shape** | `round` (large round opening), `narrow` (almond, outer corner slightly raised), `sleepy` (upper lid resting at ~40%, outer corner drooping) | **Head-base rig variant** [DEPENDS: head base] | This sets the eye-opening polygon in `face_canvas.json`. The sclera is filled in code to exactly that polygon. More variants can be added only as new head-base variants. |
+| **eye_shape** | `round` (large round opening), `narrow` (almond, outer corner slightly raised), `sleepy` (upper lid resting at ~40%, outer corner drooping) | **Head-base rig variant** [DEPENDS: head base] | This sets the eye-opening polygon in `face_canvas.json`. The sclera is filled in code to exactly that polygon. More variants can be added only as new head-base variants. Before any head base exists, `builtin_kits/face_canvas_default.json` defines the same three eye-shape openings and the lid and mouth slots on the cube head's front face, so the `EyeShapeKit` and `MouthKit` enums exist from the first run (§8.1.4). |
 | **iris_style** | `oval_solid`: one flat iris colour plus pupil<br>`oval_top_band`: flat iris plus a dark band across the top third<br>`oval_two_step`: two flat tones, darker upper half<br>`oval_ring`: darker outer ring, lighter centre<br>`round_small_pupil`: smaller round iris showing more white<br>`vertical_slit`: slit pupil | **AI part `iris`** (R1 or I3). Code fallback: parametric ovals | Always a **full** oval, even where the lid will cover it (the lid slides over). **No highlights.** Colours: iris_ref, iris_dark_ref, pupil_ref. |
 | **highlight_style** | `dual_dot`, `single_large`, `sparkle_star`, `triple_dot`, `crescent_rim`, `none_matte` | **Code** | Drawn at the **same image-space offset** in both eyes (upper image-left, from one light source), on its own layer above the iris and below the lid. Never mirrored (FACE-04). **White only**; pupils are never hearts, stars or symbols (D26). `sparkle_star` is [UNVERIFIED policy] and can be switched off in Settings (fallback `dual_dot`). |
 | **lash_style** | `clean_line`: tapered line, no flicks<br>`outer_flick_1`: one flick<br>`outer_flicks_3`: three chunky flicks<br>`wing`: liner wing<br>`heavy_line_lower_ticks`: thick line plus 2 lower ticks | **AI part `lash_upper`** (R1 or I3). Lower ticks by code | **One colour only** (lash_ref), on the head texture (policy). Fitted by code to the top edge of the rig opening (arc-length warp). Lives on the **lid layer**. |
@@ -911,15 +986,17 @@ Recraft prompts carry **no** style words when a `style_id` is used, because the 
 | **Recraft face `style_id`** | After the user approves 4–8 isolated face parts (bootstrap). Stored in the kit registry. | Rasterised PNGs of isolated parts on the sentinel or white (SVG is not accepted as a reference). | `recraftv4_styles_vector` for all later face parts. |
 | **Recraft print `style_id`** | The same way, from approved prints, if prints look different from faces | — | R2 |
 
-**S0: house style bootstrap (one time, setup wizard).**
-1. The user uploads 10–20 favourite skins (taste sources). These go only to L1 and L2 as text analysis, never to an image model.
-2. The user rates about 50 generated samples.
-3. The app generates exemplar assets with I2, I3/R1, I4, I5 and I1. Because no house sheet exists yet, these calls have no Image 2 and rely on `HOUSE_STYLE_2D/3D_INPUT` alone.
-4. The user approves 6–8 of them.
-5. Code assembles sheet v1.
-6. Code creates the Recraft face `style_id` from the approved isolated face parts.
+**S0: house style bootstrap (one time, setup wizard).** S0 is allowed when no house style sheet and no head base exist yet; their absence is an availability flag (§8.1.4), never a reason to block it. The order is fixed: **sheet v1 first, then the Recraft `style_id`.**
 
-Cost: about $3–5, once.
+1. **Taste sources.** The user uploads 10–20 favourite skins. These go only to L1 and L2 as text analysis, never to an image model.
+2. **Bootstrap fixture set.** Code loads 3–4 illustrative specs from `duoskin/data/bootstrap_specs/` (`s0_a.json` … `s0_d.json`; they validate against the §3.2 schema). They are **never sent to L3 or any other planner** and are not Appendix D. They are deliberately different from one another (different top and bottom recipe families, hair silhouettes, shape languages, palette families and accessory kinds), so the bootstrap does not anchor the house style on one look. They only say what the exemplars depict, and they drive code: `guide_concept_char` is built from each spec, and the other guides come from §8.2.
+3. **Bootstrap variants.** The exemplar assets are made by `I1.concept_char`, `I3.face_part` / R1 (bootstrap mode), `I4.hair_front`, `I5.accessory_front` and `I2.print` with their normal slots filled from a fixture spec, **but with an IMAGES line that lists only the guide**, because the concept crop, the face crop, the hair crops, the kit render and the style sheet do not exist yet. I1: Image 1 = the colour-blocked guide only. I3: Image 1 = the part guide. I4: Image 1 = `guide_bald_head`, no Image 2 or 3. I5 and I2: Image 1 = the code-drawn frame guide of §8.2 (`guide_frame_<aspect>`). None of these has an Image 2, so they rely on `HOUSE_STYLE_2D` or `HOUSE_STYLE_3D_INPUT` alone. These variants are named `<id>@s0`; they run once, are never used after sheet v1 exists, and their outputs never enter the face or print registries, the taste profile's gate decisions or critic examples.
+4. **Rating screen.** The user rates about 50 of these samples (for each fixture: its concept drafts and a few parts), 1–5 plus optional tags. The UI posts each rating to `POST /api/ratings` with `{item_id, kind: "concept"|"part", fixture_spec_id, score, tags[]}`. The server stores it in `taste_profile.sources.ratings` and **attaches the fixture spec's field values** to it (`top.recipe_id`, `bottom.recipe_id`, `hair.kit_style_id`, `dna.shape_language`, `dna.motif_object`, palette family, accessory kind …), so that L2's `frequency_tables` (§9.2) exist before any real duo. A score of 4–5 counts as "approved" and 1–2 as "rejected" in those tables; 3 is ignored [CALIBRATE]. Bootstrap ratings are weak evidence, and L2's two-example rule still applies.
+5. **Approval.** The user approves 6–8 exemplars.
+6. **Sheet v1.** Code assembles `house_style_v1.png` from them.
+7. **Recraft face `style_id`.** Only now, from the approved isolated face parts (R1 bootstrap mode).
+
+Cost: about $3–5, once (4 fixtures × the calls above, drafts only plus finals for the approved exemplars).
 
 ### 5.4 Taste profile (`data/taste_profile.json`, versioned)
 
@@ -928,7 +1005,8 @@ Cost: about $3–5, once.
   "version": 4, "updated_at": "2026-09-29T12:00:00Z",
   "sources": {"favourites": [{"id": "fav_01", "sha256": "...", "note": "likes the sleeve blocking",
                                "use": "structure_rules_only"}],
-              "ratings": [{"item_id": "cand_17", "kind": "concept|part|duo", "score": 4, "tags": ["too_busy"], "ts": "..."}],
+              "ratings": [{"item_id": "cand_17", "kind": "concept|part|duo", "score": 4, "tags": ["too_busy"], "ts": "...",
+                           "spec_fields": {"top.recipe_id": "hoodie", "dna.shape_language": "boxy_sturdy"}}],   # S0 ratings (§5.3) carry the fixture spec's values
               "gate_decisions": "db:gate_tiles (approve/reimagine/change with notes)"},
   "frequency_tables": {"field": "top.recipe_id", "rows": [{"value": "hoodie", "approved": 7, "rejected": 1}]},
   "profile": {"likes": [], "dislikes": [], "open_questions": [], "explore": []},
@@ -999,7 +1077,7 @@ Each recipe is code: a set of **masks per region**, derived from row ranges plus
 - **Bracelets and wristbands** (Shirt): a 4–6 px band inside arm rows 448–464, on all 4 faces with continuous wrap. Optional charm = I2 small on F. **Gloves**: rows 446–482 + D.
 
 **Garment cut lint (HARD; PROPOSAL_DECISION fix (a)).** A and B must meet both conditions:
-- they differ in top type **or** bottom type (the recipe family: tee / raglan / hoodie / jacket / crop_top / skirt / jeans / shorts / cargos);
+- they differ in top type **or** bottom type (the recipe family: tee / raglan / hoodie / jacket / crop_top / skirt / jeans / shorts / cargos); under `same_club` the same family is allowed (structure profile, §9.4);
 - they differ in at least 2 of: sleeve, hem, leg, neckline, front, block_layout.
 
 The lint only checks A against B. It does not tell the planner which recipe to pick.
@@ -1020,9 +1098,11 @@ Then: render at 4×, box-downsample, palette-snap the interiors, fill the gaps a
 
 ### 7.1 Gate A: code checks (free; run first; any fail rejects the candidate)
 
+**Check status.** Every check returns `{ran, passed, status}` with `status ∈ pass | fail | not_applicable`. A check that cannot run because a kit dependency is absent is **`not_applicable`**, not `ran=False`: code sets it from the manifest flags `head_base_present` and `body_base_present` (§8.1.4), records `ran=True` with the reason (`no_head_base`, `no_body_base`), and it does **not** fail closed. `ran=False, passed=False` stays for a check that should have run but crashed or lacked a file it needs (FAILURE_MODES §0.3 rule 4). Each face or body check names the mode it runs in: the face checks have a with-head-base and a no-head-base profile (§11.3 step 7); the colours and body tile runs its 2D equivalents without a body base (modesty colour versus skin ΔE, no skin-like colour on the chest and groin zones of the 2D mannequin), and CHK-B09 and CHK-B10 take over when a body base is added.
+
 | ID | Check | Default threshold [CALIBRATE unless stated] |
 |---|---|---|
-| A_SIZE | The decoded size equals the requested size (and `r.size`); the mode is expected | exact (hard) |
+| A_SIZE | The decoded size equals the **requested** size (and `r.size`); the mode is expected. It must also equal Image 1's size **only** for templates whose Image 1 is the edit target or a code guide of the output size (I0, I1 and its variants, I3, I4, I4k, I5g, I8, I11, the `*e` edit variants, and the frame-guide variants of I2, I5 and I6); for the calls whose Image 1 is a reference crop (I2, I5, I6 with a concept crop, and I10) only the requested size is asserted (§8.3) | exact (hard) |
 | A_ALPHA | RGBA; the fully transparent share is above the minimum; semi-transparent share < 3% of the bbox; no checkerboard FFT peak; no opaque border ring (2% frame) | transparent share ≥ 10% |
 | A_COMPONENTS | Connected components of alpha (or of a non-background mask) equal the expected count | usually exactly 1 (iris 1; lash 1 main + flicks joined; mouth_open 1–3 inner pieces) |
 | A_MARGIN | Alpha bbox margin on every side, nothing cropped | ≥ 6% for every asset (D28). Code then re-pads to the canonical framing (3D inputs: 80–85% fill of 2048²) |
@@ -1042,7 +1122,8 @@ Then: render at 4×, box-downsample, palette-snap the interiors, fill the gaps a
 | A_SVG | SVG sanity (banned elements, `href`, opacity < 1, gradients, path count, viewBox) | hard |
 | A_SENTINEL | ≥ 95% of border pixels equal the sentinel colour (Recraft and Gemini) | hard |
 | A_SWATCH | Concept: dominant colours per garment zone versus the planned colours | ΔE ≤ 15 (warning only; the palette is re-extracted after Gate 1) |
-| A_LEAK | Concept: neither character carries the partner's signature colours (`*_main` of the other) over > 3% of its figure | hard for the concept pair |
+| A_LEAK | Concept: neither character carries the partner's **partner-only colours** over > 3% of its figure. Partner-only colours = the partner's role colours (`*_main`, `*_second`, hair) that are more than ΔE2000 12 from **every** one of this character's own role colours and from the shared anchor colours. The set is empty when the structure shares or swaps colours on purpose, so `same_club` (shared main), `mirror` (swapped roles) and `seasonal_twins` pairs pass, while a `complement` pair in which A wears B's main still fails. Keyed by the structure profile (`data/structure_profiles.json`, §9.4) | hard for the concept pair |
+| A_CLONE | Clone band, lower edge: DreamSim distance between A and B (degraded metrics when `dreamsim.onnx` is missing, §17.1). Three stages with three edges: **concept** (front + back figure crops, `clone.concept_lower_edge`; cold-start default, then about the 5th percentile of approved concept pairs; §10.2), **Gate 2 pre-build** (flat-tile composites + hair and accessory fronts, `clone.gate2_lower_edge`; §11.10), **duo** (4-side renders, `clone.lower_edge`, 0.30; §17.1) | hard (the user may override at the concept and Gate 2 stages with a logged note) |
 | A_VIEWS | Multiview set: 4 views present; heights within ±3%; common ground line; front/back horizontal centring | hard |
 | A_TEMPLATE | 585×559 RGBA 8-bit PNG; exact region crops; gaps filled; seam keep-outs; details ≥5 px inset | hard |
 | A_MESH | Accessory/hair file gate (§15.3) | hard |
@@ -1051,12 +1132,14 @@ Then: render at 4×, box-downsample, palette-snap the interiors, fill the gaps a
 
 Hard rules are marked **H**; everything else is soft (it ranks drafts, and warns at gates).
 
+Only the quoted statement is sent to the judge; text after it in the same cell is a note for implementers.
+
 | Rule ID | Statement given to the judge | Used by | H/S |
 |---|---|---|---|
 | **Always-on** | | | |
-| ip_no_brand | "No logo, brand mark, trademark-like symbol, mascot of a company, or platform icon is visible anywhere." | every asset, concept, duo | H |
-| ip_no_known_character | "Nothing depicts or closely imitates a well-known character from games, anime, films, cartoons or toys." | concept, prints, badges, accessories, duo | H |
-| ip_no_text | "No letters, numbers, words or letter-like marks (in any script) are visible." | every asset | H |
+| ip_no_brand | "No logo, brand mark, trademark-like symbol, mascot of a company, or platform icon is visible anywhere." | every asset, concept, duo, **and the face-on-head pose sheet (C4), the I4 hair front and its T1 views, and the Gate 2 per-character composite (face on head + hair front)** | H |
+| ip_no_known_character | "Nothing depicts or closely imitates a well-known character from games, anime, films, cartoons or toys." | concept, prints, badges, accessories, duo, **and the face-on-head pose sheet (C4), the I4 hair front and its T1 views, and the Gate 2 per-character composite** (a signature hairstyle plus face is the likeliest anime look-alike, so it is caught before BUILD, not first at export) | H |
+| ip_no_text | "No letters, numbers, words or letter-like marks (in any script) are visible." | every asset, including the face pose sheet, hair front and Gate 2 composite | H |
 | ip_age_appropriate | "Clothing covers torso and hips as everyday casual wear; nothing is suggestive, revealing, violent, or crude, and no hate or drug symbols appear." | concept, garments on the render, duo | H |
 | **Concept (I1)** | | | |
 | cn_blocky_body | "The figures keep the blocky body from the guide: a cube head, a box torso, and straight box arms and legs." | I1 | H |
@@ -1071,7 +1154,7 @@ Hard rules are marked **H**; everything else is soft (it ranks drafts, and warns
 | dj_same_world | "The two characters look like they belong to the same world (matching drawing style and related colours or motifs)." | assembled concept, duo renders | S |
 | dj_not_clones | "The two characters are easy to tell apart at a glance by hair shape and outfit." | same | H (clone band is code; this is the backstop) |
 | dj_anchor_visible | "{anchor} is visible on both characters in the front views." | same | S |
-| dj_no_leak | "Character B does not wear {A signature item} and character A does not wear {B signature item}." | assembled concept | H |
+| dj_no_leak | "Character B does not wear {A signature item} and character A does not wear {B signature item}." Code builds the item lists from the spec: only items one character has and the other does not, minus the shared anchors and whatever the structure profile shares on purpose (for `same_club`, the uniform garments and main colour). With an empty list the rule is skipped | assembled concept | H |
 | **Print / motif (I2, R2)** | | | |
 | pr_single_graphic | "Exactly one graphic is shown, whole and centred, with empty space around it." | I2, R2 | H |
 | pr_motif_matches | "The graphic depicts {motif}." | I2, R2 | H |
@@ -1089,15 +1172,16 @@ Hard rules are marked **H**; everything else is soft (it ranks drafts, and warns
 | fp_shape_word | "The {part} matches this description: {grammar phrase}." | all face parts | H |
 | **Face on head (renders, C-step)** | | | |
 | fh_eyes_covered | "In the blink render, no iris or eye-white is visible; only the eyelid shows." | head renders | H |
-| fh_symmetric | "The two eyes and brows are mirror images of each other in shape and position." | head renders | H |
+| fh_symmetric | "Ignoring the white highlight dots and the mouth, the two eyes and brows are mirror images in shape and position." (catchlights are deliberately not mirrored, D26/FACE-04, and some mouths are asymmetric) | head renders | H |
 | fh_lines_visible | "On every skin tone shown, the lash lines, brows and mouth are clearly visible." | 5-tone sheet | H |
 | fh_no_smear | "In every pose, the painted features keep their shape (no stretching or tearing)." | pose sheet | H |
 | fh_expression_reads | "The happy render looks happy and the sad render looks sad." | pose sheet | S |
+| fh_matches_concept | "The face matches the reference face crop in eye shape, iris style, brows and mouth." (the neutral render beside the concept face crop; R1, the default face route, is text-only and never sees the concept face, so this is where drift shows up) | C4 neutral render | S (shown after the first choice; the fix offered to the user, never run automatically: I3 guided by the concept crop, or a spec patch) |
 | **Hair (I4)** | | | |
 | hr_head_unchanged | "The grey head keeps its exact cube shape, size and position." | I4 | H |
 | hr_no_face | "No eyes, mouth or other facial features are drawn." | I4 | H |
 | hr_front_ortho | "The hair is seen straight-on from the front, level and without perspective." | I4 | H |
-| hr_bangs_clear | "The bangs end above where the eyes would be (upper part of the head's front)." | I4 | H |
+| hr_bangs_clear | "If there are bangs, they end above where the eyes would be (upper part of the head's front); otherwise the forehead is bare." (a no-fringe style, `fringe_id: none`, is a required calibration fixture, §2.9.7) | I4 | H |
 | hr_chunky | "The hair is made of large chunky clumps, not thin strands." | I4 | S |
 | hr_matches_concept | "The hairstyle matches the reference hairstyle in shape, length and parting." | I4 | H |
 | hr_volume_readable | "The hair looks like a solid 3D volume, not a flat paper cut-out." | I4 | S |
@@ -1127,10 +1211,14 @@ Hard rules are marked **H**; everything else is soft (it ranks drafts, and warns
 | gm_seams_continuous | "Patterns and bands line up across the edges between the front, sides and back." | 4-side render | H |
 | gm_print_placed | "{print} sits at {region phrase} and is not cut by a body-part edge." | 4-side render | H |
 | gm_shoes_read | "The shoes read as shoes, separate from the trousers." | 4-side render | S |
+| **Garment tiles (Gate 2, flat front and back)** | | | |
+| gm_matches_concept | "The flat front/back shows the same garment design as the concept figure." (the flat tile beside the figure crop: block layout, trims and painted details that the user approved at Gate 1; the shirt and pants are composited from the spec, so only this check and the palette check compare them with the picture) | flat shirt and pants tiles | S (shown after the first choice; the fix offered to the user, never run automatically: a spec patch, or a different fold or print variant) |
 | **Reference similarity (L14, only when switched on)** | | | |
 | rs_not_copied | "The candidate does not reproduce the reference's specific outfit, print, hairstyle or character; shared general style is fine." | concept, duo | H (when on) |
 
 Code checks that the returned rule-ID set **equals** the requested set.
+
+**`*_matches_concept` after an applied change.** `hr_matches_concept`, `ac_matches_concept`, `pr_matches_concept`, `fh_matches_concept`, `gm_matches_concept` and the palette comparison of a part with its concept crop (FAILURE_MODES CHK-A13/D05, DUO-07) compare a part with the approved concept. A change the user confirmed ("make B's jacket teal", "rounder bag", "shorter bangs") must not make that part fail against the old picture. So after an applied ChangeRequest (§10.5): (1) the part's consistency reference becomes the **patched spec**; a palette patch also recolours the concept crop by palette-index remap, so the crop shows the new colour; (2) code rewrites the rule statement to "…matches the reference crop in everything except this requested change: {fix_sentence}", so the rule is evaluated only on the attributes the change did not touch; (3) when the change is a regenerate of the whole part (a new design), the rule is **soft for that part until the user re-approves it**, and the approved asset then becomes the reference. Without this, the fix ladder would push the part back toward the old design or end in NEEDS_HUMAN.
 
 ---
 
@@ -1172,14 +1260,19 @@ Policy: no brand or platform marks, no known characters, no excessive text, noth
 - compatibility (e.g. `mouth_style ↔ mouth rig`, `crop_top requires bottom.waist=high`);
 - hair silhouette class, plus the precomputed A-vs-B kit-hair IoU matrix (front and side) used by the plan lint;
 - each shoe style's height band;
-- availability flags: `makeup: unavailable` in v1 (FAILURE_MODES Q5); `hair_kit_empty: true` while `kits/hair/` has no style (D24, the planner then uses `hair_custom`).
+- the human-written manifest fields that the slot maps need (§3.4): `clump_k`, `parting`, `default_fringe`, `weave_k`, `pattern_phrase`, `fold_k`, `material`;
+- availability flags: `makeup: unavailable` in v1 (FAILURE_MODES Q5); `hair_kit_empty: true` while `kits/hair/` has no style (D24, the planner then uses `hair_custom`); `head_base_present`, `body_base_present` and `house_style_sheet_present`.
+
+The last three flags **warn and route to reduced modes; none of them blocks paid features** (the doctor split of FAILURE_MODES CHK-S11: manifest load, kit-enum build and the colour-dictionary check stay HARD; "house-style sheet present" and "head-base zones present" are availability flags). Without a house style sheet, S0 is allowed (§5.3). Without a head base, the 2D face path runs on the built-in canvas (§11.3) and the face checks use the no-head-base profile. Without a body base, the colours and body tile runs its 2D equivalents (§7.1). Until a head base exists, `EyeShapeKit` and `MouthKit` are built from `builtin_kits/face_canvas_default.json`, which defines the three eye-shape openings and the lid and mouth slots on the cube head's front face; a head base later replaces it with its own `face_canvas.json`.
+
+**8.1.4b `STRUCTURE_PROFILES`** (plan-loop routes L3, L4, L6 and L7 only): `data/structure_profiles.json`, rendered as sorted canonical JSON inside `<structure_profiles>` directly after `<kit_inventory>`. It holds, per pair structure, the colour rules (SOFT), the contrast rule and the garment-cut rule (HARD) that C1 applies (§9.4). The planner therefore reads exactly what the linter enforces, from one source.
 
 **Schema smoke test** (startup, and whenever the inventory changes):
 - Per route, send one trivial prompt with the real schema, `max_tokens` 256, and `thinking: {"type": "disabled"}` (allowed at effort ≤ high). `count_tokens` does not compile the grammar, so it cannot replace this test.
 - A 400 "Schema is too complex" flags the route before the user hits it.
 
 **8.1.5 Order and caching.**
-- **System:** `SHARED_CONTEXT`, `ROBLOX_RULES`, `STYLE_GUIDE`, `KIT_INVENTORY`, then the role text, with `cache_control: {"type": "ephemeral"}` on the role text block. Use `"ttl": "1h"` when a gate is open, because the user may pause 5–60 minutes.
+- **System:** `SHARED_CONTEXT`, `ROBLOX_RULES`, `STYLE_GUIDE`, `KIT_INVENTORY`, then (plan-loop routes) `STRUCTURE_PROFILES`, then the role text, with `cache_control: {"type": "ephemeral"}` on the role text block. Use `"ttl": "1h"` when a gate is open, because the user may pause 5–60 minutes.
 - **User content:** first the cached style references by `file_id`, with a second breakpoint on the last shared image. Then the variable data in tags.
 - Routes never share caches, because caches are per model and per effort.
 - Fan-out (L4 ×3, L5 ×6, L11 batches): send one request, wait for its first streamed token (a cache entry is readable only after that), then send the rest. Never pre-warm structured routes with `max_tokens: 0` (rejected together with `output_config.format` or streaming). Check `usage.cache_read_input_tokens`; on Sonnet routes the cached prefix must be ≥1024 tokens or it silently does not cache.
@@ -1202,18 +1295,28 @@ Policy: no brand or platform marks, no known characters, no excessive text, noth
 | Guide ID | Used by | Canvas | Contents | Mask (alpha 0 = editable) |
 |---|---|---|---|---|
 | `guide_concept_char` | I1 | 1536x1024, two 768x1024 slots, #F2F2F2 | Slot 1 front, slot 2 back. Blocky figure at **120 px/stud** (arms-included width 4 studs = 480 px; height 5.2 studs = 624 px; feet at y=964; head top at y=340). Figures are **colour-blocked** from recipe masks: head = skin tone; top base colour on the torso and arms, with sleeve coverage per recipe; bottom base colour on the legs; legwear; shoes; transparent recipe areas = skin. Back figure uses the same colours. No face and no hair drawn. Swatch strip: 5 squares of 40 px at y=990–1014 in each slot (hair, top, bottom, shoes, accent). No text. | Each figure bbox extended 2 studs (240 px) above the head top, 1.2 studs (144 px) to each side, and 16 px below the feet. The swatch strip and background stay protected. |
+| `guide_concept_front` / `guide_concept_back` | I1f / I1b | 768x1024, #F2F2F2 | One slot of `guide_concept_char`, same figure, scale and swatch strip (feet at y=964, head top at y=340). No text. | The figure bbox extended as in `guide_concept_char` |
+| `guide_concept_joint` | I1j | 3072x1024, #F2F2F2 | Four 768x1024 slots in the order A front, A back, B front, B back, each built exactly like a `guide_concept_char` slot from its own character's spec. | Each figure bbox as above |
 | `guide_bald_head` | I4 | 1024x1536, white | Cube head drawn front-on at the Hair-box scale (1 stud = 280 px; head 1.2 studs = 336 px), centred, top at y=560, mid-grey #9A9A9A. Code switches the head colour to one ≥30 ΔE2000 from every hair palette colour when the hair is grey, silver or white. | Hair box (3 × 5 studs, from 2 up to 3 down from the head top) editable, **except** the lower 55% of the head's front face, which stays protected. |
 | `guide_face_part_<part>` | I3 | 1024x1024 transparent (always sent with its explicit mask, U26) | The rig geometry for the part: iris oval, lash arch band, brow band or mouth band from `face_canvas.json`, scaled to ~70% width and filled mid-grey #9A9A9A. | The grey shape dilated by 24 px. |
 | `guide_face_part_incanvas_<part>` | I3 when `mask_multi_ok` is false (D17) | 1536x1024: left 1024x1024 slot transparent with the grey part shape; right 512x1024 column opaque #F2F2F2 holding the concept face crop (top 512²) and a style-sheet face-part sample (bottom 512²) | as `guide_face_part` plus the protected reference column | Only the dilated grey shape in the left slot. The output is cropped to the left slot. |
 | `guide_panel_<recipe>_<panel>` | I8 | 1024x1024 (torso F/B) or 816x1632 (sides, limbs) | Mid-grey #808080 fill inside the recipe mask; white outside. | The recipe mask. |
 | `guide_scale_<attachment>` | Gate 2 tile (not a model input) | 1024x1024 | The character outline at a fixed stud scale with the accessory composited at its planned size and attachment. | — |
+| `guide_frame_<aspect>` (`square` 1024x1024, `tall` 816x1632) | I2, I5, I6 when the concept does not show the item (no concept crop; §11.4) | transparent | An empty framing canvas of the target aspect. Nothing is drawn on it: the margin (10% on each side, 12% for I5) is enforced by the mask, and A_MARGIN checks it. | Everything inside the margin band is editable; the margin band is protected. The explicit mask is always sent (U26) |
+| `guide_acc_box_<attachment>` | I5g | 1024x1024, #F2F2F2 opaque | The planned silhouette box: the face of the category's Classic box (§8.1.2, W x H studs) at the accessory's size class, drawn as a mid-grey #9A9A9A rounded rectangle, centred, filling at most 76% of the long side (12% margin). No text, no other marks. | The box dilated by 4% of the width |
+
+**`guide_regions.json`** (written by the guide builder next to every `guide_concept_char`; never sent to a model). Per figure (`front`, `back`) it holds, at 120 px/stud, the pixel box of each of the 18 template regions that the view shows (`torso_f` and `rlimb_f` / `llimb_f` on the front figure, `torso_b` and `rlimb_b` / `llimb_b` on the back figure; the builder knows which limb is on which side of the image), the head box, the Hair box (§8.1.2: 3 × 5 studs, 2 up and 3 down from the head top), the shoe band, and one point per attachment (`hat` … `waist_back`), computed from the Classic attachment offsets and the stud scale. A region that neither view shows (the up, down and side faces) has no box. Code maps a spec region (`Print.region`) to its box through this file, never by guessing.
 
 ### 8.3 Reference preparation
 
 - **Concept crops for part assets:**
   - Take the approved concept (final or draft of record).
-  - Cut the part's box. Boxes are known from the guide and hair or accessory detection.
-  - Upscale with Lanczos so the long edge is 512–1024 px.
+  - Cut the part's box from `guide_regions.json` (§8.2), as follows:
+    - **Print or garment region:** the region's box on the front or back figure. A region with no box (not shown in either view) has no crop.
+    - **Accessory:** the Classic box of its category (§8.1.2), projected from its attachment point in `guide_regions.json`, intersected with the **non-guide foreground** (the pixels that differ from the code-drawn guide and its background). Accessories overlap the body, and shoulder, back and waist positions vary, so the foreground intersection, not a fixed rectangle, defines the crop.
+    - **Hair:** the foreground inside the projected Hair box **minus the guide body** (head, torso and limbs of the guide figure). Long hair that overlaps the torso is cut at the Hair box (3 × 5 studs, 2 up and 3 down from the head top), so it never pulls in clothing.
+    - **Empty crop:** when the crop is empty or less than 2% of its box is foreground, or the item is visible in neither view, the call uses the **no-crop variant** (frame guide, §11.4) and the tile is flagged "not in concept" at Gate 2 (soft; the user sees that no approved picture backs this part).
+  - Upscale with Lanczos so the long edge is 512–1024 px. This reference size is independent of the output size: for the calls whose Image 1 is a reference crop (I2, I5, I6, I10) code asserts the decoded output equals the **requested** size, never Image 1's size (A_SIZE, §7.1).
   - Background: keep the crop's flat #F2F2F2 background (U26: Image 1 goes opaque). Only when the flag `rgba_image1_ok` is set, cut #F2F2F2 to alpha for transparent targets (colour distance + flood fill from the border), so the model sees a cut-out and does not copy a backdrop.
   - Name the file by role (`img1_ref.png`).
 - **Composite sheets:** when a call needs more than 2 references (e.g. front + back of the hair), code lays them side by side on one canvas with a 32 px gutter. This saves input cost and reduces reference confusion.
@@ -1245,6 +1348,7 @@ Policy: no brand or platform marks, no known characters, no excessive text, noth
 | L12 duo judge | claude-opus-5 | high | 32000 | `"default"` |
 | L13 IP/appropriateness escalation | claude-opus-5 | high | 16000 | `"default"` |
 | L14 reference similarity | claude-opus-5 | high | 16000 | `"default"` |
+| L15 concept inventory | claude-sonnet-5 | medium | 16000 | none |
 
 Every route is called through one function, `providers/anthropic_llm.py::call(route, system_blocks, content, schema)`:
 
@@ -1378,7 +1482,7 @@ class TasteProfile(Strict):
 
 ### 9.3 L3: Planner
 
-**Purpose.** Write 3 complete, buildable Duo Specs (`PlanSet`) for the brief and combo. When the brief is open, they use different pair structures, and exactly 1 of them is the wildcard.
+**Purpose.** Write 3 complete, buildable Duo Specs (`PlanSet`) for the brief and combo. **Exactly 1 of them is always the wildcard**, whatever the brief says. When the brief is open, the 3 use different pair structures. When the brief (or the brief form's structure choice) fixes a structure, all 3 use it, and the wildcard keeps that structure but departs from the other two in palette family, anchor kind or theme.
 
 **Model and params.** `claude-opus-5`, effort `high`, max_tokens 64000, streamed (thinking summaries go to the UI progress feed), `fallbacks="default"`. Output format = `PlanSet` schema (§3.2).
 
@@ -1386,14 +1490,18 @@ class TasteProfile(Strict):
 
 ```
 <user_brief>{brief_text}</user_brief>
+<structure_request>{one PairStructure id chosen on the brief form, or "auto"}</structure_request>
+<must_include>{up to 5 lines typed on the brief form, each at most 12 words, or "none"}</must_include>
 <combo>{combo}</combo>  <!-- first letter = character a, second = character b: b = boy, g = girl -->
 <reference_analysis>{ReferenceAnalysis JSON, or "none"}</reference_analysis>
 <taste_profile>{TasteProfile JSON + reference_rules}</taste_profile>
 <recent_cards>{last 5 DNA cards, compact JSON}</recent_cards>
 <recently_used>{hair kit ids, eye shapes, mouth styles, palette families, fabric ids, pair structures, anchor kinds}</recently_used>
-<avoid>{registry avoid-list: themes and anchor combinations of the last 30 duos; plans the user rejected this session, each with the user's reason}</avoid>
-Return three specs that differ in pair structure (when the brief allows), theme family, palette family and anchor kind, so the user has a real choice.
+<avoid>{only plans the user rejected in this session, each with the user's reason; empty on the first run}</avoid>
+Return three specs that differ in pair structure (when the brief and <structure_request> allow), theme family, palette family and anchor kind, so the user has a real choice. Exactly one of the three is the wildcard.
 ```
+
+`<avoid>` carries no cross-duo information: recent duos reach the planner only through `<recent_cards>` (the last 5) and `<recently_used>`, as hints (PROPOSAL_DECISION), because forced novelty pushes the planner into options that do not fit the brief.
 
 There is **no example spec** in the prompt (PROPOSAL_DECISION). If testing shows examples are needed, rotate at least 3 deliberately different ones, each labelled "illustrative, do not reuse".
 
@@ -1403,17 +1511,19 @@ There is **no example spec** in the prompt (PROPOSAL_DECISION). If testing shows
 <role name="planner">
 You plan duo skins before anything is drawn, because a weak idea caught here costs cents and the same idea caught after 3D modelling costs dollars. Return three complete duo specs that the kits can build.
 
-A good duo reads as a pair on a 150-pixel thumbnail and still shows two clearly different people. Give the pair two or three shared anchors that are visible from the front on both characters (a colour, motif, material, trim, silhouette detail, linked accessory pair, hair detail or face detail), and at least five contrasts on different axes. Most contrasts should be structural (hair shape, garment type, sleeve or leg length, layering, accessory kind or slot, face features) rather than colour, because recolours read as clones. Neither character may be a recolour of the other. Vary the kind of anchor; a shared accent colour is only one option.
+A good duo reads as a pair on a 150-pixel thumbnail and still shows two clearly different people. Give the pair two or three shared anchors that are visible from the front on both characters (a colour, motif, material, trim, silhouette detail, linked accessory pair, hair detail or face detail), and at least five contrasts on different axes. Most contrasts should be structural (hair shape, garment type, sleeve or leg length, layering, accessory kind or slot, face features) rather than colour, because recolours read as clones. Every contrast you list must be something code can measure from the spec fields (a different recipe family, hair kit, eye shape, accessory category), because a contrast the software cannot verify does not count. Give A and B different shape language, hair kit or focal location (at least two differences among these, colour plan, motif object and accessory style), so they read as different people on a thumbnail; these differences count toward the five. Neither character may be a recolour of the other. Vary the kind of anchor; a shared accent colour is only one option.
 
-If the brief names or implies a pair structure (for example "twin sisters" or "team uniform"), all three specs use it and differ in other ways. If the brief is open, the three specs use three different structures, and exactly one is the wildcard: a bolder idea that ignores the taste profile but still follows every rule below. Structures: complement; leader_chaotic; same_club (may share a main colour, with contrasts from hair, face, cut, print and accessory); mirror (swapped colour roles or mirrored composition, with different hair, garment type and accessory category); seasonal_twins (one theme, different season palettes, plus non-colour contrasts); object_mascot (two human blocky characters, with the mascot as the signature accessory or linked accessory pair); other (describe it in structure_note).
+If the brief names or implies a pair structure (for example "twin sisters" or "team uniform"), or <structure_request> names one, all three specs use it and differ in other ways. If the brief is open, the three specs use three different structures. Either way, exactly one spec has is_wildcard true: a bolder idea that ignores the taste profile but still follows every rule below. When the structure is fixed, the wildcard keeps that structure and departs from the other two in palette family, anchor kind or theme, because the person always gets one real alternative to choose from. Structures: complement; leader_chaotic; same_club (may share a main colour, with contrasts from hair, face, cut, print and accessory); mirror (swapped colour roles or mirrored composition, with different hair, garment type and accessory category); seasonal_twins (one theme, different season palettes, plus non-colour contrasts); object_mascot (two human blocky characters, with the mascot as the signature accessory or linked accessory pair); other (describe it in structure_note). <structure_profiles> lists the colour and contrast rules the linter applies to each structure; follow the row of the structure you chose.
 
-Everything must be buildable from <kit_inventory>, respecting its compatibility notes. Hair uses a kit style; hair_custom is a costly backup for when nothing fits or when <kit_inventory> says the hair kit is empty. Faces use the face grammar, and A and B differ in at least three of eye shape, iris, highlight, lashes, brows, mouth and cheek mark. Garments use recipes, and A and B differ in top or bottom type and in at least two of sleeve, hem, leg, neckline, front and block layout. For accessories choose category and attachment together: items mostly above the neck are hat or face; complete hairstyles are hair; a shoulder pet usually sits on a collar attachment so it does not swing with the arm. Use build tripo for volumetric props, sticker_slab for flat badge items, code_primitive for rings and straps. Freckles, beauty marks, cheek hearts or stars, eyeshadow and multicolour lips or lashes can only be a separate makeup item, and only when <kit_inventory> lists makeup as available; otherwise leave them out. Hair is never painted on the head; it is always the hair accessory. The audience includes children, so outfits are everyday casual wear; a crop top pairs with a high-waisted bottom.
+Every line in <must_include> must be visible in all three specs. Echo each one in brief_constraints with the spec paths that show it, because the person asked for these by name and they come before taste and novelty.
+
+Everything must be buildable from <kit_inventory>, respecting its compatibility notes. Hair uses a kit style; hair_custom is a costly backup for when nothing fits or when <kit_inventory> says the hair kit is empty, and if both hairs are hair_custom they need a clear hair shape or length contrast with different descriptions. Faces use the face grammar, and A and B differ in at least three of eye shape, iris, highlight, lashes, brows, mouth and cheek mark. Choose the lash colour at least ΔE2000 10 away from every iris colour, because the eyelid is painted as its own layer and the two must stay separable. Garments use recipes, and A and B differ in top or bottom type (same_club may keep the type) and in at least two of sleeve, hem, leg, neckline, front and block layout. Under same_club use at most one colour contrast and at least four non-colour ones; under mirror give the pair a different accessory category as well as a different hair style and garment type, because swapping colours alone makes a clone. For accessories choose category and attachment together: items mostly above the neck are hat or face; complete hairstyles are hair; a shoulder pet usually sits on a collar attachment so it does not swing with the arm. Use build tripo for volumetric props, sticker_slab for flat badge items, code_primitive for rings and straps. Freckles, beauty marks, cheek hearts or stars, eyeshadow and multicolour lips or lashes can only be a separate makeup item, and only when <kit_inventory> lists makeup as available; otherwise leave them out. Hair is never painted on the head; it is always the hair accessory. The audience includes children, so outfits are everyday casual wear; a crop top pairs with a high-waisted bottom.
 
 Show restraint: at most one hero print per garment and usually no more than two accessories per character, because noise disappears at thumbnail size and every extra part costs money. A maximal detail level can justify more.
 
 Descriptions become image prompts after a lint, so describe only what is visible, in short concrete noun phrases within each field's word cap. Never write brand, franchise, character, artist or real-person names, never words meant to be printed (slogans, letters, numbers), and avoid the words logo, text, sign, label, badge and sticker. Reference colours by palette id and write each hex only once, in the palette. The story is one line of metadata and is never drawn.
 
-Use <recently_used>, <recent_cards> and <avoid> as hints: prefer something else when the brief allows, but fit the brief first, then the taste profile (except for the wildcard), then novelty.
+Use <recently_used> and <recent_cards> as hints: prefer something else when the brief allows. Do not repeat a plan listed in <avoid>, which holds plans the person rejected in this session, and read their reasons. Fit the brief and <must_include> first, then the taste profile (except for the wildcard), then novelty.
 
 Deliver what was asked at the scope intended. If the brief conflicts with a Roblox rule or the kits, follow the rule, pick the closest buildable option, and say what you changed in how_they_differ.
 </role>
@@ -1432,7 +1542,9 @@ Deliver what was asked at the scope intended. If the brief conflicts with a Robl
 | Trivial contrasts (#FFB6C1 vs #FFB7C1) (PLN-04) | Linter computes the contrasts from fields | L6 repair |
 | Every plan has the same formula (two contrasting mains + a gold accent) | Structure rotation; anchor kind rotation; check profiles per structure | Handled by the prompt and the linter profile |
 | Brand, franchise or text words in free text (PLN-12) | Free-text lint | L6 repair |
-| Wildcard missing or doubled | Linter | L6 repair |
+| Wildcard missing or doubled (also when the brief fixes the structure) | Linter (C1 #2) | L6 repair |
+| A must-include line missing from a spec, or its paths do not resolve (PLN-09) | `brief_constraints` check (C1 #20) | L6 repair |
+| Two characters that share too many CHARACTER fields, or a lash colour too close to an iris (PLN-DNA-01, PLN-13) | Linter (C1 #17, #18) | L6 repair |
 | Duplicates of recent duos | `recent_cards`, nearest-duo warning | Soft only (tie-break) |
 
 **Cost** [ESTIMATE]: about 14K input (mostly cached after the first call: $0.01–0.07) + 7–9K spec JSON + 10–25K thinking at $25/M, so about **$0.45–0.90 per planner call**.
@@ -1441,14 +1553,19 @@ Deliver what was asked at the scope intended. If the brief conflicts with a Robl
 
 **HARD** (blocks: the spec goes to L6, or is dropped):
 1. Pydantic validation: word caps, `^#[0-9A-Fa-f]{6}$`, unique palette IDs, every `*_ref` resolves (or equals `none` where allowed).
-2. Exactly 3 specs. When the brief is open, the pair structures are all different and exactly 1 spec is the wildcard.
-3. 2–3 anchors, all visible from the front. At least 5 contrasts on distinct axes, at least 4 of them code-verifiable from fields (e.g. `top_type` means the recipe families differ). **Colour axes are at most 2 of the contrasts** ("not mostly colour swaps").
+2. **Plan set** (PLN-08, CHK-G0-07). Exactly 3 specs, and **exactly 1 has `is_wildcard` true, always** (also when the brief fixes the structure). Pair structures follow `<structure_request>` and the brief:
+   - a named structure (form choice, or the brief names it): all 3 specs use it, and the wildcard differs from each of the other two in palette family, anchor kind or theme;
+   - `auto` and an open brief: the 3 structures are all different, and the specs differ pairwise in at least one of pair structure, palette family or anchor kind;
+   - `auto` and the planner read one structure into the brief: all 3 are equal (Gate 1 shows "Your brief was read as {structure}"). A 2 + 1 mix fails;
+   - `other` needs a `structure_note`.
+3. 2–3 anchors, all visible from the front. At least 5 contrasts on distinct axes, **every one measurable from spec fields** (e.g. `top_type` means the recipe families differ); a contrast the linter cannot verify does not count toward the 5 (PLN-04, CHK-G0-04). The linter also credits each differing CHARACTER DNA field as a contrast (§3.2). **Colour axes are at most 2 of the contrasts** ("not mostly colour swaps"; at most 1 under `same_club`).
 4. `combo` matches the presentations (`bg` means a = boy, b = girl).
 5. Kit IDs exist and are compatible:
    - a `mouth_style` works with the head base's mouth rig;
    - `crop_top` requires `bottom.waist = high`;
    - the shoe kit height band is ≤ row 446;
-   - `inner_recipe_id` is set only when `front ∈ {open, layered}`.
+   - `inner_recipe_id` is set only when `front ∈ {open, layered}`;
+   - a `hair_custom` hair never uses `fringe_id: kit_default` (it has no kit default to resolve; §3.4).
 6. Face grammar: A and B differ in at least 3 of the 7 fields. `cheek_mark` is `none` exactly when `blush_ref` is `none`.
 7. Garment cut rule (§6.2).
 8. Slot to attachment:
@@ -1467,21 +1584,42 @@ Deliver what was asked at the scope intended. If the brief conflicts with a Robl
 10. The size class converted to studs fits the Classic box of the type, measured from the attachment (§8.1.2).
 11. Makeup routing: freckles, beauty marks, hearts, stars, eyeshadow and multicolour lips or lashes appear only in `makeup`. While the kit inventory says `makeup: unavailable` (v1), `makeup.kind` must be `none`.
 12. The free-text lint passes on every free-text field.
-13. Clone-band proxy: identical-field count between A and B ≤ N [CALIBRATE]. The hair pairing is not the same kit style (two `hair_custom` hairs are allowed; the `hair_length` or `hair_shape` contrast must then be present).
+13. Hair pairing: A and B do not use the same kit style, unless both are `hair_custom` (D24 makes every hair `hair_custom` while the hair kit is empty). Two `hair_custom` hairs need a `hair_shape` or `hair_length` contrast with different descriptions, and the Gate 2 hair tile adds the SOFT 2D silhouette warning. (The v1.1 "identical-field count ≤ N" proxy is removed: it had no threshold key and no counterpart in FAILURE_MODES or APP_SPEC. The garment cut rule, the face rule, PLN-DNA-01 and DreamSim carry the clone protection.)
 14. Registry: no exact reuse of a registered print or face-part file (IDs referenced).
 15. Accessory ceiling: 4 or more accessories on one character is a hard fail (3 is a soft warning), because of the "no excessive accessories" requirement.
 16. Accessories complement, never repeat: no accessory of A shares (kind, category, motif) with an accessory of B. A linked accessory pair (anchor kind `accessory_pair`) must differ in kind or category.
+17. **PLN-DNA-01.** A and B differ in at least 2 CHARACTER DNA fields among `shape_language`, `colour_plan`, `focal_location`, `hair.kit_style_id`, `motif_object` and `accessory_style` (the last two compared as normalised text). Two `hair_custom` hairs count as differing only when the contrast of #13 is declared. These differences count toward the 5 contrasts of #3.
+18. **PLN-13.** The lash colour is at least ΔE2000 10 from every iris colour (`iris_ref` and `iris_dark_ref`; the pupil is a separate dark element and may share the lash colour), because the sliding lid carries only the lash layer and the two must stay separable (FACE-10; `pln.lash_iris_de_min`). Hex validity and dangling `*_ref` stay under #1.
+19. **Structure profile (hard rows).** The contrast and garment-cut rows of the chosen structure (table below), read from `data/structure_profiles.json`.
+20. **Brief constraints** (PLN-09). Every line of `<must_include>` appears in `brief_constraints`, and each entry's `spec_paths` resolve in **every** spec. A requested structure is honoured as in #2. Findings go to L6. Because the schema changed (`PlanSet.brief_constraints`, §3.2), `test_schemas.py` is re-run and `SCHEMAS.lock` is bumped.
+
+**Structure profiles** (a mirror of `data/structure_profiles.json`, which wins; it is also rendered into the cached planner block, §8.1.4b). Colour rows are SOFT, contrast and cut rows are HARD. The file's "typical anchor kinds" are hints for the planner, never lint:
+
+| Structure | Main-colour rule (SOFT) | Contrast rule (HARD) | Garment-cut rule (HARD) |
+|---|---|---|---|
+| `complement` | `a_main` vs `b_main` ΔE2000 ≥ 15 | ≥5 measurable, colour axes ≤2 | different top or bottom type, and ≥2 differing cut attributes |
+| `leader_chaotic` | ΔE2000 ≥ 15 | as complement, and `expression` or `shape_language` is among the contrasts | as complement |
+| `same_club` | none (may share a main colour) | ≥5 measurable, colour axes ≤1; ≥4 from hair, face, cut, print or accessory axes | same garment type allowed, but ≥2 differing cut attributes |
+| `mirror` | swapped roles: ΔE(`a_main`, `b_second`) ≤ 10 and ΔE(`b_main`, `a_second`) ≤ 10 | as complement, plus a different hair kit style, garment type and **accessory category** | different top or bottom type |
+| `seasonal_twins` | different season group of `palette_family`; main ΔE ≥ 15 | ≥4 non-colour contrasts | as complement |
+| `object_mascot` | as complement | as complement, plus ≥1 accessory of kind `plush_pet`, `keychain_charm` or `prop` with `linked_to_partner` true, or an `accessory_pair` anchor | as complement |
+| `other` | none | as complement | as complement |
+
+The anchor-colour ΔE ≤ 6 check applies only when the anchor kind is `colour`. `A_LEAK` and `dj_no_leak` (§7.1, §7.2) are keyed by the same profile.
 
 **SOFT** (warnings and ranking inputs only):
 - main-colour ΔE2000 per the structure profile (complement and leader_chaotic ≥15; same_club may share; mirror expects swapped roles);
 - the anchor colour ΔE within 6 when the anchor kind is `colour`;
 - adjacent-colour contrast ΔE2000 ≥ 10 (skin/top, top/bottom, print/base; `pln.adjacent_de_min`);
 - restraint (> 4 main colours, > 2 accessories without `maximal`, > 1 hero print per garment);
+- fabric versus world material: a fabric whose manifest `material` family is not compatible with `world.material_family` (the fabric kit phrase carries the material into I7; the card's material is only a planner hint);
 - hair pairing IoU from the precomputed kit matrix (front and side) above threshold;
 - accessory visible at phone size (size class small on a back item);
 - novelty: nearest past DNA card very close.
 
 At most 2 warnings are shown per gate, and only after the user's first choice.
+
+**C1 test fixtures** (code only; never sent to any model, and not worked examples for the planner): a brief that names one structure (all 3 specs on it, exactly 1 wildcard that differs in palette family, anchor kind or theme: pass; no wildcard, two wildcards, or a spec on another structure: fail); a brief with two must-include lines (paths resolve in all 3 specs: pass; one unresolved path: fail); two `hair_custom` hairs with and without the shape or length contrast; A and B differing in 1 versus 2 CHARACTER fields; lash against iris ΔE 9.9 versus 10; a `same_club` pair that shares a main colour (pass) and a `same_club` pair with 2 colour contrasts (fail).
 
 ### 9.5 L4 Critic (scoring) and L5 Pairwise ranker
 
@@ -1493,7 +1631,7 @@ At most 2 warnings are shown per gate, and only after the user's first choice.
 
 **Inputs.**
 - `<spec id="X">…</spec>`
-- `<measured_facts>`: linter results, identical-field count, restraint counts, hair IoU, nearest-duo distance
+- `<measured_facts>`: linter results, differing CHARACTER fields, restraint counts, hair IoU, nearest-duo distance
 - `<taste_profile>`, or the note `"wildcard: ignore taste_fit"` for the wildcard
 - `<user_brief>`
 
@@ -1628,21 +1766,23 @@ MUST:
 5. Signature detail: {motif_object}, clearly visible in both views where it appears.
 STYLE: {HOUSE_STYLE_2D}
 KEEP: the light grey background, the colour swatches and the spacing of Image 1.
-EXCLUDE: text, letters, numbers, logos, watermark, extra figures, floor shadow, props, background scenery.
+EXCLUDE: text, letters, numbers, logos, watermark, additional people, floor shadow, background objects, background scenery.
 ```
+
+The EXCLUDE line names "additional people" and "background objects" rather than "extra figures" and "props", because SUBJECT may ask for a plush pet (figure-like) or an accessory of kind `prop`, and a contradiction lowers adherence for exactly the signature accessories. The router and golden-prompt tests include a spec with a plush pet and one with a prop accessory (§0.4).
 
 **Slot sources:**
 
 | Slot | Source | Cap |
 |---|---|---|
 | `presentation_style` | `presentation` → "masculine-styled" (boy) / "feminine-styled" (girl) (D27) | fixed |
-| `hair_phrase` | hair kit `prompt_phrase` + `hair.description` (`hair_custom`: description only) | 16 words |
-| `top_phrase` | recipe `prompt_phrase` + cut words (sleeve/hem/neckline/front), plus print motif as "with a small {motif} print on the {chest/back}" if a hero print exists | 20 words |
-| `bottom_phrase` | same pattern | 16 words |
+| `hair_phrase` | hair kit `prompt_phrase` + `hair.description`; for `hair_custom`: `hair.description` + `parting_phrase` + `fringe_phrase` (§3.4) | 16 words |
+| `top_phrase` | recipe `prompt_phrase` + the cut words of §3.4 (sleeve, hem, neckline, front), plus the hero print as "with a small {motif} print {placement clause}" (§3.4, `print.region`) if one exists | 20 words |
+| `bottom_phrase` | recipe `prompt_phrase` + the cut words of §3.4 (leg, waist, legwear) + any print, same pattern | 16 words |
 | `shoe_phrase` | shoe kit phrase | 6 words |
-| `accessory_phrase` | for each accessory: `{description} on the {attachment phrase}` | 2 × 12 words |
+| `accessory_phrase` | for each accessory: `{description} on the {attachment_phrase}` (the attachment map of §3.4) | 2 × 12 words |
 | `colour_names` | dictionary names of `*_main`, `*_second`, hair | ≤3 |
-| `face_phrase` | eye_shape + iris + mouth phrases | 12 words |
+| `face_phrase` | `{eye_phrase} with {iris_phrase}, {mouth_phrase}` from `eye_shape`, `iris_style` and `mouth_style` (§3.4) | 12 words |
 | `shape_language_line`, `motif_object` | §3.4 | the 2 DNA fields (focal location reaches the model only through the print/accessory slots) |
 
 **Output requirements.**
@@ -1671,13 +1811,13 @@ EXCLUDE: text, letters, numbers, logos, watermark, extra figures, floor shadow, 
 | Failure | Detection | Fix |
 |---|---|---|
 | Anime or realistic body proportions | A_SIL_GUIDE, cn_blocky_body | Mask + paste-back. Ladder: `medium` quality, then Sunburst draft |
-| Face on the back view | cn_back_view | Re-roll. Ladder: separate front and back calls (768x1024 each, a legal size; the back call uses the chosen front as Image 2) |
-| Front and back mismatch | cn_views_match | Re-roll. Ladder: generate the front, then the back as an edit with the approved front as Image 2 |
+| Face on the back view | cn_back_view | Re-roll. Ladder: separate front and back calls, I1f then I1b (768x1024 each, a legal size; the back call uses the chosen front as Image 2; §10.7) |
+| Front and back mismatch | cn_views_match | Re-roll. Ladder: I1f for the front, then I1b, the back as an edit with the approved front as Image 2 (§10.7) |
 | Skirt, cape or ruffles sticking out of the boxes (unbuildable) | cn_flat_clothing, A_SIL_GUIDE | MUST 1 wording. Mask stops at the body boxes below the neck for the skirt zone (ladder) |
 | Colours drift from the swatches | A_SWATCH | Warning only. After approval the palette is extracted from the image (C3) |
 | Text or pseudo-lettering on prints | A_OCR/A_GLYPH | Re-roll. The print is then only "small {motif} print" |
 | Moderation block | 400 `moderation_blocked` | §2.4d rewrite once |
-| Style mismatch between the A and B calls | dj_same_world on the assembled sheet (§10.2) | Ladder only, never the default (A as a reference is a leakage path): re-run B with A's chosen draft as Image 3, "Image 3 = partner character; match its rendering style only, not its hair, face, colours or outfit", then re-run the hard A_LEAK and dj_no_leak checks |
+| Style mismatch between the A and B calls | dj_same_world on the assembled sheet (§10.2) | Ladder only, never the default (A as a reference is a leakage path): re-run B with I1p (A's chosen front figure as Image 3, "Image 3 = partner character; match its rendering style only, not its hair, face, colours or outfit"; the mood image is dropped, because U8 allows at most 2 references besides the edited image), then re-run the hard A_LEAK and dj_no_leak checks |
 
 **Cost** [DERIVED/ESTIMATE]:
 - A draft call is Flare low 1536x1024 with n=4 (4 × ~$0.0048) plus 2 reference inputs (~$0.01–0.02; whether billed once or per image is [UNVERIFIED]), so about **$0.03–0.06**.
@@ -1689,18 +1829,21 @@ EXCLUDE: text, letters, numbers, logos, watermark, extra figures, floor shadow, 
 
 - Code composes the 4-up sheet: 3072×1024, four 768×1024 slots, no rescaling. It is sent to the judges uniformly downscaled to 2304×768. Code adds labels ("A · front" and so on) for the UI **after** all checks.
 - **Gate A:**
-  - A_LEAK (hard): each character's figure pixels are checked against the other's `*_main` colours.
-  - The clone-band proxy on the assembled figures: DreamSim or embedding distance ≥ lower edge [CALIBRATE], as a warning at this stage.
-- **Gate B** (L11 on the assembled sheet): dj_same_world (soft), dj_not_clones (hard backstop), dj_anchor_visible for each anchor (soft), dj_no_leak (hard).
-- On a dj_same_world fail, run the ladder in §10.1 (re-run B with A as Image 3). On dj_no_leak or A_LEAK, re-run the leaking character.
+  - A_LEAK (hard): each character's figure pixels are checked against the other's **partner-only colours** (§7.1; keyed by the structure profile). Fixtures: a `same_club` pair that shares a main colour must pass, a `mirror` pair with swapped roles must pass, and a `complement` pair in which A wears B's main must fail.
+  - **Concept clone band (A_CLONE, hard for "Approve").** DreamSim distance (degraded metrics when `dreamsim.onnx` is missing, §17.1) between A's and B's front + back figure crops, against its own calibrated lower edge `clone.concept_lower_edge`: a cold-start default [CALIBRATE], then about the 5th percentile of the approved concept pairs. The check runs here because a `mirror` or `seasonal_twins` plan can pass the plan lint and then fail the clone band after the 3D money is spent (§17.1), and the wildcard must pass it too. A fail disables "Approve" until the user changes a character (L7 → I1e), asks for a new plan, or overrides with a logged note; it does not trigger a fix-ladder rung or a plan revision by itself. The same check runs again at Gate 2 before BUILD (§11.10).
+- **Gate B** (L11 on the assembled sheet): dj_same_world (soft), dj_not_clones (hard backstop), dj_anchor_visible for each anchor (soft), dj_no_leak (hard; skipped when the structure profile leaves no signature items).
+- **L15 concept inventory** (§10.6) runs on each character's chosen draft and feeds the "Not buildable as drawn" panel and the "Add to plan / Remove from picture" actions of Gate 1.
+- On a dj_same_world fail, run the ladder in §10.1 (I1p: re-run B with A as Image 3). On dj_no_leak or A_LEAK, re-run the leaking character.
 
 ### 10.3 Gate 1 actions
 
 | Action | What runs |
 |---|---|
-| Approve | C3 (§10.4) |
+| Approve | C3 (§10.4). Needs (1) the concept clone band to pass, or a logged override (§10.2), and (2) one acknowledgement tick while L15 still lists an unbuildable element (§10.6); both are confirm steps, not fails |
 | Reimagine (same plan) | I1 again for both characters with a new nonce; drafts within pHash distance of rejected ones are dropped |
-| Change: type what | L7 (§10.5) → patch → C1 → I1 only for affected characters |
+| Change: type what | L7 (§10.5) → patch → C1 → for the affected characters: **I1e** when L7 returns `global_edit` or `local_edit` (the chosen draft is edited, so a small request does not throw away the picture the user liked), **I1** when it returns `regenerate` |
+| Add to plan (per L15 item) | The item becomes an L7 patch of the spec (an element the picture shows but the spec lacks, so the build matches the approved picture) → C1 |
+| Remove from picture (per L15 item) | I1e with a mask over the item (code builds the fix sentence from the item, §10.6) |
 | New plan | L3 with the rejected specs and the user's reasons in `<avoid>` |
 
 ### 10.4 C3: after approval (concept of record, palette lock, per-duo style sheet)
@@ -1730,7 +1873,7 @@ It asks for clarification instead of guessing.
 
 **Inputs:**
 - `<spec>` (approved, canonical);
-- `<parts>`: part IDs with type, status and the spec paths each depends on;
+- `<parts>`: part IDs with type, status and the spec paths each depends on (at Gate 1 the parts are `concept_a` and `concept_b`, one chosen draft each);
 - `<clicked_tile>` (a part ID or `none`) plus that tile's image (composited, ≥256 px);
 - `<user_change_request>` (raw text, treated as data).
 
@@ -1766,11 +1909,24 @@ class ChangePlan(Strict):
 3. Merge `redo_parts` with the dependency graph built from spec paths (a palette-ID change marks every part that references that colour). Invalidate the hash-linked approvals of **both** characters where duo checks depend on them (ENG-01).
 4. `fix_sentence` passes the free-text lint and has ≤25 words.
 5. Show the diff and the redo list, and ask the user to confirm.
+6. **Consistency reference after an applied change.** Once the user has confirmed and the change is applied, each changed part's consistency reference becomes the **patched spec**: a palette patch also recolours the part's concept crop by palette-index remap, and the `*_matches_concept` rules and the part-vs-concept palette check (FAILURE_MODES CHK-A13/D05, DUO-07) are evaluated only on the attributes the change did not touch, and are soft for that part until it is re-approved (rule text in §7.2). A change the user asked for must never be failed against the old picture.
 
 **Routing of image fixes:**
-- `global_edit` → the part's own template, run as an edit with Image 1 = the current asset, the fix sentence as MUST 1, and the preserve list from `keep` plus the template's KEEP.
-- `local_edit` → I11 with the user-painted brush mask, or the region-hint mask.
-- `regenerate` → the part's template with the patched spec.
+- `global_edit` → the part's **edit variant**, not "the template plus a sixth MUST line" (every part template already has 5): `I1e` at Gate 1 (§10.7), and `I2e`, `I3e`, `I4e`, `I5e`, `I6e` for part tiles (table below). Image 1 = the current asset; MUST 1 = the fix sentence; MUST 2 = "Keep everything else exactly as in Image 1."; MUST 3–5 = the base template's three fixed shape and framing rules; the `keep` list and the base template's KEEP line go into KEEP. The DNA lines are dropped, because Image 1 already carries the DNA-driven design.
+- `local_edit` → at Gate 2 and 3: I11 (masked form, §16.3) with the user-painted brush mask or the region-hint mask. At Gate 1: **I1e** with that mask (the 1536x1024 concept has no I11 route; the region hint is mapped onto the figure's box from `guide_regions.json`, §8.2).
+- `regenerate` → the part's template with the patched spec (I1 at Gate 1).
+
+**Edit variants** (each compiles in the router test, §0.4; Image 2 = this character's style sheet, rendering only, when `mask_multi_ok`; a transparent Image 1 always travels with an explicit all-editable mask, U26):
+
+| Variant | Base | MUST 3–5 (the base's fixed rules, in order) |
+|---|---|---|
+| `I2e.print_edit` | I2.print | one centred graphic, whole design visible, margin kept (base 1) · bold simple shapes with even outlines (base 2) · straight-on flat artwork (base 3) |
+| `I3e.face_part_edit` | I3.face_part | cover the grey shape exactly (base 1) · clean vector-like shapes, crisp edges, flat fills (base 3) · the `orientation_rule` for lash and brow (base 5; dropped for other parts) |
+| `I4e.hair_edit` | I4.hair_front | keep the grey head's exact size, shape and position (base 1) · straight-on front view, level (base 2) · the fringe line: bangs end in the upper third, or the forehead stays bare (base 4) |
+| `I5e.accessory_edit` | I5.accessory_front | the whole object centred, straight from the front, margin kept (base 1) · one solid connected object with thick simple parts and the attachment option (base 2) · soft even light and flat base colours (base 3) |
+| `I6e.badge_edit` | I6.badge_art | one compact centred shape with a smooth silhouette (base 1) · flat front view, even outlines (base 2) · large simple features (base 3) |
+
+The L10 repair method `simplify` (§16.2, I5 ladder) runs the same variants with the fixed sentence "Simplify the design: merge small parts into larger ones, remove thin details, keep the overall shape and colours."
 
 **Failure modes:**
 
@@ -1780,6 +1936,125 @@ class ChangePlan(Strict):
 | Prompt injection in user text | Tagged as data; the fix sentence passes the lint |
 
 **Cost:** about **$0.08–0.2** per request.
+
+### 10.6 L15: concept inventory (element list versus spec)
+
+**Purpose.** The spec is built, not the painting: the compositor draws the clothing from the spec, and the accessories come from the approved front views. So the picture the user approves and the outfit that gets built can silently diverge (requirement 4). L15 lists what is visible on each concept figure, says which elements the spec already describes and which the kits can build as drawn, and feeds two things at Gate 1: the "Not buildable as drawn" panel, and the "extra elements the user can accept into the spec or strip from the picture" (FAILURE_MODES CON-03, CON-04, CHK-G1-05). Without this step, no template, schema or route exists for that call.
+
+**Model and params.** `claude-sonnet-5`, effort `medium`, max_tokens 16000, streamed, no fallbacks (§9.0). One call per character on the chosen draft; it runs again after every I1e edit.
+
+**Inputs, in content order.** The front figure crop and the back figure crop (boxes from `guide_regions.json`, composited on grey, at least 256 px on the short side); `<spec>` (that character's slice, canonical JSON); `<measured_facts>` (A_SIL_GUIDE, A_SWATCH, OCR). `<kit_inventory>` and `<roblox_rules>` are in the cached system blocks.
+
+**Role prompt:**
+
+```
+<role name="concept_inventory">
+You list what is visible on one character concept (a front and a back figure) and compare it with the character's spec, so the person learns before approving what the software will and will not build. Name each distinct visible element once: garment parts, trims, prints, painted details, hair features, accessories and face features. For each, say where it is, whether the spec already describes it, and whether the kits and recipes can build it as drawn. Clothing is flat paint on the body boxes, so anything that sticks out past the boxes, painterly detail, gradients, tiny accessories and fine text cannot be built as drawn. Judge buildability only from <kit_inventory> and <roblox_rules>, never from taste. When an element is missing from the spec but is buildable, name the spec path that would hold it. Trust the measured facts for counts and colours.
+</role>
+```
+
+**Schema:**
+
+```python
+class InventoryItem(Strict):
+    element: str = Field(description="one visible element, at most 8 words, described visually; no brand or character names")
+    where: str = Field(description="front, back or both, and where on the figure, at most 8 words")
+    in_spec: bool = Field(description="true when a spec field already describes this element")
+    buildable: bool = Field(description="true when the kits and recipes can build it as drawn")
+    suggested_spec_path: str = Field(description="JSON Pointer where it would go when in_spec is false and buildable is true, else an empty string")
+class ElementList(Strict):
+    items: list[InventoryItem] = Field(description="at most 20 items, most prominent first")
+```
+
+**Gate A (code).** At most 20 items; every non-empty `suggested_spec_path` resolves in the schema; `element` passes the free-text lint (it may become a fix sentence); `where` maps to a figure box in `guide_regions.json` (otherwise the mask falls back to the whole figure).
+
+**Gate 1 actions per item** (§10.3):
+- **Add to plan** (an element that is in the picture, buildable and missing from the spec): code sends "Add {element} {where}" through L7 as a spec patch at `suggested_spec_path`, then C1. The build then matches the approved picture.
+- **Remove from picture** (any listed element): I1e with a mask over the item (`where` mapped to a figure box, or the user's brush) and a code-built fix sentence "Remove the {element} and fill the area with the surrounding fabric, hair or background." (at most 25 words, free-text lint).
+- **Approval rule.** While any item with `buildable: false` is listed, "Approve" asks for one logged acknowledgement ("I understand this part is built differently"). It is a confirm step, not a fail, so the panel stays SOFT in the hard/soft split (FAILURE_MODES CON-04). Items that are buildable but not in the spec never block: the user may add them, strip them or leave them, and the build follows the spec.
+
+**Failure modes.** Over-listing tiny details: the cap of 20 and the 8-word limit. A hallucinated element: the crop is shown beside the list and the list is advisory. Missed elements: the Gate 3 render checks and the user's own review.
+
+**Cost** [ESTIMATE]: two crops (about 1.4K tokens each) + 2–3K text + about 1K output on Sonnet 5, so about **$0.01–0.03 per character**.
+
+### 10.7 I1 variants: I1e (edit) and the ladder rungs I1f, I1b, I1j, I1p
+
+Each variant keeps I1's STYLE, KEEP and EXCLUDE lines and the I1 Gate A and Gate B checks (§10.1) unless stated. Each compiles in the router test (§0.4) and has a row in §0.7 and in the ladder (§19).
+
+**I1e.concept_edit: Gate 1 "Change…" and "Remove from picture".** A small request such as "make her jacket teal" edits the picture the user liked instead of rolling a new random design (requirements 4 and 6).
+- **Model and params.** `images.edit`, Flare `low` `n=4` (draft), then the FINALIZE route at approval as for I1; `size="1536x1024"`, `background="opaque"`; nonce changes per request.
+- **Inputs.** Image 1 = the current chosen draft of that character (both slots, 1536x1024); the mask applies to it. Image 2 = the house style sheet.
+- **Mask.** The L7 region (`region_hint` mapped to the figure box through `guide_regions.json`), the user's brush mask, or the L15 item area; with none of these, the whole figure boxes of `guide_concept_char` are editable. Background and swatch strip stay protected. Code first redraws the swatch strip from the patched spec (it lies outside the mask), so a palette patch and the picture agree. With `mask_multi_ok` false (D17), no mask is sent and paste-back restores the background and swatches.
+
+```
+PURPOSE: Small change to approved concept art of one original game character, front and back.
+IMAGES: Image 1 = the current concept: the same character seen from the front (left) and from behind (right). Image 2 = house style reference; match its rendering only.
+SUBJECT: The same character in both views, with one change.
+MUST:
+1. {fix_sentence}
+2. Keep both figures' blocky shape, pose, face and every unmentioned detail exactly as in Image 1.
+3. {shape_language_line}
+4. Signature detail: {motif_object}, clearly visible in both views where it appears.
+STYLE: {HOUSE_STYLE_2D}
+KEEP: the light grey background, the colour swatches and the spacing of Image 1.
+EXCLUDE: text, letters, numbers, logos, watermark, additional people, floor shadow, background objects, background scenery.
+```
+
+- **Gate A:** as I1, plus an unchanged-area check: outside the mask (after paste-back) A_PASTE; for a whole-figure edit, silhouette IoU ≥ 0.92 against Image 1 and the colours of unmentioned zones within ΔE 5 [CALIBRATE] (as A_DRIFT). **Gate B:** as I1 (call 1, the hard IP call, soft rules).
+- **Failure modes.** The edit is ignored or spills onto other parts: A_PASTE and the unchanged-area check; ladder: a smaller mask, then a Sunburst draft, then I1 with the patched spec (the user is told the picture changes). The L7 fix sentence and the L15 "remove" sentence pass the free-text lint (≤25 words).
+- **Cost:** as an I1 draft per character ($0.03–0.06) plus the redraw at approval (~$0.05).
+
+**I1f.concept_front and I1b.concept_back: separate front and back calls** (I1 ladder; `images.edit`, `768x1024`, opaque, Flare `low` n=4 → Sunburst `high`). Code then lays the two outputs side by side into the usual 1536x1024 character sheet, so L11, C2 and C3 are unchanged.
+
+```
+# I1f.concept_front
+PURPOSE: Concept art of one original game character, front view, for design approval.
+IMAGES: Image 1 = layout guide: one flat-coloured blocky figure seen from the front, with colour swatches along the bottom edge. Image 2 = house style reference; match its rendering only.
+SUBJECT: Paint the figure as a {presentation_style} character: {hair_phrase}; {top_phrase}; {bottom_phrase}; {shoe_phrase}{; accessory_phrase}. Main colours: {colour_names}.
+MUST:
+1. Keep the figure's exact blocky shape, size and position from Image 1: cube head, box torso, straight box arms and legs; clothing is flat artwork painted on the boxes.
+2. A flat 2D anime-style face on the front of the cube head, {face_phrase}.
+3. Take hair, clothing and shoe colours from the matching areas and swatches of Image 1.
+4. {shape_language_line}
+5. Signature detail: {motif_object}, clearly visible where it appears.
+STYLE: {HOUSE_STYLE_2D}
+KEEP: the light grey background, the colour swatches and the spacing of Image 1.
+EXCLUDE: text, letters, numbers, logos, watermark, additional people, floor shadow, background objects, background scenery.
+```
+
+```
+# I1b.concept_back   (Image 1 = guide_concept_back; Image 2 = the chosen I1f front of this character, which also carries the house rendering)
+PURPOSE: Concept art of the back view of an approved original game character.
+IMAGES: Image 1 = layout guide: one flat-coloured blocky figure seen from behind, with colour swatches along the bottom edge. Image 2 = the approved front view of the same character; match its design and rendering.
+SUBJECT: Paint the figure from directly behind as the same character: {hair_phrase}; {top_phrase}; {bottom_phrase}; {shoe_phrase}{; accessory_phrase}.
+MUST:
+1. Keep the figure's exact blocky shape, size and position from Image 1; clothing is flat artwork painted on the boxes.
+2. The same character seen from directly behind, showing the back of the hair and clothing.
+3. Every detail that shows on both sides matches Image 2 exactly; colours come from the matching areas and swatches of Image 1.
+4. {shape_language_line}
+5. Signature detail: {motif_object}, where it appears from behind.
+STYLE: {HOUSE_STYLE_2D}
+KEEP: the light grey background, the colour swatches and the spacing of Image 1.
+EXCLUDE: text, letters, numbers, logos, watermark, additional people, floor shadow, background objects, background scenery.
+```
+
+**I1j.concept_joint: the joint 4-figure call** (A/B arm on pilot day only, never a default; D3). `images.edit`, `3072x1024` (a legal size: 3:1, 3.1 MP), opaque, Flare `low` n=4 → Sunburst `high`; Image 1 = `guide_concept_joint`, Image 2 = the house style sheet. It carries **no DNA lines**, because a joint call would mix the two characters' CHARACTER fields; the two characters' details enter only through the SUBJECT slots (§3.3).
+
+```
+PURPOSE: Concept art of two original game characters, each seen from the front and from behind, for design approval.
+IMAGES: Image 1 = layout guide: four flat-coloured blocky figures from left to right: character one from the front, character one from behind, character two from the front, character two from behind, with colour swatches along the bottom edge. Image 2 = house style reference; match its rendering only.
+SUBJECT: Character one, a {presentation_style_a} character: {A hair, top, bottom, shoe and accessory phrases}. Character two, a {presentation_style_b} character: {B hair, top, bottom, shoe and accessory phrases}. Main colours of character one: {colour_names_a}. Main colours of character two: {colour_names_b}.
+MUST:
+1. Keep each figure's exact blocky shape, size and position from Image 1: cube head, box torso, straight box arms and legs; clothing is flat artwork painted on the boxes.
+2. The first and third figures show a flat 2D anime-style face on the front of the cube head (character one {face_phrase_a}; character two {face_phrase_b}); the second and fourth figures are seen from directly behind.
+3. Take each character's hair, clothing and shoe colours from the matching areas and swatches of Image 1; the two views of one character match in every detail.
+4. Each character keeps its own hair, outfit and colours; the two characters share only the drawing style.
+STYLE: {HOUSE_STYLE_2D}
+KEEP: the light grey background, the colour swatches and the spacing of Image 1.
+EXCLUDE: text, letters, numbers, logos, watermark, additional people, floor shadow, background objects, background scenery.
+```
+
+**I1p.concept_partner_style: B re-run with A as a style reference** (I1 ladder for dj_same_world failures; D3). Same params and template as `I1.concept_char`, with two changes: Image 3 = A's chosen front figure (cropped, on flat #F2F2F2), and **the mood image is dropped** (U8 allows at most 2 references besides the edited image). The IMAGES line gains "Image 3 = partner character; match its rendering style only, not its hair, face, colours or outfit." Afterwards the hard A_LEAK and dj_no_leak checks run again.
 
 ---
 
@@ -1805,7 +2080,7 @@ Each tile has **approve / reimagine / change…** (§18). All assets are finaliz
   "model": "recraftv4_styles_vector",
   "style_id": "<face_style_id from the kit registry>",
   "style_match": "precise",
-  "size": "1:1",
+  "size": "1024x1024",
   "n": 3,
   "controls": {
     "colors": [{"rgb": [34, 30, 48]}, {"rgb": [120, 70, 160]}],
@@ -1820,7 +2095,7 @@ Each tile has **approve / reimagine / change…** (§18). All assets are finaliz
   - no `style_id` and no `style_match`;
   - `n: 4`;
   - prefix the prompt with "Flat vector anime-style illustration of ".
-- **Size:** `"1:1"` for iris and mouths, `"2:1"` for lash, brow and closed-lid line. Only preset sizes are allowed.
+- **Size:** a V4 pixel preset from `RECRAFT_V4_SIZES`, never an aspect string: `"1024x1024"` for iris and mouths (aspect 1:1), `"1536x768"` for lash, brow and closed-lid line (aspect 2:1). A pre-flight `valid_recraft_size(size)` rejects any value outside that list before the call (FAILURE_MODES CHK-P03).
 - **Fields never sent:** `negative_prompt`, `no_text`, `artistic_level`, `seed`, `style` (D8).
 - **`controls.colors`:** the part's own palette colours only, as RGB.
 - **`background_color`:** the sentinel. Code picks the one of `#00FF00`, `#FF00FF`, `#00FFFF`, `#0000FF` that is farthest by ΔE2000 from every palette colour.
@@ -1834,16 +2109,17 @@ Each tile has **approve / reimagine / change…** (§18). All assets are finaliz
 
 | Part | Template |
 |---|---|
-| `iris` (1:1) | `A single {iris_shape} eye iris, front view, centred. 1) {iris_colour} iris filling the shape{iris_style_clause}. 2) A {pupil_colour} {pupil_shape} pupil in the centre. 3) Only these flat colour areas, hard edges, matte. 4) Only the iris on an empty canvas. 5) Plain solid {bg} background.` |
+| `iris` (1:1) | `A single {iris_shape} eye iris, front view, centred{detail_clause}. 1) {iris_colour} iris filling the shape{iris_style_clause}. 2) A {pupil_colour} {pupil_shape} pupil in the centre. 3) Only these flat colour areas, hard edges, matte. 4) Only the iris on an empty canvas. 5) Plain solid {bg} background.` |
 | `lash_upper` (2:1) | `A single {shape_short} upper eyelash line, front view, centred; its outer end points to the right edge of the image. 1) One thick curved {lash_colour} stroke shaped like a shallow arch, thickest in the middle. 2) {flick_clause}. 3) One solid {lash_colour} colour only. 4) Only this line on an empty canvas. 5) Plain solid {bg} background.` |
 | `brow` (2:1) | `A single {shape_short} eyebrow, front view, centred. 1) {brow_clause}. 2) Thick rounded end at the left, {brow_end} at the right. 3) One solid {brow_colour} colour only. 4) Only the brow on an empty canvas. 5) Plain solid {bg} background.` |
 | `mouth_closed` (1:1) | `A single small {shape_short} cartoon mouth, front view, centred. 1) {mouth_clause}. 2) Even line weight with rounded ends. 3) Lines in one solid {mouth_line_colour}{fill_clause}. 4) Only the mouth on an empty canvas. 5) Plain solid {bg} background.` |
-| `mouth_open` (1:1) | `A single open cartoon mouth shape, front view, centred. 1) A {open_shape} filled with {mouth_inner_colour}. 2) A small {tongue_colour} tongue shape at the bottom inside. 3) {teeth_clause}. 4) Flat fills; only the mouth on an empty canvas. 5) Plain solid {bg} background.` |
+| `mouth_open` (1:1) | `A single open cartoon mouth shape, front view, centred{detail_clause}. 1) A {open_shape} filled with {mouth_inner_colour}. 2) A small {tongue_colour} tongue shape at the bottom inside. 3) {teeth_clause}. 4) Flat fills; only the mouth on an empty canvas. 5) Plain solid {bg} background.` |
 | `closed_lid_line` (2:1; only when code-parametric is disabled) | `A single closed eyelid line, front view, centred. 1) One thick {lash_colour} line curving gently downward. 2) {lid_flick_clause}. 3) Even line weight, rounded ends. 4) Only this line on an empty canvas. 5) Plain solid {bg} background.` |
 | makeup mark (makeup mode) | `A single {makeup_phrase}, front view, centred. 1) {makeup_clause}. 2) Flat fills, hard edges. 3) Colours: {makeup_colours}. 4) Only this mark on an empty canvas. 5) Plain solid {bg} background.` |
 
 Slot values:
-- `shape_short` is the DNA shape language in short form (round_soft→"softly rounded", sharp_angular→"crisp angular", boxy_sturdy→"bold chunky", flowing_curved→"flowing", spiky_energetic→"sharp spiky", geometric_clean→"clean geometric"). It is DNA field 1. Detail level is not used for face parts: the style carries it.
+- `shape_short` is the DNA shape language in short form (round_soft→"softly rounded", sharp_angular→"crisp angular", boxy_sturdy→"bold chunky", flowing_curved→"flowing", spiky_energetic→"sharp spiky", geometric_clean→"clean geometric"). It is used by the line parts (lash, brow, mouth_closed).
+- `detail_clause` is the DNA detail level (a WORLD field, §3.3), used by the two parts that have several flat colour areas, iris and mouth_open: minimal → ", kept very simple"; standard → "" (the slot is dropped); maximal → ", with a few orderly inner details". So a prompt carries at most one DNA field, within the limit of 2 (PROPOSAL_DECISION Q1 maps face parts to shape language + detail level; the style reference carries the rest).
 - `iris_shape` / `iris_style_clause` / `pupil_shape`:
   - oval_solid → "tall oval" / "" / "vertical oval"
   - oval_top_band → "tall oval" / ", with a {iris_dark} band across the top third" / "vertical oval"
@@ -1924,7 +2200,7 @@ Slot values:
 
 **Model and params.**
 - `images.edit`
-- draft: `gpt-image-2.5-flare-2026-09-08`, `quality="low"`, `n=6`
+- draft: `gpt-image-2.5-flare-2026-09-08`, `quality="low"`, `n=4` (an `n_total` of 8 when the pass rate is below 50% is two requests of 4, U22 and §2.7)
 - final: Sunburst `high` (I0.finalize with the transparent line)
 - `size="1024x1024"`, `background="transparent"`, `output_format="png"`
 
@@ -1948,14 +2224,14 @@ MUST:
 2. {colour_rule}
 3. Clean vector-like shapes, crisp edges, flat fills.
 4. {shape_language_line}
-5. {orientation_rule}
+5. {orientation_rule | detail_level_line}
 OUTPUT: The element alone on a fully transparent background with clean hard alpha edges. Preserve the transparent background.
 EXCLUDE: skin, head, second eye, eyebrow, eyeshadow, highlight dots, shadow, text, watermark.
 ```
 
 - `part_phrase` comes from the same clause tables as R1, e.g. "an upper eyelash line with three short chunky flicks at the right end".
 - `colour_rule`: line parts "All lines in one single flat colour: {colour_name}."; iris "Only these flat colours: {names}."; mouth_open "A {mouth_inner_colour} interior with a small {tongue_colour} tongue."
-- `orientation_rule`: "The outer end points to the right edge of the image." (lash, brow). For iris and mouths, the line is dropped.
+- MUST 5 depends on the part, so no template exceeds 5 lines and 2 DNA fields. `orientation_rule` for lash and brow: "The outer end points to the right edge of the image." `detail_level_line` (§3.4) for iris and mouth_open, dropped when the level is `standard`. Dropped for mouth_closed. MUST 4 (shape language) applies to every part.
 - EXCLUDE is filtered per part: the brow template drops "eyebrow".
 
 **Gate A:**
@@ -1971,11 +2247,11 @@ EXCLUDE: skin, head, second eye, eyebrow, eyeshadow, highlight dots, shadow, tex
 - Mask refused with 3 images (GEN-02): the in-canvas layout above.
 - Lines too thin after the warp (FACE-06): A_STROKE at final density; code stroke normalisation (rung 1).
 
-**Cost:** draft about $0.04–0.06 (n=6 low + 3 references), final about $0.08, so **about $0.12–0.14 per part**.
+**Cost:** draft about $0.04–0.06 (n=4 low + 3 references; a second request of 4 adds about $0.02), final about $0.08, so **about $0.10–0.14 per part**.
 
 ### 11.3 C4: face assembly and head renders (code; feeds the Gate 2 face tile)
 
-1. **Place parts** on the face canvas from `face_canvas.json` [DEPENDS: head base]:
+1. **Place parts** on the face canvas from `face_canvas.json` [DEPENDS: head base; without a head base, `builtin_kits/face_canvas_default.json`, a 2D layout on the cube head's front face, §8.1.4]:
    - sclera = the rig opening filled with `sclera_ref`;
    - iris centred at the rig scale;
    - lash arc-warped to the opening's top edge;
@@ -1987,29 +2263,33 @@ EXCLUDE: skin, head, second eye, eyebrow, eyeshadow, highlight dots, shadow, tex
 4. **Normalise line widths** to at least the house minimum at final density.
 5. **Warp** through the lookup table into the head UV at 2–4× density in premultiplied RGBA, then downsample. Skin stays transparent.
 6. **Render** the head (three.js ID and beauty passes, or the numpy rasteriser) in **neutral, blink (both eyes closed), mouth open (JawDrop), happy, sad**. Each at full size and phone size (about 150 px, shown ×2 nearest) on **5 skin tones**: `#F6DCC8`, `#E3B08E`, `#B9805A`, `#7B4B32`, `#3A2218` [CALIBRATE], plus the spec tone.
-7. **Gate A:**
-   - iris-colour pixels = 0 in the blink render (FACE-03);
-   - per-pose stretch ratio ≤ 1.5 (FACE-08);
-   - features inside the cage landmark zones (FACE-02);
-   - line-to-skin ΔE ≥ 20 on all tones (FACE-06);
-   - shading and blush **darken** on all tones (FACE-07);
-   - single colour per makeup-like feature (FACE-01);
-   - lines survive 2× area downsampling (FACE-06);
-   - face registry near-duplicate check within the window.
-8. **Gate B** (L11 on the pose sheet and the tone sheet): fh_eyes_covered, fh_symmetric, fh_lines_visible, fh_no_smear, and soft fh_expression_reads.
-9. **The tile** shows 4 expressions (neutral, blink, mouth open, happy) × 5 skin tones. Sad is checked but not shown.
+7. **Gate A.** Two profiles; the profile is chosen from the manifest flag `head_base_present` (§8.1.4), never by trying and failing.
+   - **With a head base:**
+     - iris-colour pixels = 0 in the blink render (FACE-03);
+     - per-pose stretch ratio ≤ 1.5 (FACE-08);
+     - features inside the cage landmark zones (FACE-02);
+     - warp IoU ≥ 0.95 (FACE-05);
+     - line-to-skin ΔE ≥ 20 on all tones (FACE-06);
+     - shading and blush **darken** on all tones (FACE-07);
+     - single colour per makeup-like feature (FACE-01);
+     - lines survive 2× area downsampling (FACE-06);
+     - face registry near-duplicate check within the window.
+   - **No head base (2D-canvas profile):** FACE-02, FACE-03, FACE-05 and FACE-08 are **`not_applicable`**, recorded as `ran=True` with the reason `no_head_base` (they do not fail closed, §7.1). Their 2D equivalents run instead: the closed-lid layer covers the sclera polygon of `face_canvas_default.json` (no iris pixel shows in the 2D blink preview); every feature stays inside the default canvas zones; single-colour lines (FACE-01); the catchlight offset has the same sign in both eyes; line-to-skin ΔE ≥ 20 on the 5 tones; shading and blush darken; the face registry check. When a head base is added later, the head-base checks (CHK-B09 and the rows above) run on the already approved layers.
+   - **Head-base kit contract** (APP_SPEC): the FACS poses are authored once on the base, and per character only the texture changes; the same FACS mesh is exported for upload, so these in-app renders equal what ships.
+8. **Gate B** (L11 on the pose sheet and the tone sheet): fh_eyes_covered, fh_symmetric, fh_lines_visible, fh_no_smear, and soft fh_expression_reads. Also soft **fh_matches_concept** on the neutral render beside the concept face crop (R1 never sees the concept face; the fix, offered to the user and never run automatically: I3 guided by the concept crop, or a spec patch). In its own call: the hard **IP call** (ip_no_known_character, ip_no_brand, ip_no_text) on the pose sheet; an `unsure` escalates to L13 before BUILD (§17.3).
+9. **The tile** shows 4 expressions (neutral, blink, mouth open, happy) × 5 skin tones. Sad is checked but not shown. The tile also shows the **per-character composite** (the face on the head with the approved hair front); the hard IP call runs on that composite too, because a signature hairstyle together with a face is the likeliest anime look-alike (FAILURE_MODES CHK-A12). The face registry is checked here but the parts are registered only at the Gate 3 pick (§4).
 
 ### 11.4 I2: print or patch graphic (GPT; default route for prints and shoe or bracelet motifs)
 
 **Model and params.**
-- `images.edit` when a reference crop exists; `images.generate` when none does (for example a print not visible in the concept).
-- draft: `gpt-image-2.5-flare-2026-09-08`, `low`, `n=4` (6 if pass rate < 50%)
+- `images.edit` always (`images.generate` is never used for I2). With a concept crop, Image 1 is the crop; without one (for example a print not visible in the concept), Image 1 is the code-drawn frame guide (Variants).
+- draft: `gpt-image-2.5-flare-2026-09-08`, `low`, `n=4` (`n_total` 8 as two requests of 4 if the pass rate is below 50%, U22)
 - final: Sunburst `high`, I0.finalize
 - `size="1024x1024"` (square regions: torso_f and torso_b are 128×128) or `"816x1632"` (1:2 regions: torso sides and limb faces are 64×128)
 - `background="transparent"`, `output_format="png"`
 
 **Inputs:**
-1. The tight, upscaled crop of the print from the concept of record, on flat #F2F2F2 (U26; a cut-out only when `rgba_image1_ok`).
+1. The tight, upscaled crop of the print from the concept of record (§8.3), on flat #F2F2F2 (U26; a cut-out only when `rgba_image1_ok`). With no concept crop: `guide_frame_square` or `guide_frame_tall` (§8.2) instead.
 2. This character's per-duo style sheet (D29).
 
 **Prompt** (`id: I2.print`):
@@ -2031,7 +2311,7 @@ EXCLUDE: lettering, numbers, logos, garment, mockup, rectangle backdrop, drop sh
 
 **Variants.**
 - **Shoe or bracelet motif decal:** MUST 1 becomes "One tiny centred symbol that stays clear at 24 px wide". Size 1024x1024. Code places it on the outer shoe face or the bracelet F face.
-- **Without a reference crop** (for example a print that is not visible in the concept): make the style sheet Image 1 (still `images.edit`). The IMAGES line becomes "Image 1 = style sheet; match its outline weight and flat colouring only." Use `images.generate` (no images) only during the S0 bootstrap, before any style sheet exists.
+- **Without a concept crop** (the print is not visible in the concept, or the crop is empty, §8.3): Image 1 = the code-drawn transparent frame guide of the target aspect (`guide_frame_square` / `guide_frame_tall`, §8.2), and Image 2 = this character's style sheet. It is `images.edit` with that guide's explicit mask (U26: the margin band is protected, everything inside it is editable). The IMAGES line becomes "Image 1 = empty framing canvas; paint the design inside it with about 10% margin. Image 2 = style sheet; match its outline weight and flat colouring only." The style sheet is never Image 1: editing the sheet itself asks the model to transform whole concept figures and invites exactly the IMG-15 leakage that A_COMPONENTS and CHK-A15 reject. The motif comes from SUBJECT alone, and `pr_matches_concept` does not run (no crop). The S0 bootstrap (§5.3) uses the same frame guide, so no I2 call uses `images.generate`.
 
 **Gate A:**
 - A_SIZE, A_ALPHA, A_COMPONENTS (1 main component; small interior islands allowed if inside the hull);
@@ -2080,7 +2360,7 @@ EXCLUDE: lettering, numbers, logos, garment, mockup, rectangle backdrop, drop sh
 **Model and params.** As I2 (1024x1024, transparent), draft Flare `low` n=4, then Sunburst `high`.
 
 **Inputs:**
-1. The concept crop of the item, upscaled, on flat #F2F2F2 (U26).
+1. The concept crop of the item, upscaled, on flat #F2F2F2 (U26). When the concept does not show the item (§8.3): `guide_frame_square` (§8.2) with its explicit mask, and the IMAGES line becomes "Image 1 = empty framing canvas; paint the artwork inside it. Image 2 = style sheet; match its outline weight and flat colouring only." (the same pattern as the I2 no-crop variant; `ac_matches_concept` does not run).
 2. This character's per-duo style sheet (D29).
 
 **Prompt** (`id: I6.badge_art`; the word "sticker" is banned here):
@@ -2130,6 +2410,8 @@ EXCLUDE: lettering, logos, white border, drop shadow, backdrop, holes, thin spik
 ### 11.7 I7: tileable fabric swatch (library, built once per material; per duo only if missing)
 
 **Model and params.** This template is exempt from U8 (no style references), because it makes a neutral greyscale material scan.
+
+**DNA fields: none.** The fabric kit phrase carries the material (§3.3). The tile is built once per `fabric_id` and shared by every duo, so it must not depend on the card of whichever duo built it first (that would break reuse and caching). A SOFT plan lint (§9.4) checks each fabric's material family against `world.material_family`. Slots: `fabric_phrase`, `pattern_phrase` and `{k}` (= the fabric's `weave_k`) come from the kit manifest (§3.4).
 - `images.generate` (no references)
 - draft: `gpt-image-2.5-flare-2026-09-08`, `low`, `n=4`
 - final: Sunburst `medium` edit (I0.finalize without the style image)
@@ -2193,7 +2475,7 @@ KEEP: the white area outside the panel.
 EXCLUDE: colour, text, logos, body, background change, watermark.
 ```
 
-MUST 5 names seams and pockets. This is a controlled exception: they are named in order to exclude them, inside a positive sentence; they are **not** in the priming list for I8.
+`{recipe_phrase}`, `{panel_phrase}` and `{k}` (= `fold_k` of this recipe × panel) come from the kit manifest and §3.4. MUST 5 names seams and pockets. This is a controlled exception: they are named in order to exclude them, inside a positive sentence; they are **not** in the priming list for I8.
 
 **Code afterwards:**
 1. Divide by #808080 to get a multiply/screen layer.
@@ -2214,7 +2496,20 @@ The shirt and pants tiles on the part board are rendered by code from the compos
 No image model paints the template. Build-stage checks:
 - A_TEMPLATE;
 - the seam/split/side test (edge continuity ΔE < 6 across the adjacency map; details off rows 170, 418/419 and 467; side letters test);
+- at Gate 2, soft `gm_matches_concept` on each flat tile beside the concept figure crop (§7.2): the shirt and pants are composited from the spec, so without it nothing compares the approved block layout, trims and painted details with the picture;
 - after the duo render: gm_seams_continuous, gm_print_placed, soft gm_shoes_read.
+
+### 11.10 Pre-build pair check (the clone band at Gate 2; code)
+
+**Purpose.** Catch a clone **before** Tripo spend and 30–60 minutes of hair polish, instead of after the build (§17.1), where a failure can only go to rung 5 and invalidate the whole board. It runs when every Gate 2 tile is ready and before "Start build".
+
+**What runs.**
+1. Code composes one image per character at a common scale: the flat front and back clothing tiles on the guide mannequin, the approved 2D hair front view and each accessory front view pasted at their attachment points (`guide_regions.json`, §8.2), and the C4 neutral face on the head.
+2. **A_CLONE at the Gate 2 stage** (§7.1): DreamSim distance A versus B (degraded metrics when `dreamsim.onnx` is missing, §17.1) on the front and back composites, against `clone.gate2_lower_edge` [CALIBRATE]: a cold-start default taken from the concept-stage edge, then about the 5th percentile of approved Gate 2 pairs. It is **hard for "Start build"**: a fail shows the pair and the parts that look alike, and the user changes a part (L7) or overrides with a logged note. It never starts a fix-ladder rung or a plan revision by itself and never changes an approved part.
+3. Soft warnings that are cheapest here, shown after the user's first choice (at most 2 per gate): phone-size top colours on the flat front composite; the A-vs-B hair and accessory silhouette overlap (the 2D front-view alpha minus the head guide).
+4. The hard IP call on each per-character composite (§7.2, §11.3).
+
+The after-build clone band (§17.1) still runs on the real 4-side renders.
 
 ---
 
@@ -2247,16 +2542,18 @@ MUST:
 1. Keep the grey head's exact size, shape and position; the hair wraps it like a wig.
 2. Straight-on front view, level, no perspective{, symmetric left to right | , parting on the image's {left|right} as in Image 2}.
 3. Large chunky sculpted clumps, about {k} of them, with no thin flyaway strands.
-4. The bangs end in the upper third of the head's front.
+4. {The bangs end in the upper third of the head's front. | The forehead stays bare; the hairline sits at the top edge of the head's front.}
 5. {shape_language_line}
 STYLE: {HOUSE_STYLE_3D_INPUT}
 KEEP: the white background and the bare lower part of the head unchanged.
 EXCLUDE: facial features, hat, hair accessories, body, text, watermark.
 ```
 
+- **Conditional slots.** MUST 4 follows the fringe: a hair with a fringe (§3.4) gets the bangs sentence; `fringe_id: none` (slicked-back, buns, shaved) gets the bare-forehead sentence, because the bangs sentence would prime the model to add bangs and the hard rule `hr_bangs_clear` could then never pass. MUST 2 follows `Hair.parting` (§3.4). `{k}` = the kit style's `clump_k` (`hair_custom_clump_k` for `hair_custom`).
+
 **Post-processing (code):**
 - Extract hair-only RGBA as the pixels that differ from the guide (ΔE2000 > 10). Remove islands and fill holes.
-- Keep both versions: with head, and hair-only.
+- Keep both versions: with head, and hair-only. **T1 and the H1 pack receive the hair-only RGBA by default**, so the grey cube head never reaches Tripo and cannot become part of the mesh; the with-head version stays for the Gate 2 tile and as the fiducial reference for `hair.register` (§15.3).
 - Recolour to the palette (hair colour, shadow, highlight) by luminance-band gradient map, so the colour comes from code (PROPOSAL_DECISION Q1).
 
 **Gate A:**
@@ -2269,19 +2566,41 @@ EXCLUDE: facial features, hat, hair accessories, body, text, watermark.
 - hair-vs-concept silhouette IoU ≥ 0.75 [CALIBRATE];
 - the kit-family silhouette distance (warning).
 
-**Gate B:** hr_head_unchanged, hr_no_face, hr_front_ortho, hr_bangs_clear, hr_matches_concept; soft hr_chunky, hr_volume_readable.
+**Gate B:** hr_head_unchanged, hr_no_face, hr_front_ortho, hr_bangs_clear, hr_matches_concept; soft hr_chunky, hr_volume_readable; and, in its own call, the hard IP rules (ip_no_known_character, ip_no_brand, ip_no_text) on the hair front view, because a signature hairstyle is caught here for cents instead of at export after the Tripo spend (the T1 views get the same call, §14.1). After an applied change, `hr_matches_concept` follows the change-aware rule of §7.2.
 
 **Failure modes:**
 
 | Failure | Fix |
 |---|---|
-| Flat anime card hair that Tripo reads as a flat plate | `HOUSE_STYLE_3D_INPUT`; hr_volume_readable; ladder: `xhigh` final, or Image 3 weight (kit render first) |
+| Flat anime card hair that Tripo reads as a flat plate | `HOUSE_STYLE_3D_INPUT`; hr_volume_readable; ladder: `xhigh` final, or I4k (kit render first, as the edited image) |
 | Head reshaped | Mask + paste-back; A_SIL_GUIDE |
 | Grey or white hair lost in extraction | Head colour auto-switch (§8.2) |
 | Face drawn | The protected lower 55%; hr_no_face |
+| Bangs added to a no-fringe style | The conditional MUST 4 (bare forehead); `hr_bangs_clear` ("if there are bangs, …; otherwise the forehead is bare") |
 | Asymmetric light baked in | 3D-input style block (frontal symmetric) |
 
 **Cost:** draft about $0.03–0.05 (3 references), final about $0.06, so **about $0.10 plus checks** per character.
+
+**I4k.hair_kit_first: kit-first edit** (I4 ladder rung, for flat anime-card hair that Tripo would read as a flat plate). Instead of asking the model to invent volume, start from the kit style's volume and re-style it toward the approved hair. It is skipped for `hair_custom` and while the hair kit is empty (no kit render exists).
+- **Params.** As I4: `images.edit`, Flare `low` n=4 → Sunburst `high`, `1024x1536`, opaque.
+- **Inputs.** Image 1 = `guide_bald_head` with the planned kit style's front render (planned fringe and back modules) pasted on the head at Hair-box scale, in a neutral mid tone (code recolours later). The mask applies to it: the Hair box is editable, the lower 55% of the head front is protected. Image 2 = the approved hair crops, front and back on one sheet.
+
+```
+PURPOSE: Front-view hairstyle design used as the input for 3D modelling.
+IMAGES: Image 1 = grey cube head, front view, wearing a base hairstyle with the right clump structure. Image 2 = approved hairstyle, front and back; take its shape, parting, length and colours, not its drawing style.
+SUBJECT: Reshape the hair in Image 1 into Image 2's hairstyle: {hair_phrase}.
+MUST:
+1. Keep the grey head's exact size, shape and position; the hair wraps it like a wig.
+2. Straight-on front view, level, no perspective{, symmetric left to right | , parting on the image's {left|right} as in Image 2}.
+3. Keep Image 1's large chunky sculpted clumps and volume, about {k} of them, and change only what is needed to match Image 2's shape and length.
+4. {The bangs end in the upper third of the head's front. | The forehead stays bare; the hairline sits at the top edge of the head's front.}
+5. {shape_language_line}
+STYLE: {HOUSE_STYLE_3D_INPUT}
+KEEP: the white background and the bare lower part of the head unchanged.
+EXCLUDE: facial features, hat, hair accessories, body, text, watermark.
+```
+
+Gate A, Gate B, post-processing and cost are those of I4.
 
 ### 12.2 L9: hair kit matcher (after Gate 2 approval of the 4 hair views)
 
@@ -2343,7 +2662,7 @@ class HairMatch(Strict):
 - Code also exports a copy flattened on `#FFFFFF`, or `#D9D9D9` if the object's edge is near-white.
 
 **Inputs:**
-1. The concept crop of the accessory, upscaled, on flat #F2F2F2 (U26).
+1. The concept crop of the accessory (§8.3), upscaled, on flat #F2F2F2 (U26). When the concept does not show the accessory: `guide_frame_square` (§8.2) with its explicit mask, and the IMAGES line becomes "Image 1 = empty framing canvas; paint the whole object inside it. Image 2 = style sheet; match its colouring only." (the I2 no-crop pattern; `ac_matches_concept` does not run).
 2. This character's per-duo style sheet (D29).
 
 **Prompt** (`id: I5.accessory_front`):
@@ -2354,17 +2673,27 @@ IMAGES: Image 1 = design reference; recreate this {item_noun} as a standalone ob
 SUBJECT: {accessory_description}; {material_phrase}; colours {colour_names}.
 MUST:
 1. The whole object, centred, seen straight from the front (orthographic), about 12% margin, nothing cropped.
-2. One solid connected object with thick simple parts{; a flat back to rest against the body | ; a short thick loop on top}.
+2. One solid connected object with thick simple parts{; {attachment_option}}.
 3. Soft even light from the front and slightly above, matte surfaces, true flat base colours with one soft shadow step.
 4. {motif_object} as the defining shape.
 5. {shape_language_line}
 STYLE: {HOUSE_STYLE_3D_INPUT}
 OUTPUT: The object alone on a fully transparent background with clean hard alpha edges.
-EXCLUDE: floor, plinth, cast shadow, hands, character, packaging, text, logos, watermark.
+EXCLUDE: floor, plinth, cast shadow, hands, people, packaging, text, logos, watermark.
 ```
 
-- The MUST 2 option comes from `attachment`: shoulder, back and front take the flat back; waist and keychains take the loop.
-- Thin rings and straps from the concept are **not** drawn here. They become `code_primitive` parts, merged after T3.
+- The EXCLUDE line says "hands, people" instead of "character", because SUBJECT may ask for a plush pet (figure-like); the router and golden-prompt tests include a plush pet and a prop accessory (§0.4).
+- The MUST 2 option (`attachment_option`) comes from `attachment` and `kind`, and never asks for a hole, because `ac_no_thin_parts` bans rings and holes:
+
+| Attachment or kind | `attachment_option` |
+|---|---|
+| `hat` | "a flat base to sit on the head" |
+| `face_front`, `face_center` | "a flat back to rest against the face" |
+| `neck` | "a flat back to rest against the chest" |
+| `right_shoulder`, `left_shoulder`, `right_collar`, `left_collar`, `body_front`, `body_back` | "a flat back to rest against the body" |
+| `waist_front`, `waist_center`, `waist_back`, and `keychain_charm` | "a solid rounded tab on top, fully filled in" |
+
+- Thin rings, loops and straps from the concept are **not** drawn here. They become `code_primitive` parts: code adds the ring or loop (`primitive.build`) and merges it with the Tripo mesh after T3 with manifold3d, so a keychain or waist item gets its loop without any prompt asking for a hole.
 
 **Gate A:**
 - A_SIZE, A_ALPHA;
@@ -2383,12 +2712,32 @@ EXCLUDE: floor, plinth, cast shadow, hands, character, packaging, text, logos, w
 
 | Failure | Fix |
 |---|---|
-| Three-quarter view | A_SYMMETRY, ac_front_ortho; re-roll; ladder: guide with the object's planned silhouette box |
+| Three-quarter view | A_SYMMETRY, ac_front_ortho; re-roll; ladder: I5g, the guide with the object's planned silhouette box |
 | Thin parts that become holes or spikes in the mesh (ACC-07, MESH-10) | A_STROKE; move them to `code_primitive` |
 | Baked highlights | MUST 3; ac_flat_light |
 | Backdrop from "studio" wording | The transparent-word lint |
 
 **Cost:** **about $0.12–0.15 plus checks** per accessory.
+
+**I5g.accessory_guided: front view with a size guide** (I5 ladder rung, after a three-quarter view or wrong proportions). It uses a code-drawn guide, `guide_acc_box_<attachment>` (§8.2): an opaque #F2F2F2 canvas with a mid-grey box at the planned silhouette (the category's Classic box face at the accessory's size class, 12% margin). The model paints the object over the box.
+- **Params.** As I5 (`images.edit`, Flare `low` n=4 → Sunburst `high`, `1024x1024`, `background="transparent"`). Image 1 = the guide (opaque, so U26 is satisfied); the mask is the box dilated by 4%. Image 2 = the concept crop, Image 3 = this character's style sheet (two references besides the edited image, U8). With no concept crop, Image 2 = the style sheet only, in the I2 no-crop wording.
+
+```
+PURPOSE: Reference image of one small toy-like object; the single input image for 3D model generation.
+IMAGES: Image 1 = grey box showing the size and position the whole object must fill. Image 2 = design reference; recreate this {item_noun} as a standalone object. Image 3 = style sheet; match its colouring only.
+SUBJECT: {accessory_description}; {material_phrase}; colours {colour_names}.
+MUST:
+1. Fill the grey box with the whole object, centred, seen straight from the front (orthographic), nothing outside the box.
+2. One solid connected object with thick simple parts{; {attachment_option}}.
+3. Soft even light from the front and slightly above, matte surfaces, true flat base colours with one soft shadow step.
+4. {motif_object} as the defining shape.
+5. {shape_language_line}
+STYLE: {HOUSE_STYLE_3D_INPUT}
+OUTPUT: The object alone on a fully transparent background with clean hard alpha edges.
+EXCLUDE: floor, plinth, cast shadow, hands, people, packaging, text, logos, watermark.
+```
+
+- **Gate A:** as I5, plus A_GUIDE_LEFT (no guide grey left) and a fit check: the object's bounding box lies inside the dilated box and fills at least 70% of the box's long side [CALIBRATE]. **Gate B** and cost: as I5.
 
 ---
 
@@ -2396,7 +2745,7 @@ EXCLUDE: floor, plinth, cast shadow, hands, character, packaging, text, logos, w
 
 ### 14.1 T1: Tripo image-to-multiview
 
-**Purpose.** Front, left, back and right views that are consistent in 3D, made from the approved front (I4 hair with head, or I5 accessory). They are shown on the Gate 2 tile and are the input for T3 or for manual mode.
+**Purpose.** Front, left, back and right views that are consistent in 3D, made from the approved front (the I4 hair-only RGBA, which keeps the grey cube head out of Tripo's input, or the I5 accessory). They are shown on the Gate 2 tile and are the input for T3 or for manual mode.
 
 **Request:**
 1. `POST https://openapi.tripo3d.ai/v3/files` (multipart, field `file`, filename `front.png`, type `image/png`), which returns `data.file_token`. Upload right before submitting.
@@ -2411,7 +2760,7 @@ EXCLUDE: floor, plinth, cast shadow, hands, character, packaging, text, logos, w
 - sRGB, no ICC.
 - There is no text prompt on this endpoint.
 
-**Output requirements.** 4 views of the same object at the same scale. **Do not re-crop or re-centre Tripo's views.** They were generated to fit together.
+**Output requirements.** 4 views of the same object at the same scale. **Do not re-crop, re-centre or resize Tripo's views.** They were generated to fit together, and FAILURE_MODES ACC-04 asserts that Tripo multiview images are never transformed (hash in = hash out). Their native size is not documented (the local API model only returns view URLs): **[UNVERIFIED]** until FM-T3 records it. The only allowed operation is flattening alpha onto a flat colour for the manual pack (§15.2).
 
 **Gate A:** A_VIEWS (heights within ±3%, common ground line); A_OCR; background uniform; per-view palette ΔE to the front ≤ 10.
 
@@ -2419,7 +2768,8 @@ EXCLUDE: floor, plinth, cast shadow, hands, character, packaging, text, logos, w
 - mv_same_object (all 4 in one sheet);
 - mv_view_direction for left ("In the left image, the object's front faces the image's **left** side") and right ("…faces the image's **right** side"), confirmed on day 1 (§22);
 - mv_back_plausible;
-- soft mv_no_new_parts.
+- soft mv_no_new_parts;
+- in its own call, the hard IP rules (ip_no_known_character, ip_no_brand, ip_no_text) on the hair views (§7.2); an `unsure` escalates to L13 before BUILD.
 
 **Failure modes:**
 
@@ -2515,17 +2865,17 @@ EXCLUDE: floor, cast shadow, text, logos, extra parts, watermark.
 }
 ```
 
-- **Views.** The approved views, downloaded, checked and re-uploaded through `/files` (uploads are free). The single-object reuse form `{"task_id": mv_task}` is allowed only when no view was replaced.
+- **Views.** The approved Tripo views, **untouched**: downloaded, checked, and re-uploaded through `/files` (uploads are free) as the same bytes at the native size Tripo returned (hash in = hash out, FAILURE_MODES ACC-04; the native size is **[UNVERIFIED]** until FM-T3). The reuse form `{"task_id": mv_task}` (the T1 multiview task, or the T2 edit task for an edited set) is preferred whenever no view was replaced by a non-Tripo image. Only views that did **not** come from Tripo (I10 GPT views, a user-supplied front) are normalised by code (height, ground line), and mixing them with Tripo views is the flagged last resort. The `front` of the set is Tripo's own front view, so all four views share one scale.
 - **`face_limit` by kind:** plush_pet, bag and small_hat 3000; keychain_charm 1500; prop 3000; hair_custom 3500. It is a target that can be exceeded; repair still enforces ≤ 3800.
 - **Seeds:** 11 → 29 → 47, **run one at a time**. Stop at the first seed that passes Gate A and Gate B. P2 costs 110 credits per run and there is no cancel endpoint.
-- **Never send:** `compress` (meshopt), `quad:true` (FBX), `pbr:true`, `texture_quality:"detailed"|"extreme"` (4K/8K), `generate_parts`, `smart_low_poly`, `export_uv`.
+- **Never send:** `compress` (meshopt), `quad:true` (FBX), `pbr:true`, `texture_quality:"detailed"|"extreme"` (4K/8K), `generate_parts`, `export_uv`, and `smart_low_poly` (except on the H3.1 route below, where it is required).
 - **A/B flags (only behind settings; P2 support [UNVERIFIED]):**
   - `orthographic_projection: true`;
-  - `texture_version: "v3.5-20260815"` with `delight: false`, because delight could erase painted cel shading.
-- **Fallbacks (T4):**
-  - P2 image-to-model from the front only: `POST /generation/image-to-model` with `{"model": "P2-20260801", "input": tok, "face_limit": …, "texture": true, "texture_quality": "standard", "pbr": false, "enable_image_autofix": false, "texture_alignment": "original_image", "orientation": "default", "auto_size": false}` (`orientation: "align_image"` only as the FM-T3 A/B arm, D21).
-  - P1 multiview (`P1-20260311`, 50 credits textured).
-  - An H3.1 + `smart_low_poly` A/B arm for simple plush (`"model": "v3.1-20260211", "smart_low_poly": true, "face_limit": 3000`; 40 credits).
+  - `texture_version: "v3.5-20260815"` with `delight: false`, because delight could erase painted cel shading. **[UNVERIFIED]**: that value is not among the `TripoTextureModelVersion` values of the local API model (`v3.0-20250812`, `v2.5-20250123`). Use a listed value, or leave this arm off until FM-T3 confirms it.
+- **Fallbacks (T4).** Each route has its own params class and its own validator (Appendix B). FAILURE_MODES CHK-P04 and ACC-02 are keyed by route (they must not assert the P2 model for every route), and APP_SPEC's `TripoProvider` must accept all three classes:
+  - **`P2Params`, route `p2`:** P2 image-to-model from the front only: `POST /generation/image-to-model` with `{"model": "P2-20260801", "input": tok, "face_limit": …, "texture": true, "texture_quality": "standard", "pbr": false, "enable_image_autofix": false, "texture_alignment": "original_image", "orientation": "default", "auto_size": false}` (`orientation: "align_image"` only as the FM-T3 A/B arm, D21). `face_limit` 48–50000.
+  - **`P1Params`, route `p1`:** P1 multiview (`P1-20260311`, 50 credits textured), `face_limit` 48–20000. Field support beyond `face_limit`, `texture`, `pbr` and the seeds is [UNVERIFIED] until FM-T3.
+  - **`H31Params`, route `h31`:** an H3.1 + `smart_low_poly` A/B arm for simple plush (`"model": "v3.1-20260211", "smart_low_poly": true, "face_limit": 3000`; 40 credits), `face_limit` 500–20000.
 
 **Lifecycle and retries:**
 - Poll from 5 s, then 3→15 s. A soft timeout of 20 min is **not** a failure: keep polling.
@@ -2536,7 +2886,7 @@ EXCLUDE: floor, cast shadow, text, logos, extra parts, watermark.
 - Failure codes: 2008 (moderation) → stop; 2018 → resubmit once; other → next seed once, then the user.
 - Error 2015 (retired model version [UNVERIFIED]) → "update the model ID" message, no retry.
 
-**Upload (before submit).** `POST /files` multipart `files={"file": ("front.png", png_bytes, "image/png")}` → `data.file_token`, uploaded right before the submit (token lifetime [UNVERIFIED]). Views are 2048² 8-bit sRGB PNG, same height in pixels and same ground line (A_VIEWS).
+**Upload (before submit).** `POST /files` multipart `files={"file": ("front.png", png_bytes, "image/png")}` → `data.file_token`, uploaded right before the submit (token lifetime [UNVERIFIED]). The views are Tripo's own PNGs, sent unchanged (see **Views** above); A_VIEWS only measures that the heights agree within ±3% and the ground line is common, it never edits them.
 
 **Download.** `output.model_url` at once (signed, about 5 minutes). Only allowlisted storage hosts (`tripo-data.rg1.data.tripo3d.com`, `*.tripo3d.ai`), **no Bearer header** to them, 150 MB cap, magic bytes (`glTF` = GLB, `Kaydara FBX Binary` = FBX, `PK` = ZIP), then SHA-256, then store. On 403/404 re-GET the task (≤3 times) for a fresh URL. Also store `rendered_image_url` for the tile. Full request builder: Appendix B.
 
@@ -2567,8 +2917,8 @@ EXCLUDE: floor, cast shadow, text, logos, extra parts, watermark.
 **Where the views come from.** The same Gate-2-approved views as the API path: T1 (Tripo API image-to-multiview, 10 credits; the Tripo key is required, requirement 9), fixed with T2 if needed. I10 GPT views only as the flagged last resort (ACC-15). Manual mode replaces only T3.
 
 **Export folder** (FAILURE_MODES X21): `%USERPROFILE%\DuoSkin Exports\TripoPacks\<duo>\<asset_id>\` (the user can change the root; Documents and Desktop are avoided because Controlled Folder Access and OneDrive redirection lock writes). The drop folder is `TripoPacks\inbox\`. Working files stay in `%LOCALAPPDATA%\DuoSkin`; paths are kept well under 260 characters:
-- `00_FRONT_single.png`
-- `01_FRONT.png`, `02_LEFT_subject-left.png`, `03_BACK.png`, `04_RIGHT_subject-right.png` (2048², same scale, flattened on `#FFFFFF`, or `#D9D9D9` when the object's outer edge is near-white)
+- `00_FRONT_single.png` (the approved I5 front, or the I4 hair-only front, at 2048²)
+- `01_FRONT.png`, `02_LEFT_subject-left.png`, `03_BACK.png`, `04_RIGHT_subject-right.png`: **Tripo's own views at their native size** ([UNVERIFIED] until FM-T3), only flattened on `#FFFFFF`, or `#D9D9D9` when the object's outer edge is near-white. Flattening is the only operation allowed (no resize, crop or re-centre; ACC-04), so the four views keep Tripo's common scale. If a common pixel size is ever needed, code scales **all four by one factor** as a documented exception to ACC-04 and asserts equal scale by bounding-box height.
 - `views_sheet.png`: a contact sheet with arrows drawn by code (no text on the views themselves)
 - `SETTINGS.txt`
 - `asset.json` (asset_id, kind, category, attachment, target studs, SHA-256 of each view)
@@ -2577,9 +2927,11 @@ EXCLUDE: floor, cast shadow, text, logos, extra parts, watermark.
 
 ```
 DuoSkin Studio - Tripo pack for {asset_label} ({kind}, {category} item on the {attachment_phrase})
-Views in this folder (all 2048 x 2048, same scale):
+Views in this folder (all at the same scale):
   01_FRONT.png   02_LEFT_subject-left.png   03_BACK.png   04_RIGHT_subject-right.png
   00_FRONT_single.png is the same front view for single-image mode.
+{HAIR PACK ONLY: These views show the hair alone, with no head, face or body. Make the hair alone as one
+ model; do not add a head, a face, a body or a hat.}
 
 BEFORE YOU START
   On Tripo's FREE plan your model becomes PUBLIC (shown in Tripo's community, labelled CC BY 4.0)
@@ -2622,7 +2974,12 @@ STEPS
 6. Keep closed shells (plush eyes); delete slivers.
 7. Texture ≤ 1024 (512 for props of about 2 studs), RGB PNG, alpha 255, not one flat colour (per-channel std > 2); dilate edge colours into UV gutters before any downscale; strip `COLOR_0`, emissive, metallic, roughness and normal maps; material OPAQUE.
 8. Detect orientation by silhouette IoU against the front view over all 24 axis rotations. A mirrored best match is flagged, not auto-flipped.
-9. Scale to the planned studs and check the Classic box measured from the attachment (Hair, Back and Waist boxes are off-centre), plus the Handle Size check.
+8b. **Hair registration (hair meshes from Tripo or a manual import only; `hair.register`).** A hair mesh may still contain the grey cube head the hair was drawn on (Tripo can reproduce it, and a manual import may include it), which would ship as an opaque grey cube over the face; and hair has no `size_class`, so step 9 has no planned size to scale to. Registration fixes both:
+   1. Find the cube head in the mesh. The known guide head size and the guide colour #9A9A9A (or the auto-switched colour, §8.2) are the fiducial.
+   2. Compute the similarity transform (scale, rotation, translation) that maps that cube onto the mannequin head at the HairAttachment frame, and apply it to the whole mesh. Step 9 scales to this transform. When no cube head is found (the hair-only input of §12.1 normally gives none), the scale comes from the approved front view instead: the I4 image is at the Hair-box scale (280 px/stud), so its hair width in studs is known and the mesh's front-view width is matched to it.
+   3. Take a manifold3d boolean difference with the head box inflated by about 0.02 stud (this cuts the head cavity and removes any cube), then re-check watertightness.
+   4. Check that no guide-grey texels remain in the texture.
+9. Scale to the planned studs (hair: the registration scale of step 8b) and check the Classic box measured from the attachment (Hair, Back and Waist boxes are off-centre), plus the Handle Size check.
 10. Export `.gltf` + `.bin` + PNG (relative URIs) and `.fbx` with the texture embedded, in studs (D15).
 
 **A_MESH (hard):**
@@ -2639,12 +2996,13 @@ STEPS
 - no emissive or metallic maps;
 - embedded PNG, alpha 255;
 - UVs in 0–1, single set;
-- no compression extensions.
+- no compression extensions;
+- **hair meshes, CHK-M21:** guide-colour texel share ≤ 0.5%, and at least 80% of the mannequin head's front-face area is visible in the front render (the hair must not cover the face).
 
 **3D judging:**
 - Code renders front, left, back, right, top and three-quarter views on grey (numpy rasteriser or the three.js ID and beauty pass).
 - Facts: triangles, shells, box margins, silhouette IoU per view against the approved views, palette ΔE.
-- L11 runs m3_front_matches, m3_no_fragments, soft m3_sides_match and m3_texture_clean.
+- L11 runs m3_front_matches, m3_no_fragments, soft m3_sides_match and m3_texture_clean. For hair, `m3_front_matches` compares the render with the **hair-only** approved front (the with-head version contains the cube head and would let a cube pass); the render is made with the mannequin head in place.
 - A fail moves to the next seed (T3), or the part goes back to the Gate 2 tile.
 
 ### 15.4 T5: Tripo server-side import and convert (optional helper; both modes)
@@ -2717,7 +3075,7 @@ class AssetCheck(Strict): verdicts: list[Verdict]
   - any automatic approval.
   
   Automatic approval requires all 3 votes.
-- An `unsure` on any `ip_*` rule escalates to L13.
+- An `unsure` on any `ip_*` rule escalates to L13. This includes the IP calls on the face pose sheet, the I4 hair front and its T1 views, and the Gate 2 per-character composite (§7.2): the escalation is settled **before BUILD**, not first at export.
 - The `location` field seeds the repair mask (L10).
 
 **Calibration.** Follow §2.9.7. Log `prompt_version` and `schema_hash` with every verdict.
@@ -2752,23 +3110,29 @@ A generated asset failed some checks. Choose the cheapest fix likely to work. Pr
 class RepairOp(Strict):
     fixes_rule: RuleId
     method: E("code_palette_snap", "code_alpha_cleanup", "code_recrop", "code_stroke_normalise",
-              "masked_edit", "global_edit", "regenerate", "change_technique")
+              "masked_edit", "global_edit", "simplify", "regenerate", "change_technique")
     mask_id: str = Field(description="one of the listed mask ids, or 'none'")
     edit_prompt: str = Field(description="empty unless method is masked_edit, global_edit or regenerate; "
                                          "at most 4 sentences, at most 60 words, positive phrasing")
     keep: list[str] = Field(description="each at most 8 words")
 class RepairPlan(Strict):
     ops: list[RepairOp]
+    subject_sentence: str = Field(description="empty unless an op is masked_edit or global_edit; otherwise one sentence of at most "
+                                              "30 words that describes the entire final image after the repair, "
+                                              "naming the kept parts and the change (it becomes the I11 SUBJECT)")
     give_up_reason: str = Field(description="empty unless giving up")
 ```
 
 **What code checks** before acting:
 - `mask_id` is in the list;
 - `edit_prompt` has at most 4 sentences and at most 60 words. The sentences fill I11's MUST 1–4, and MUST 5 is the fixed keep line, so an edit stays within 5 constraints;
-- `edit_prompt` passes the free-text lint and the priming lint for the template;
+- `edit_prompt` and `subject_sentence` pass the free-text lint and the priming lint for the template (`subject_sentence` is the source of I11's SUBJECT; no other source exists);
 - the method is not already in `attempts_so_far`.
 
-Then it runs I11 (masked or global edit) or the code fix, and re-runs **all** checks.
+Then it runs the code fix or an image edit, and re-runs **all** checks:
+- `masked_edit` → I11, masked form (§16.3);
+- `global_edit` → the part's own edit variant (I2e … I6e, §10.5) when the part has one, otherwise the I11 **global form** (§16.3), whose MUST 1 is "Apply this change to the whole image:", never "Change only the masked area";
+- `simplify` (the I5 ladder rung that replaces "L7 suggests", because L7 needs user text) → the part's edit variant with the fixed sentence "Simplify the design: merge small parts into larger ones, remove thin details, keep the overall shape and colours." No model-written text is involved.
 
 **Cost:** about $0.02–0.04.
 
@@ -2785,26 +3149,28 @@ Then it runs I11 (masked or global edit) or the code fix, and re-runs **all** ch
 1. The asset (the mask applies to this image).
 2. Optional: the style reference.
 
-Mask: the chosen mask dilated by 12–24 px, or the user's brush mask from the gate.
+Mask (masked form): the chosen mask dilated by 12–24 px, or the user's brush mask from the gate. **Global form:** when the L10 method is `global_edit` and the part has no edit variant, no mask is sent (a transparent Image 1 gets the all-editable mask of U26 instead).
 
 **Prompt** (`id: I11.repair`):
 
 ```
 PURPOSE: Repair of an approved {asset_noun}.
 IMAGES: Image 1 = approved asset.{ Image 2 = style reference; rendering only.}
-SUBJECT: The full result is {one sentence describing the entire final image}.
+SUBJECT: The full result is {subject_sentence}.
 MUST:
-1. Change only the masked area: {edit_prompt sentence 1}
+1. {Change only the masked area: | Apply this change to the whole image:} {edit_prompt sentence 1}
 {2–4. remaining edit_prompt sentences, if any}
 5. Keep everything else exactly the same: {keep list}, {template KEEP items}; do not alter saturation, contrast, line weight, size, position or framing.
 OUTPUT: {transparent line: "Preserve the transparent background." | opaque: omitted}
 EXCLUDE: new elements, text, watermark.
 ```
 
+`{subject_sentence}` is L10's `subject_sentence` field (§16.2): the one-sentence description of the whole final image. The first MUST option is chosen by the form: the masked form says "Change only the masked area:", the global form says "Apply this change to the whole image:". The router test compiles both forms.
+
 **Afterwards:**
 1. A_SIZE.
-2. Paste the original back outside the mask (4 px feather).
-3. A_PASTE ring check (ΔE ≤ 3).
+2. Masked form: paste the original back outside the mask (4 px feather).
+3. Masked form: A_PASTE ring check (ΔE ≤ 3). Global form: no mask exists, so instead an A_DRIFT-style check against the input: silhouette IoU ≥ 0.92 and the colours of unmentioned zones within ΔE 5 [CALIBRATE].
 4. All Gate A and Gate B checks again.
 
 At most 2 repairs per asset. After that, the technique ladder takes over (§19).
@@ -2828,7 +3194,7 @@ At most 2 repairs per asset. After that, the technique ladder takes over (§19).
 | Check | Kind |
 |---|---|
 | Roblox validators: A_TEMPLATE, A_MESH, box fits, category rules, property checklist | HARD |
-| Clone band lower edge: DreamSim distance A↔B across the 4-side renders ≥ 0.30 [CALIBRATE]. DreamSim runs as an ONNX export [UNVERIFIED]; until that works, a "degraded" fallback uses pHash + palette overlap + spec distance, and the UI marks it | HARD |
+| Clone band lower edge, after-build stage of A_CLONE (the concept and Gate 2 stages run earlier, §10.2 and §11.10): DreamSim distance A↔B across the 4-side renders ≥ 0.30 [CALIBRATE]. DreamSim runs from `DATA\models\dreamsim.onnx` (below); without it a labelled "degraded" mode runs | HARD |
 | "Strangers" upper edge / same-world style match | soft |
 | Anchors: for colour anchors, ΔE ≤ 6 on both characters; for motif anchors, the label map shows the motif region on both | soft |
 | Seams: edge continuity on the renders | HARD for gaps and misalignment |
@@ -2839,6 +3205,8 @@ At most 2 repairs per asset. After that, the technique ladder takes over (§19).
 | Nearest past duo (DreamSim) very close | warning; used as a tie-break |
 
 At most 2 warnings are shown per gate, after the user's first choice.
+
+**The DreamSim model and degraded mode.** No document used to say where `dreamsim.onnx` comes from; the Windows stack has no torch, so the user cannot export it. `tools/export_dreamsim_onnx.py` is run **once** in CI or on a machine with torch, with a pinned DreamSim version, ONNX opset and output sha256. The `.onnx` ships with the app, or is downloaded from Settings → Optional components with a sha256 check. A doctor check, **CHK-S14**, loads it and requires a fixture pair to return the expected distance ±0.01. Without a working model, **degraded mode** runs: pHash distance on the 4-side renders + palette overlap + A-vs-B spec distance, with its thresholds in `thresholds.py` (`clone.degraded_*` [CALIBRATE]). It is weak on blocky bodies, where every render shares one silhouette, and it also weakens the face registry, the IMG-15 leakage check, POL-02 and the variety guard (they fall back to pHash plus palette). So, as a bible decision: in degraded mode the clone band **may block only a near-identical pair** (all three metrics beyond conservative thresholds) and **otherwise warns**; every degraded verdict is marked on its tile, and **Gate 3 shows "clone check degraded" before the Pick button**. (FAILURE_MODES and APP_SPEC must adopt CHK-S14 and this rule; see the v1.2 notes.)
 
 ### 17.2 L12: Duo Judge
 
@@ -3048,15 +3416,20 @@ No step in this bible calls fal (D23). `providers/fal.py` is a reserved adapter 
 
 | Gate / tile | Approve | Reimagine | Change… (typed) | Other |
 |---|---|---|---|---|
-| **Gate 1** concept | C3 (redraw, palette lock, style sheet) | I1 for both characters, new nonce, rejected pHash filter | L7 → patch → C1 → I1 for the affected character(s) | **New plan** → L3 with `<avoid>` + reasons. **Wildcard** is always one of the 3. |
-| **Gate 2** hair tile (4 views) | Lock; L9 kit match after the whole board is approved | I4 new nonce → T1 | L7 `image_fixes`: global → I4 edit with the fix + keep; local → I11 on the front view; view-only issue → T2 | "Back to concept" returns to Gate 1 |
-| **Gate 2** face tile | Lock the parts; register them in the face registry | The failing part(s) only, new nonce (R1 or I3) | L7 → per-part fix: global edit of that part / R1 regenerate / grammar-field patch | Pick among the top 2–3 assembled faces |
-| **Gate 2** accessory tile (4 views + scale) | Lock → T3 after the board is approved (or the H1 pack in manual mode) | I5 new nonce → T1 | L7: shape/colour → I5 edit; one view wrong → T2; size → spec patch (size_class) | "Make it myself on Tripo" → H1 |
-| **Gate 2** shirt / pants tiles | Lock the compositor inputs | Re-roll the prints (I2/R2) or pick another fold variant | L7: recipe or cut change → patch → recomposite; print → I2 edit; colour → palette patch | Brush a region → I11 on the print only |
+| **Gate 1** concept | C3 (redraw, palette lock, style sheet), after the concept clone band passes or is overridden (§10.2) and any unbuildable L15 element is acknowledged (§10.6) | I1 for both characters, new nonce, rejected pHash filter | L7 → patch → C1 → **I1e** for the affected character(s) when L7 says `global_edit` / `local_edit`, **I1** when it says `regenerate` (§10.7) | **New plan** → L3 with `<avoid>` (this session's rejected plans) + reasons. **Wildcard** is always exactly one of the 3. **Add to plan** / **Remove from picture** per L15 item (§10.6) |
+| **Gate 2** hair tile (4 views) | Lock; L9 kit match after the whole board is approved | I4 new nonce → T1 | L7 `image_fixes`: global → I4e with the fix + keep; local → I11 (masked) on the front view; view-only issue → T2 | "Back to concept" returns to Gate 1 |
+| **Gate 2** face tile | Lock the parts (they are registered in the face registry only at the Gate 3 pick, `duo.memory`, so abandoned duos never block future faces) | The failing part(s) only, new nonce (R1 or I3) | L7 → per-part fix: global edit of that part (I3e) / R1 regenerate / grammar-field patch | Pick among the top 2–3 assembled faces |
+| **Gate 2** accessory tile (4 views + scale) | Lock → T3 after the board is approved (or the H1 pack in manual mode) | I5 new nonce → T1 | L7: shape/colour → I5e; one view wrong → T2; size → spec patch (size_class) | "Make it myself on Tripo" → H1 |
+| **Gate 2** shirt / pants tiles | Lock the compositor inputs | Re-roll the prints (I2/R2) or pick another fold variant | L7: recipe or cut change → patch → recomposite; print → I2e; colour → palette patch | Brush a region → I11 (masked) on the print only |
 | **Gate 2** colours / body tile | Lock the palette and modesty colour | — | L7 → palette patch → recolour dependants (the dependency graph marks the affected parts for re-check) | — |
 | **Gate 3** final | **Pick the winner** → export kit (files, checklist, provenance) | — | L7 on one part → redo only that part and its dependants → C5 → L12 | "Export upload kit" |
 
-**Approvals are hash-linked** (ENG-01). Each approval stores `sha256(spec slice + input hashes + output hash)`. Any upstream change marks the downstream tiles of **both** characters as "re-approve".
+**Approvals are hash-linked** (ENG-01), with **two stamps** (the v1.1 single stamp made every approved part stale as soon as BUILD wrote its files, so every duo would have reopened Gate 2):
+- **`approval_hash`**, stored at the Gate 2 approval: `sha256(spec slice + input hashes + the board outputs + prompts + models + kit subset + house style)`. It never covers files that BUILD adds later.
+- **`build_hash`**, written when the part reaches BUILT and confirmed by the Gate 3 pick: it covers the build outputs (meshes, repaired files, textures).
+- CHK-D09 and CHK-E02 compare each hash against its own stamp. A rebuilt mesh changes `build_hash` and needs a Gate 3 look, not a Gate 2 re-approval.
+- Any upstream change to the spec slice or inputs marks the downstream tiles of **both** characters as "re-approve".
+- A change the user confirms (§10.5) rewrites the part's consistency reference (§7.2) before its new `approval_hash` is stored.
 
 ---
 
@@ -3065,7 +3438,7 @@ No step in this bible calls fal (D23). `providers/fal.py` is a reserved adapter 
 **Fix ladder** (from the workflow summary). Start at rung 1 and stop at the first fix that passes:
 1. Automatic code fix ($0): palette re-snap, alpha clean-up, re-crop, stroke normalise, re-place.
 2. Masked edit (I11, about $0.05–0.20).
-3. Regenerate one asset (same template, new nonce, possibly n=6–8).
+3. Regenerate one asset (same template, new nonce, possibly `n_total` up to 8 as two requests of 4, U22).
 4. Other technique or model (the per-asset ladder below).
 5. Revise the plan: duo-level only, for example when the pair reads as clones (L7/L6 on the spec).
 6. Human review: after 3 fixes on one part, or when the budget cap is reached.
@@ -3081,19 +3454,19 @@ No step in this bible calls fal (D23). `providers/fal.py` is a reserved adapter 
 
 | Asset | Ladder |
 |---|---|
-| I1 concept | `medium` draft → Sunburst `low` draft → separate front and back calls → joint 4-figure call (A/B arm) → B with A as Image 3 (for same-world failures) → G2 |
-| I2 print | n=6–8 → R2 Recraft vector → Recraft vectorize of the best GPT raster ($0.01) → G2 with a sentinel |
+| I1 concept | `medium` draft → Sunburst `low` draft → I1f + I1b (separate front and back calls) → I1j (joint 4-figure call, A/B arm) → I1p (B with A's front as a style reference, for same-world failures; the mood image is dropped) → G2. (I1e is the Gate 1 "Change…" route, not a rung.) |
+| I2 print | `n_total` 8 (two requests of 4) → R2 Recraft vector → Recraft vectorize of the best GPT raster ($0.01) → G2 with a sentinel |
 | R1/I3 face part | R1 flexible style → I3 guided GPT → code-parametric (iris ovals, brows as tapered Béziers, mouth curves) |
-| I4 hair | `xhigh` final → kit render as Image 1 weight (kit-first edit) → hair-only input to T1 → human sketch upload |
-| I5 accessory | Guide box with the planned silhouette → simplify the design (L7 suggests) → G2 → move the thin parts to `code_primitive` |
+| I4 hair | `xhigh` final → I4k (kit-first edit; kit styles only) → human review (rung 6). Removed in v1.2: "hair-only input to T1" (now the default, §12.1) and "human sketch upload" (no upload flow, template or route was defined) |
+| I5 accessory | I5g (guide box with the planned silhouette) → `simplify` (an L10 method with a fixed sentence, run through I5e) → G2 → move the thin parts to `code_primitive` |
 | T1 multiview | T2 edit → a new T1 run → I10 GPT views → front+back only to T3 (minimum 2 views) |
-| T3 3D | Next seed (≤3) → `orthographic_projection` A/B → P2 image-to-model → P1 multiview → H3.1 smart_low_poly → H1 manual |
+| T3 3D | Next seed (≤3) → `orthographic_projection` A/B → P2 image-to-model → P1 multiview → H3.1 smart_low_poly → H1 manual (each route has its own params class and validator, Appendix B) |
 | I6 badge | R2 SVG → pure code (from the concept crop: posterise + contour) |
 | I7 fabric | Code quilting / offset-blend |
 | I8 shading | Curated library variant → a hand-painted overlay (artist) |
 | Transparency (any) | Sentinel + unmix → Recraft `removeBackground` → local matting |
 
-Rungs whose provider key is missing are skipped (D22). A rung that has already failed twice for this asset is skipped too.
+Rungs whose provider key is missing are skipped (D22). A rung that has already failed twice for this asset is skipped too. Every rung that sends a prompt has a template in this document and a case in the router test (§0.4); a rung without a template does not exist.
 
 ---
 
@@ -3119,7 +3492,7 @@ Rungs whose provider key is missing are skipped (D22). A rung that has already f
 | Stage | Main items | Estimate |
 |---|---|---|
 | Plan loop | L1 (cached), L3, L4 ×3 + L5 ×6, L6 ≤2 rounds | $1.2–3.0 (use the cheap critic mode, §9.5, when the budget is tight) |
-| Gate 1 previews | I1 × 6 draft calls ($0.2–0.35), L11 about 36–40 calls (3 calls × 2 judged drafts × 6, plus C2 pair checks; concept checks need no style images, so about $0.015–0.03 each), C3 redraw × 2 ($0.10) | $0.8–1.5 |
+| Gate 1 previews | I1 × 6 draft calls ($0.2–0.35), L11 about 36–40 calls (3 calls × 2 judged drafts × 6, plus C2 pair checks; concept checks need no style images, so about $0.015–0.03 each), L15 × 2 on the chosen plan ($0.02–0.06), C3 redraw × 2 ($0.10); each I1e "Change…" adds an I1 draft call ($0.03–0.06). The concept clone band and the Gate 2 pre-build pair check run locally ($0) | $0.8–1.5 |
 | Part board | Per character: face parts about $0.75 (R1), 1–2 prints $0.10–0.30, hair I4 $0.10 + T1 $0.10, accessory I5 $0.13 + T1 $0.10, badge $0.13, L11 checks about 25 × $0.03, 3-vote confirmations before about 4 FINALIZE calls (VLM-07, about $0.05–0.1 each), L9 $0.05. Doubled for 2 characters | $4–6.5 |
 | 3D | 1–2 Tripo accessories per duo at about $1.90 each (worst case $3.70) | $1.9–7.4 |
 | Duo loop | C5 (free), L12 $0.5–1.5, L13 about $0.2, L14 (if on) about $0.3 | $0.7–2.0 |
@@ -3136,7 +3509,7 @@ Library builds (fabrics, shading panels) and the house-style bootstrap are one-t
    - the mouth interior UV layout;
    - how many eye-shape and mouth rig variants exist.
    
-   Face-part placement and the `MouthKit` list depend on these.
+   Face-part placement and the `MouthKit` list depend on these. The head-base kit contract (source mesh, UV islands, one variant per eye shape, the FACS set, `kit_build.py` and its outputs, the Studio verification checklist) is specified in APP_SPEC. One rigging path applies: the FACS poses are authored once on the base and per character only the texture changes, and the same FACS mesh is exported for upload, so in-app renders equal what ships. Until a head base exists, the 2D face path and the built-in canvas run (§8.1.4, §11.3).
 2. **Recraft V4.1 SVG internals.** Is there a background rectangle? Is it `<use>` or CSS classes? Is `background_color` honoured? Do `controls.colors` beat `style_id` colours? The pipeline must tolerate every answer.
 3. **GPT Image 2.5:**
    - Is a mask accepted together with several images?
@@ -3150,7 +3523,9 @@ Library builds (fabrics, shading panels) and the house-style bootstrap are one-t
    - whether RGBA or white input works better;
    - how long `file_token`s and task files are kept;
    - whether `balance` already excludes `frozen`;
-   - whether P2 multi-view exists on the website plan.
+   - whether P2 multi-view exists on the website plan;
+   - the native pixel size of T1's four views (§14.1; the local API model only returns view URLs);
+   - whether `P1-20260311` and `v3.1-20260211` accept the field set of §15.1 / Appendix B, and whether `texture_version: v3.5-20260815` exists (the local API model lists `v3.0-20250812` and `v2.5-20250123`).
 5. **Whether `blush_hatch` is allowed** on the head texture (policy reading), and whether freckles could stay on the head. Currently they go to Makeup (D16).
 6. **Claude:**
    - Does Sonnet 5 accept `fallbacks: "default"`?
@@ -3159,7 +3534,7 @@ Library builds (fabrics, shading panels) and the house-style bootstrap are one-t
 7. **Thresholds.** Every [CALIBRATE] value, especially:
    - IoU 0.85 / 0.92 / 0.98;
    - ΔE 3 / 5 / 6 / 10 / 12 / 15 / 20;
-   - the DreamSim clone band of 0.30;
+   - the DreamSim clone band of 0.30, the concept-stage and Gate 2 edges (`clone.concept_lower_edge`, `clone.gate2_lower_edge`), and the degraded-mode thresholds (`clone.degraded_*`);
    - the minimum skirt length at row 398.
    
    Tune them on the ~200-label calibration set and on real gate decisions, never on favourites.
@@ -3179,12 +3554,13 @@ Settle each item with one small test asset. Record the answer as a capability fl
 | 2 | 10 draft calls with `usage` logged | Reference billing; output tokens per size; whether `r.usage` is present |
 | 3 | Flare→Sunburst versus Flare `high` finals on 5 assets; `high` versus `xhigh` on concept and hair | Finalize route |
 | 4 | Recraft: 5 face parts (bootstrap), SVG dump | SVG structure; `background_color`; the colour-control interaction |
-| 5 | Tripo: balance and upload smoke test; one P2 multiview run on a test prop with a one-sided mark; the same run with left/right swapped; RGBA vs white input; `orientation` (D21) and `orthographic_projection` A/B; one T5 convert on a raw `file_token` (FM-T3, FM-T4) | Axis and mirroring; view convention; the `mv_view_direction` statement; field support; `balance` vs `frozen` |
+| 5 | Tripo: balance and upload smoke test; one P2 multiview run on a test prop with a one-sided mark; the same run with left/right swapped; RGBA vs white input; `orientation` (D21) and `orthographic_projection` A/B; one T5 convert on a raw `file_token`; the native size of T1's views; one P1 and one H3.1 request with the Appendix B bodies; whether `texture_version: v3.5-20260815` is accepted (FM-T3, FM-T4) | Axis and mirroring; view convention; the `mv_view_direction` statement; field support per route; native view size; `balance` vs `frozen` |
 | 6 | Studio: numbered test shirt and pants on the Block rig and on the custom body; the repaired `.gltf` and `.fbx` with default importer settings; the forward-axis calibration arrow; the free UGC Validation tool on one accessory (FM-T1, FM-T5, FM-T7) | Seams at 170/418.5/467; hidden rows; shirt over pants; importer axis and scale; live validation rules |
 | 7 | Head base: a painted test face through Studio's head validator; blink covers the iris (FM-T2) | Face pipeline, `zones.json` |
 | 8 | Judge calibration: 30–50 labelled items for each hard rule, plus known negatives; a 20-item flip test (FM-T9) | L11 and L13 reliability |
-| 9 | Router unit test over every template with 3 real specs | ≤5 MUST lines, ≤2 DNA fields, no hex, banned words, ≤1,500 characters without the STYLE block (≤2,200 total) |
-| 10 | Claude schema smoke test with the real kit inventory | Grammar complexity |
+| 9 | Router unit test over every template and variant (base templates, `*e` edit variants, I11 masked and global, every ladder rung) with 3 real specs, including a plush pet, a prop, a no-fringe hair and an all-optional-slots-empty spec | ≤5 MUST lines, ≤2 DNA fields, no hex, banned words, ≤1,500 characters without the STYLE block (≤2,200 total) |
+| 10 | Claude schema smoke test with the real kit inventory (and `test_schemas.py` + `SCHEMAS.lock` after the v1.2 schema changes) | Grammar complexity |
+| 11 | DreamSim: export `dreamsim.onnx` with `tools/export_dreamsim_onnx.py`; run CHK-S14 on a fixture pair (expected distance ±0.01); compare degraded-mode and DreamSim verdicts on about 20 pairs | `clone.degraded_*`; whether degraded mode may block (§17.1) |
 
 ---
 
@@ -3297,45 +3673,70 @@ def render_part(root, w, h, sentinel=None, ss=4):
 
 Tested for body shape only (no key in this environment). Field names match the tryAGI OpenAPI spec (`MultiviewToModelRequest`, `ImageToModelRequest`, `ImageToMultiviewRequest`, `EditMultiviewRequest`, `ConvertModelRequest`) and ComfyUI's P-series request model. The HTTP client, polling, host allowlist and uncertain-submission reconciliation are specified in §15.1 and the Tripo report §5/§10.
 
+**v1.2:** the fallback rungs (§15.1, §19) run P1 and H3.1 bodies, so `check_body` is keyed by route and each route has its own params class: `P2Params` (`face_limit` 48–50000), `P1Params` (48–20000) and `H31Params` (500–20000, `smart_low_poly` required). v1.1 asserted `model == P2` for every body and forbade `smart_low_poly`, which made every fallback rung trip its own ASSERT. FAILURE_MODES CHK-P04 / ACC-02 and APP_SPEC's `TripoProvider` must accept all three (P2Params-only today).
+
 ```python
 # duoskin/providers/tripo.py (excerpt) -- Appendix B: request bodies for T1, T2, T3, T4, T5
 from dataclasses import dataclass
 
-P2 = "P2-20260801"
+P2, P1, H31 = "P2-20260801", "P1-20260311", "v3.1-20260211"
 VIEWS = ("front", "left", "back", "right")      # "left" = the object's own left side (its front faces image-left)
 FACE_LIMIT = {"plush_pet": 3000, "bag": 3000, "small_hat": 3000, "prop": 3000, "keychain_charm": 1500, "hair_custom": 3500}
+FACE_LIMIT_RANGE = {P2: (48, 50000), P1: (48, 20000), H31: (500, 20000)}   # per route; CHK-P04 is keyed by route
 SEEDS = (11, 29, 47)                             # one at a time; stop at the first pass
 
+def _common(model: str, face_limit: int, seed: int, orientation: str = "default") -> dict:
+    lo, hi = FACE_LIMIT_RANGE[model]; assert lo <= face_limit <= hi
+    return {"model": model, "face_limit": face_limit, "quad": False, "texture": True,
+            "texture_quality": "standard", "pbr": False, "texture_alignment": "original_image",
+            "orientation": orientation, "auto_size": False, "model_seed": seed, "texture_seed": seed}
+
+def _multiview(body: dict, tokens: dict[str, str]) -> dict:
+    assert "front" in tokens and len(tokens) >= 2 and set(tokens) <= set(VIEWS)
+    return body | {"inputs": [{v: tokens[v]} for v in VIEWS if v in tokens]}
+
 @dataclass(frozen=True)
-class P2Params:
+class P2Params:                                  # route "p2": T3 and the P2 image-to-model fallback
     face_limit: int
     seed: int = 11
     ab_orthographic: bool = False                # FM-T3 A/B only; P2 support [UNVERIFIED]
-    ab_texture_v35_nodelight: bool = False       # FM-T3 A/B only; P2 support [UNVERIFIED]
+    ab_texture_v35_nodelight: bool = False       # FM-T3 A/B only; P2 support and the version value are [UNVERIFIED]
     ab_align_image: bool = False                 # FM-T3 A/B only (D21)
 
     def _common(self) -> dict:
-        assert 48 <= self.face_limit <= 50000
-        b = {"model": P2, "face_limit": self.face_limit, "quad": False, "texture": True,
-             "texture_quality": "standard", "pbr": False, "texture_alignment": "original_image",
-             "orientation": "align_image" if self.ab_align_image else "default", "auto_size": False,
-             "model_seed": self.seed, "texture_seed": self.seed}
+        b = _common(P2, self.face_limit, self.seed, "align_image" if self.ab_align_image else "default")
         if self.ab_orthographic: b["orthographic_projection"] = True
         if self.ab_texture_v35_nodelight: b |= {"texture_version": "v3.5-20260815", "delight": False}
         return b
 
     def multiview_body(self, tokens: dict[str, str]) -> dict:          # T3: POST /generation/multiview-to-model
-        assert "front" in tokens and len(tokens) >= 2 and set(tokens) <= set(VIEWS)
-        return self._common() | {"inputs": [{v: tokens[v]} for v in VIEWS if v in tokens]}
+        return _multiview(self._common(), tokens)
 
-    def image_body(self, token: str) -> dict:                          # T4: POST /generation/image-to-model
+    def image_body(self, token: str) -> dict:                          # T4 (p2): POST /generation/image-to-model
         return self._common() | {"input": token, "enable_image_autofix": False}
 
-FORBIDDEN = {"compress", "generate_parts", "smart_low_poly", "export_uv", "return_multiview"}
+@dataclass(frozen=True)
+class P1Params:                                  # route "p1": T4 fallback, P1 multiview (50 credits textured); fields beyond the shared set are [UNVERIFIED] until FM-T3
+    face_limit: int
+    seed: int = 11
+    def multiview_body(self, tokens: dict[str, str]) -> dict:
+        return _multiview(_common(P1, self.face_limit, self.seed), tokens)
 
-def check_body(b: dict) -> dict:                 # ASSERT before every paid POST (ACC-02)
-    assert b["model"] == P2 and b["pbr"] is False and b["quad"] is False and b["auto_size"] is False
-    assert "face_limit" in b and not (FORBIDDEN & b.keys())
+@dataclass(frozen=True)
+class H31Params:                                 # route "h31": T4 A/B arm for simple plush; smart_low_poly belongs to this route only
+    face_limit: int = 3000
+    seed: int = 11
+    def multiview_body(self, tokens: dict[str, str]) -> dict:
+        return _multiview(_common(H31, self.face_limit, self.seed) | {"smart_low_poly": True}, tokens)
+
+FORBIDDEN = {"compress", "generate_parts", "export_uv", "return_multiview"}   # smart_low_poly is checked per route below
+ROUTE_MODEL = {"p2": P2, "p1": P1, "h31": H31}
+
+def check_body(b: dict, route: str = "p2") -> dict:     # ASSERT before every paid POST (ACC-02; keyed by route, CHK-P04)
+    model = ROUTE_MODEL[route]; lo, hi = FACE_LIMIT_RANGE[model]
+    assert b["model"] == model and b["pbr"] is False and b["quad"] is False and b["auto_size"] is False
+    assert lo <= b["face_limit"] <= hi and not (FORBIDDEN & b.keys())
+    assert ("smart_low_poly" in b) == (route == "h31")  # forbidden on p2 and p1, required on h31
     assert b.get("texture_quality") == "standard"
     return b
 
@@ -3403,7 +3804,7 @@ def nb2_image(guide_png: bytes, prompt: str, aspect: str = "1:1") -> tuple[bytes
 
 ## Appendix D. Illustrative spec fixture (tests only; never sent to any model)
 
-`tests/fixtures/spec_bg_min.json`. It validates against the §3.2 schema (checked on 2026-09-29 with pydantic 2.13.5 and stub kit enums; all 14 route schemas compiled through `anthropic.transform_schema` with 0 `anyOf`, 0 optional fields and `additionalProperties:false` everywhere). **It must never appear in a prompt**: a single worked example anchors every plan (PROPOSAL_DECISION). Use it for the router unit test, the linter tests and the mock provider.
+`tests/fixtures/spec_bg_min.json`. It validates against the §3.2 schema (checked on 2026-09-29 with pydantic 2.13.5 and stub kit enums; all 14 route schemas compiled through `anthropic.transform_schema` with 0 `anyOf`, 0 optional fields and `additionalProperties:false` everywhere). **It must never appear in a prompt**: a single worked example anchors every plan (PROPOSAL_DECISION). Use it for the router unit test, the linter tests and the mock provider. v1.2: both hairs gained `parting` (§3.2), so re-validate it; and `world.material_family` (`nylon`) differs from the three fabrics on purpose, so the SOFT fabric-versus-world-material lint (§9.4) fires on it, which proves that this lint warns and never blocks.
 
 ```json
 {
@@ -3447,7 +3848,7 @@ def nb2_image(guide_png: bytes, prompt: str, aspect: str = "1:1") -> tuple[bytes
              "iris_ref": "p1", "iris_dark_ref": "p2", "pupil_ref": "p6", "sclera_ref": "p7", "lash_ref": "p6",
              "brow_ref": "p8", "mouth_line_ref": "p6", "mouth_inner_ref": "p11", "tongue_ref": "p3",
              "teeth_ref": "none", "blush_ref": "none"},
-    "hair": {"kit_style_id": "hair_spiky_crop_02", "fringe_id": "fringe_a", "back_id": "kit_default",
+    "hair": {"kit_style_id": "hair_spiky_crop_02", "fringe_id": "fringe_a", "back_id": "kit_default", "parting": "left",
              "description": "short spiky crop, side-swept fringe, tapered back",
              "colour_ref": "p8", "shadow_ref": "p6", "highlight_ref": "none"},
     "top": {"recipe_id": "hoodie", "sleeve": "long", "hem": "hip_untucked", "neckline": "hood", "front": "closed",
@@ -3475,8 +3876,8 @@ def nb2_image(guide_png: bytes, prompt: str, aspect: str = "1:1") -> tuple[bytes
              "iris_ref": "p3", "iris_dark_ref": "p11", "pupil_ref": "p6", "sclera_ref": "p7", "lash_ref": "p6",
              "brow_ref": "p9", "mouth_line_ref": "p6", "mouth_inner_ref": "p11", "tongue_ref": "p3",
              "teeth_ref": "p7", "blush_ref": "p12"},
-    "hair": {"kit_style_id": "hair_twin_braids_03", "fringe_id": "kit_default", "back_id": "back_a",
-             "description": "long twin braids, straight fringe, centre parting",
+    "hair": {"kit_style_id": "hair_twin_braids_03", "fringe_id": "kit_default", "back_id": "back_a", "parting": "centre",
+             "description": "long twin braids, straight fringe",
              "colour_ref": "p9", "shadow_ref": "p11", "highlight_ref": "none"},
     "top": {"recipe_id": "raglan", "sleeve": "three_quarter", "hem": "waist_tucked", "neckline": "crew", "front": "closed",
             "block_layout": "raglan_split", "inner_recipe_id": "none", "fabric_id": "jersey_plain",
@@ -3496,4 +3897,4 @@ def nb2_image(guide_png: bytes, prompt: str, aspect: str = "1:1") -> tuple[bytes
 
 ---
 
-*End of Prompt Bible v1.1. Any change to a template, schema, model ID or threshold bumps the relevant version, passes the router test, and passes the 40-brief regression and the variety guard before it becomes the default.*
+*End of Prompt Bible v1.2. Any change to a template, schema, model ID or threshold bumps the relevant version, passes the router test, and passes the 40-brief regression and the variety guard (variety on the same 40 briefs must not drop by more than about 5%) before it becomes the default.*

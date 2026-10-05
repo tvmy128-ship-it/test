@@ -5,9 +5,10 @@ import hashlib
 import json
 import secrets
 import time
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 
 class Strict(BaseModel):
@@ -48,3 +49,25 @@ def new_id(prefix: str) -> str:
         ms >>= 5
     r = "".join(secrets.choice(_ULID_ALPHABET) for _ in range(16))
     return f"{prefix}_{t}{r}".lower()
+
+
+# ---- time helpers (additive, added by the foundation track; APP_SPEC §6.1: times are UTC with a timezone) ----
+
+def utcnow() -> datetime:
+    return datetime.now(UTC)
+
+
+def _to_utc(v: datetime) -> datetime:
+    return v.replace(tzinfo=UTC) if v.tzinfo is None else v.astimezone(UTC)
+
+
+UtcDatetime = Annotated[datetime, AfterValidator(_to_utc)]
+
+
+def iso_utc(dt: datetime) -> str:
+    """Fixed-width UTC timestamp (``2026-10-05T12:00:00.000000Z``): sorts lexicographically, so SQL can compare it."""
+    return _to_utc(dt).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def parse_iso(text: str) -> datetime:
+    return _to_utc(datetime.fromisoformat(text.replace("Z", "+00:00")))
