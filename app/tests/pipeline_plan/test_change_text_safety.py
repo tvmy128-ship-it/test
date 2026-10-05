@@ -115,6 +115,16 @@ def test_attacks_are_rejected_before_any_paid_call(text):
     assert not any(x in " ".join(problems).lower() for x in ("roblox", "pikachu", "nike")), "the rejection never repeats the brand"
 
 
+@pytest.mark.parametrize("text", ["make the print inspired by autumn leaves", "make it a bit like the first design", "add a couple of stripes"])
+def test_ordinary_wording_that_shares_words_with_the_ip_lists_is_not_rejected(text):
+    assert CH.prescreen_request(text) == []
+
+
+@pytest.mark.parametrize("text", ["in the style of Disney", "make it look like Pixar", "add a ghibli totoro"])
+def test_studio_and_franchise_names_are_rejected_even_inside_ordinary_wording(text):
+    assert CH.prescreen_request(text)
+
+
 def test_a_pasted_page_is_not_a_change():
     assert CH.prescreen_request("make it red " * 100)
 

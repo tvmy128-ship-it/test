@@ -255,6 +255,7 @@
    "stage": "always",
    "threshold_keys": [
     "ocr.rec_score_min",
+    "ocr.template_rec_score_min",
     "ocr.min_box_px"
    ],
    "fm_ids": [

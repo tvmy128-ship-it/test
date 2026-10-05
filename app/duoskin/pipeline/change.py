@@ -508,6 +508,7 @@ def start_change(ac: Any, *, spec_id: str | None = None) -> Any:
 
 REQUEST_MAX_CHARS = 800                # a change is a sentence or two; a pasted page is not a change and costs a paid call
 PRESCREEN_GROUPS = ("ip_platform", "ip_brands", "ip_franchises", "ip_artists", "sexual")      # the IP groups; ordinary words ("baby blue") pass
+PRESCREEN_PHRASES_ALLOWED = frozenset({"inspired by", "in the style of", "fan art", "fanart", "cosplay of"})   # ordinary wording; a later gate still lints it
 
 
 def prescreen_request(text: str, banned: Any = None) -> list[str]:
@@ -526,7 +527,7 @@ def prescreen_request(text: str, banned: Any = None) -> list[str]:
     banned = banned or default_ctx().banned
     t = " ".join(str(text or "").split())
     problems: list[str] = []
-    hits = banned.hits(t, list(PRESCREEN_GROUPS))
+    hits = [h for h in banned.hits(t, list(PRESCREEN_GROUPS)) if h not in PRESCREEN_PHRASES_ALLOWED]
     if hits:
         problems.append("Brand names, game or show characters and real people cannot be used, so the duo stays original. "
                         "Describe the shape and the colours you want instead.")
