@@ -1,10 +1,10 @@
 // @ts-check
 // The always-visible cost bar: what this duo has cost so far against its cap, plus today's total.
-import { h, money } from "../dom.js";
+import { h, money, setChildren } from "../dom.js";
 
 /**
  * @param {HTMLElement} host
- * @param {{todayUsd: number, project?: {name: string, spent_usd: number, settings: {budget_usd: number}} | null, queue?: any, doctor?: any, waiting?: number}} d
+ * @param {{todayUsd: number, project?: {name: string, spent_usd: number, settings: {budget_usd: number}} | null, queue?: any, doctor?: any, waiting?: number, running?: number}} d
  */
 export function renderCostBar(host, d) {
   const kids = [];
@@ -25,10 +25,11 @@ export function renderCostBar(host, d) {
   kids.push(h("div", { class: "cost-item" }, h("span", { class: "cost-label" }, "Today, all duos"), h("span", { class: "cost-value" }, money(d.todayUsd))));
   const q = d.queue;
   const pills = [];
+  if (d.running) pills.push(h("a", { class: "pill busy", href: "#/jobs", title: "Steps that are working right now" }, `Working: ${d.running} ${d.running === 1 ? "step" : "steps"}`));
   if (q?.paused) pills.push(h("span", { class: "pill warn" }, "Queue paused"));
   if (q?.paid_blocked) pills.push(h("span", { class: "pill bad", title: String(q.paid_blocked) }, "Paid steps blocked"));
   if (d.waiting) pills.push(h("a", { class: "pill info", href: "#/" }, `${d.waiting} waiting on you`));
   if (d.doctor?.blocks_paid_features) pills.push(h("a", { class: "pill bad", href: "#/setup" }, "Setup needs attention"));
   else if (d.doctor?.summary?.warnings) pills.push(h("a", { class: "pill warn", href: "#/setup" }, "Setup warnings"));
-  host.replaceChildren(h("div", { class: "costbar-inner", "aria-label": "Costs" }, kids, pills.length ? h("div", { class: "cost-pills" }, pills) : null));
+  setChildren(host, h("div", { class: "costbar-inner", "aria-label": "Costs" }, kids, pills.length ? h("div", { class: "cost-pills" }, pills) : null));
 }

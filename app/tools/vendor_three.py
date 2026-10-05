@@ -63,7 +63,7 @@ def sha256_bytes(data: bytes) -> str:
 def read_tarball(path: Path | None) -> tuple[bytes, dict[str, bytes]]:
     """The tarball bytes and ``{name inside package/: bytes}`` for every regular file."""
     if path is None:
-        with urllib.request.urlopen(NPM_URL, timeout=120) as resp:   # noqa: S310 (fixed https URL)
+        with urllib.request.urlopen(NPM_URL, timeout=120) as resp:
             raw = resp.read()
     else:
         raw = Path(path).read_bytes()
@@ -170,7 +170,7 @@ def check(out: Path = DEFAULT_OUT) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--tarball", type=Path, help="three-%s.tgz from npm (downloaded when omitted)" % VERSION)
+    ap.add_argument("--tarball", type=Path, help=f"three-{VERSION}.tgz from npm (downloaded when omitted)")
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--check", action="store_true", help="verify the vendored files instead of writing them")
     args = ap.parse_args(argv)

@@ -6,7 +6,7 @@
 // default-src 'self', which blocks fetch("blob:..."). GLTFLoader reads embedded textures with ImageBitmapLoader (that
 // fetch), so for the one synchronous parse() call the loader constructor sees no createImageBitmap and uses TextureLoader
 // (an <img>, allowed by img-src blob:). Nothing in the vendored files is edited.
-import { h } from "../dom.js";
+import { h, setChildren } from "../dom.js";
 import { authHeaders } from "../api.js";
 
 /** @type {Promise<any> | null} */
@@ -75,7 +75,7 @@ export function createViewer(host, opts = {}) {
 
   async function init() {
     if (!webglAvailable()) {
-      canvasBox.replaceChildren(h("p", { class: "viewer-fallback" }, "The 3D preview needs graphics support that this browser window does not have. The flat pictures are still shown next to it."));
+      setChildren(canvasBox, h("p", { class: "viewer-fallback" }, "The 3D preview needs graphics support that this browser window does not have. The flat pictures are still shown next to it."));
       say("3D preview is not available in this browser.", "bad");
       return false;
     }
@@ -89,7 +89,7 @@ export function createViewer(host, opts = {}) {
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    canvasBox.replaceChildren(renderer.domElement);
+    setChildren(canvasBox, renderer.domElement);
     scene = new THREE.Scene();
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -247,6 +247,7 @@ export function createViewer(host, opts = {}) {
           if (disposed) return;
           arrange();
           controls.autoRotate = turntable;
+          renderer.render(scene, camera);          // one frame at once, so it shows even before the animation loop wakes up
           stats.textContent = `${tris.toLocaleString()} triangles`;
           say("");
         } catch (err) {
@@ -294,7 +295,7 @@ export function createViewer(host, opts = {}) {
   }
 
   host.classList.add("viewer");
-  host.replaceChildren(canvasBox, status, stats);
+  setChildren(host, canvasBox, status, stats);
   void init();
   return api;
 }

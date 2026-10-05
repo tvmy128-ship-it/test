@@ -35,6 +35,7 @@ const FRIENDLY = {
   bad_image: "That file is not a PNG, JPEG or WebP picture.",
   validation: "Some of the details need fixing before this can go ahead.",
   bad_key: "That key was not accepted. Check that you copied all of it.",
+  bad_settings: "One of those values is not allowed, so nothing was changed. Check the numbers and names you typed.",
   server_error: "Something went wrong inside DuoSkin Studio. Nothing was charged for it. The details are in the log file.",
   not_failed: "That step is not in a failed state, so it cannot be retried.",
 };
@@ -61,7 +62,7 @@ export class ApiError extends Error {
 }
 
 const TECHNICAL = /traceback|file "|\bat 0x|<html|^[[{]|sqlite|errno|\.py\b/i;
-const ALWAYS_MAPPED = new Set(["bad_token", "server_error", "not_implemented", "validation", "version_conflict", "gate_closed"]);
+const ALWAYS_MAPPED = new Set(["bad_token", "server_error", "not_implemented", "validation", "version_conflict", "gate_closed", "bad_settings"]);
 
 /** @param {any} data @param {number} status */
 function messageFor(data, status) {
@@ -191,7 +192,6 @@ export function casUrl(sha, ext) {
 export function casImage(sha, o = {}) {
   const img = document.createElement("img");
   img.alt = o.alt ?? "";
-  img.loading = "lazy";
   img.decoding = "async";
   if (o.className) img.className = o.className;
   const order = [o.ext || KNOWN_EXT.get(sha) || "png", ...EXT_ORDER].filter((e, i, a) => a.indexOf(e) === i);

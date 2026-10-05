@@ -4,7 +4,7 @@
 // registers through `ctx` is torn down when the user leaves.
 import { on as onEvent } from "./events.js";
 import { friendly } from "./api.js";
-import { h, debounce } from "./dom.js";
+import { h, debounce, setChildren } from "./dom.js";
 
 /**
  * @typedef {object} PageContext
@@ -137,11 +137,11 @@ async function renderCurrent() {
   controller = new AbortController();
   const signal = controller.signal;
   const root = container;
-  root.replaceChildren(loadingPanel());
+  setChildren(root, loadingPanel());
   const { route, params, query, path } = current;
   if (!route) {
     setDocumentTitle("Not found");
-    root.replaceChildren(h("section", { class: "panel" }, h("h1", { tabindex: "-1" }, "That page does not exist"),
+    setChildren(root, h("section", { class: "panel" }, h("h1", { tabindex: "-1" }, "That page does not exist"),
       h("p", {}, "The link may be out of date."), h("a", { class: "btn primary", href: "#/" }, "Back to your duos")));
     focusHeading(root);
     return;
@@ -165,14 +165,14 @@ async function renderCurrent() {
   try {
     const mod = await import(`./pages/${route.page}.js`);
     if (token !== renderToken) return;
-    root.replaceChildren();
+    setChildren(root);
     const cleanup = await mod.render(ctx);
     if (token !== renderToken) { if (typeof cleanup === "function") cleanup(); return; }
     if (typeof cleanup === "function") cleanups.push(cleanup);
     focusHeading(root);
   } catch (err) {
     if (token !== renderToken) return;
-    root.replaceChildren(failurePanel(/** @type {Error} */ (err), () => { void renderCurrent(); }));
+    setChildren(root, failurePanel(/** @type {Error} */ (err), () => { void renderCurrent(); }));
     focusHeading(root);
   }
 }

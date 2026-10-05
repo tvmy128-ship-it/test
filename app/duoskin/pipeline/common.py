@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from duoskin.engine.context import StepContext
     from duoskin.engine.runtime import Runtime
 
-PART_RE = re.compile(r"^(?P<c>[ab])\.(?P<kind>face|hair|shirt|pants|colours|acc|print)(?:\.(?P<a>top|bottom|shoes|charm|\d))?(?:\.(?P<b>\d))?$")
+PART_RE = re.compile(r"^(?P<c>[ab])\.(?P<kind>face|hair|shirt|pants|colours|acc|print)(?:\.(?P<a>top|bottom|shoes|\d))?(?:\.(?P<b>\d))?$")
 CHARS = ("a", "b")
 PLACEHOLDER_BG = (242, 242, 242)
 
@@ -43,7 +43,7 @@ class PartRef:
     character: str                 # "a" | "b" | "duo"
     kind: str                      # face | hair | shirt | pants | colours | acc | print | duo
     index: int | None = None       # accessory index, print index
-    slot: str | None = None        # print slot: top | bottom | shoes | charm
+    slot: str | None = None        # print slot: top | bottom | shoes (no charm parts in v1, APP_SPEC §1.2)
 
     @property
     def is_character_part(self) -> bool:
@@ -236,6 +236,17 @@ def record_cost(ctx: StepContext, cost: dict[str, Any] | None, operation: str, *
 def store_checks(ctx: StepContext, results: list[CheckResult]) -> list[str]:
     """Record check results with the step; returns their row ids (for ``Provenance.check_ids``)."""
     return ctx.record_checks(list(results)) if results else []
+
+
+def mk_result(check_id: str, passed: bool, *, kind: str = "hard", metric: str = "", value: float | None = None, threshold: str = "",
+              evidence: str = "", fix_hint: str = "none", fm_ids: list[str] | None = None, subject_sha: str = "") -> CheckResult:
+    """A ``CheckResult`` for a check this pipeline owns that has no registry entry (its ``kind`` is what it declares here).
+    Registered checks go through ``checks.runner.build_result`` instead, so their kind always comes from the registry."""
+    from duoskin.checks import thresholds
+
+    return CheckResult(check_id=check_id, fm_ids=fm_ids or [], subject_sha=subject_sha, kind=kind, passed=bool(passed), metric=metric,   # type: ignore[arg-type]
+                       value=value, threshold=threshold, evidence=evidence[:240], ran=True, fix_hint=fix_hint if not passed else "none",   # type: ignore[arg-type]
+                       thresholds_version=thresholds.THRESHOLDS_VERSION)
 
 
 def hard_failures(results: list[CheckResult]) -> list[CheckResult]:

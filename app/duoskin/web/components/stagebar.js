@@ -1,16 +1,16 @@
 // @ts-check
 // The stage bar: Brief > Plan > Concept > Parts > Build > Duo > Export, always visible while a duo is open.
-import { h } from "../dom.js";
+import { h, comboLabel, setChildren } from "../dom.js";
 import { STAGES, stageHref, stageIndex, stageSentence } from "../text.js";
 
 /**
  * @param {HTMLElement} host
- * @param {{id: string, name: string, stage: string} | null} project
+ * @param {{id: string, name: string, stage: string, combo?: string} | null} project
  * @param {number} waiting how many decisions are waiting on the user
  */
 export function renderStageBar(host, project, waiting = 0) {
   if (!project) {
-    host.replaceChildren(h("p", { class: "stagebar-idle" }, "Open a duo to see its stages here."));
+    setChildren(host, h("p", { class: "stagebar-idle" }, "Nothing costs money until you approve it. What you spend shows here."));
     host.classList.add("idle");
     return;
   }
@@ -30,8 +30,8 @@ export function renderStageBar(host, project, waiting = 0) {
       : h("span", { class: "stage-link disabled", title: s.hint }, inner);
     return h("li", { class: cls }, node);
   });
-  host.replaceChildren(
-    h("nav", { "aria-label": `Progress of ${project.name}` },
-      h("ol", { class: "stagebar" }, items)),
-    h("p", { class: "stage-sentence" }, h("strong", {}, project.name), ": ", stageSentence(project.stage)));
+  setChildren(host, 
+    h("a", { class: "stage-project", href: `#/p/${project.id}`, title: "Open this duo's page" }, h("strong", {}, project.name), h("span", {}, project.combo ? comboLabel(project.combo) : "")),
+    h("nav", { class: "stage-nav", "aria-label": `Progress of ${project.name}` }, h("ol", { class: "stagebar" }, items)),
+    h("p", { class: "sr", role: "status" }, `${project.name}: ${stageSentence(project.stage)}`));
 }

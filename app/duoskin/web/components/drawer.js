@@ -2,10 +2,10 @@
 // The tile drawer (APP_SPEC 12): large views, the other versions, the check summary, a provenance summary, per-part
 // Reimagine/Change for the face, and the 3D viewer when the part has a model. Opened from "Look closer" on a tile.
 import { tryGet, friendly, casUrl, extForRole } from "../api.js";
-import { h, money, humanize } from "../dom.js";
+import { h, money, humanize, setChildren } from "../dom.js";
 import { openDialog } from "./modal.js";
 import { badge, notAvailable, spinner } from "./ui.js";
-import { mediaSections, renderSections, partKindOf, figure } from "./tile.js";
+import { mediaSections, renderSections, partKindOf, figure, warningsOf, hardFailuresOf } from "./tile.js";
 import { runTileAction, FACE_TARGETS } from "./tile-actions.js";
 import { viewerPanel } from "./viewer3d.js";
 import { warningList } from "./warnings.js";
@@ -24,7 +24,7 @@ export function openTileDrawer(env, firstChoice, onClosed) {
   let dlg;
   const act = (/** @type {string} */ a, /** @type {any} */ extra = {}) => runTileAction(env, a, { ...extra, closeDrawer: () => dlg.close() });
 
-  const views = h("section", { class: "drawer-views" }, h("h3", {}, "Large views"), renderSections(mediaSections(kind, tile.assets || {})));
+  const views = h("section", { class: "drawer-views" }, h("h3", {}, "Large views"), renderSections(mediaSections(kind, tile.assets || {}, { full: true }), undefined, kind));
   const alts = tile.alternatives?.length
     ? h("section", {}, h("h3", {}, "Other versions"),
       h("div", { class: "alts" }, tile.alternatives.map((/** @type {Record<string, string>} */ alt, /** @type {number} */ i) => {
@@ -52,24 +52,26 @@ export function openTileDrawer(env, firstChoice, onClosed) {
   dlg = openDialog({
     title: `${tile.label || partKindLabel(kind)}`, wide: true, drawer: true,
     body: [h("p", { class: "row" }, badge(stateLabel(String(tile.state)), /** @type {any} */ (stateTone(String(tile.state)))), ...(tile.badges ?? []).map((/** @type {string} */ b) => badge(b, "muted"))),
-      warningList(tile.facts?.warnings, firstChoice), views, alts, parts, detail],
+      hardFailuresOf(tile).length ? h("div", { class: "hard-fails", role: "note" }, h("p", { class: "hard-title" }, "Needs fixing first"), h("ul", {}, hardFailuresOf(tile).map((f) => h("li", {}, f)))) : null,
+      tile.facts?.report ? h("p", { class: "note warn" }, String(tile.facts.report)) : null,
+      warningList(warningsOf(tile, firstChoice), firstChoice), views, alts, parts, detail],
     actions: buttons,
   });
   dlg.closed.then(() => onClosed?.(tile));
-  void loadDetail(env, tile, firstChoice, detail);
+  void loadDetail(env, tile, detail);
   return dlg;
 }
 
-/** @param {import("./tile-actions.js").ActionEnv} env @param {any} tile @param {boolean} firstChoice @param {HTMLElement} host */
-async function loadDetail(env, tile, firstChoice, host) {
+/** @param {import("./tile-actions.js").ActionEnv} env @param {any} tile @param {HTMLElement} host */
+async function loadDetail(env, tile, host) {
   const pid = tile.part_id;
-  if (!pid) { host.replaceChildren(); return; }
+  if (!pid) { setChildren(host); return; }
   let res;
   try { res = await tryGet(`/api/projects/${encodeURIComponent(env.projectId)}/parts/${encodeURIComponent(pid)}`); } catch (err) {
-    host.replaceChildren(h("p", { class: "note warn" }, friendly(err)));
+    setChildren(host, h("p", { class: "note warn" }, friendly(err)));
     return;
   }
-  if (res.unavailable) { host.replaceChildren(notAvailable("The detailed check list")); return; }
+  if (res.unavailable) { setChildren(host, notAvailable("The detailed check list")); return; }
   const { checks = [], provenance = [], links = [] } = res.data || {};
   /** @type {any[]} */
   const hard = checks.filter((/** @type {any} */ c) => c.kind === "hard" || c.kind === "assert");
@@ -93,6 +95,5 @@ async function loadDetail(env, tile, firstChoice, host) {
     const { el } = viewerPanel({ models: [{ url: casUrl(meshLink.asset_sha, extForRole("glb")) }], height: 300, caption: "The 3D model for this part" });
     parts.push(h("h3", {}, "3D preview"), el);
   }
-  host.replaceChildren(...parts);
-  void firstChoice;
+  setChildren(host, ...parts);
 }

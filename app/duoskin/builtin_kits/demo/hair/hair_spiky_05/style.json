@@ -10,9 +10,8 @@
  "prompt_phrase": "tall swept-up spiky style",
  "silhouette_class": "spiky",
  "supported_adjustments": [
-  "volume",
-  "clump_size"
+  "fringe_length"
  ],
  "symmetric": true,
- "tris": 110
+ "tris": 140
 }

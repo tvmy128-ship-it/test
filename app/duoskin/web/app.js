@@ -6,14 +6,15 @@
 // sent as X-DuoSkin-Token on every request; there is one EventSource per browser (the leader tab, events.js); no inline
 // scripts or styles anywhere, so the strict Content-Security-Policy holds.
 import { TOKEN_MISSING, post, friendly } from "./api.js";
-import { h, $ } from "./dom.js";
+import { h, $, setChildren } from "./dom.js";
 import { boot, state, subscribe, setProject } from "./store.js";
 import { onStatus, on } from "./events.js";
-import { onRoute, start, currentRoute } from "./router.js";
+import { onRoute, start } from "./router.js";
 import { renderStageBar } from "./components/stagebar.js";
 import { renderCostBar } from "./components/costbar.js";
 import { confirmDialog } from "./components/modal.js";
 import { toast } from "./components/toast.js";
+import { maybeConfirmPalette } from "./components/paletteconfirm.js";
 
 const main = /** @type {HTMLElement} */ ($("#main"));
 
@@ -28,7 +29,7 @@ function paintShell() {
   const stageHost = $("#stagebar");
   if (stageHost) renderStageBar(stageHost, project, project ? waiting : 0);
   const costHost = $("#costbar");
-  if (costHost) renderCostBar(costHost, { todayUsd: snap?.today_usd ?? 0, project, queue: snap?.queue, doctor: snap?.doctor, waiting: project ? 0 : waiting });
+  if (costHost) renderCostBar(costHost, { todayUsd: snap?.today_usd ?? 0, project, queue: snap?.queue, doctor: snap?.doctor, waiting: project ? 0 : waiting, running: (snap?.steps?.running ?? 0) + (snap?.steps?.waiting_remote ?? 0) });
   const notice = $("#notice-banner");
   if (notice && state.offline) { notice.hidden = false; notice.textContent = state.error || "Cannot reach DuoSkin Studio."; }
   else if (notice && notice.dataset.sticky !== "1") notice.hidden = true;
@@ -60,9 +61,14 @@ function paintNav(r) {
 
 async function main_() {
   if (TOKEN_MISSING) {
-    main.replaceChildren(h("section", { class: "panel panel-error" }, h("h1", {}, "Open DuoSkin Studio from its own address"),
+    setChildren(main, h("section", { class: "panel panel-error" }, h("h1", {}, "Open DuoSkin Studio from its own address"),
       h("p", {}, "This page was not opened by DuoSkin Studio, so it has no key to talk to the program. Close it, then open the address shown in the black start.bat window.")));
     return;
+  }
+  // keep focused and scrolled-to elements out from under the sticky header (its height changes with the banner and stage bar)
+  const top = $(".shell-top");
+  if (top && typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(() => document.documentElement.style.setProperty("--shell-h", `${top.offsetHeight}px`)).observe(top);
   }
   subscribe(paintShell);
   onStatus(paintConnection);
@@ -73,20 +79,23 @@ async function main_() {
     const n = $("#notice-banner");
     if (n) { n.hidden = false; n.dataset.sticky = "1"; n.textContent = "DuoSkin Studio is restarting. This page will reconnect by itself."; }
   });
+  // after a Gate 1 approval a small "which colours?" question may open (APP_SPEC 9.2): answer it wherever the user is
+  on("gate.opened", (e) => { if (e.project_id) void maybeConfirmPalette(e.project_id); });
   on("resync", () => { const n = $("#notice-banner"); if (n && n.dataset.sticky) { delete n.dataset.sticky; n.hidden = true; } });
   $("#quit")?.addEventListener("click", async () => {
     const ok = await confirmDialog({ title: "Quit DuoSkin Studio?", message: "Anything running is stopped safely and your work is saved. You can start it again from start.bat.", confirmLabel: "Quit", tone: "danger" });
     if (!ok) return;
     try { await post("/api/shutdown"); } catch (err) { toast(friendly(err), { kind: "bad" }); return; }
-    document.body.replaceChildren(h("main", { class: "goodbye" }, h("h1", {}, "DuoSkin Studio has stopped"), h("p", {}, "You can close this tab. To use it again, open start.bat.")));
+    setChildren(document.body, h("main", { class: "goodbye" }, h("h1", {}, "DuoSkin Studio has stopped"), h("p", {}, "You can close this tab. To use it again, open start.bat.")));
   });
+  // a plain #main link would change the hash and the router would treat it as a page, so the skip link focuses <main> itself
+  $(".skip-link")?.addEventListener("click", (e) => { e.preventDefault(); main.focus(); });
   await boot();
   paintShell();
   start(main);
-  void currentRoute;
 }
 
 main_().catch((err) => {
   console.error(err);
-  main.replaceChildren(h("section", { class: "panel panel-error", role: "alert" }, h("h1", {}, "DuoSkin Studio could not start"), h("p", {}, friendly(err))));
+  setChildren(main, h("section", { class: "panel panel-error", role: "alert" }, h("h1", {}, "DuoSkin Studio could not start"), h("p", {}, friendly(err))));
 });

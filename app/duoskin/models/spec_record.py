@@ -12,19 +12,12 @@ from pydantic import Field
 from duoskin.checks.model import CheckResult
 from duoskin.models.common import Sha256, Strict
 
+# ``RevisionOp`` (L6, with ``finding``) and ``ChangeOp`` (L7, with ``reason``) are the LLM-facing classes of Track S
+# (``models/llm_io.py``, locked in ``prompts/SCHEMAS.lock``). They are re-exported here so ``SpecRecord.patch_from_parent`` and the
+# schema lock compare the same classes (APP_SPEC §6.4).
+from duoskin.models.llm_io import ChangeOp, RevisionOp
 
-class RevisionOp(Strict):                           # LLM-facing (L6, bible §9.6): the value is JSON text
-    op: Literal["replace", "add", "remove"]
-    path: str
-    value_json: str
-    finding: str                                    # the finding number this op resolves
-
-
-class ChangeOp(Strict):                             # LLM-facing (L7): a user change has no findings, so it gives a reason
-    op: Literal["replace", "add", "remove"]
-    path: str
-    value_json: str
-    reason: str
+__all__ = ["ChangeOp", "RevisionOp", "SpecRecord"]
 
 
 class SpecRecord(Strict):

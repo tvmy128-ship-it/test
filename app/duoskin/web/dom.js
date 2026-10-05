@@ -2,8 +2,7 @@
 // Tiny DOM helpers shared by every page and component. No framework: elements are built with h() and replaced in place.
 // CSP note: the page forbids inline style="" attributes, so h() never writes one; use classes, or el.style.x (CSSOM).
 
-/** @typedef {Node | string | number | boolean | null | undefined} Child */
-/** @typedef {Child | Child[]} Children */
+/** Anything h() accepts as a child: nodes, strings, numbers, null/false (skipped) or nested arrays of those. @typedef {any} Children */
 
 /**
  * Create an element. `props`: `class`, `dataset`, `on<event>` handlers, `text`, `aria-*`, plain attributes; a value of
@@ -33,9 +32,9 @@ export function h(tag, props, ...children) {
   return el;
 }
 
-/** @param {Node} el @param {Children} children */
+/** @param {Element} el @param {Children} children */
 export function append(el, children) {
-  for (const child of Array.isArray(children) ? children : [children]) {
+  for (const child of /** @type {Children[]} */ (Array.isArray(children) ? children : [children])) {
     if (Array.isArray(child)) append(el, child);
     else if (child == null || child === false || child === true) continue;
     else el.append(child instanceof Node ? child : document.createTextNode(String(child)));

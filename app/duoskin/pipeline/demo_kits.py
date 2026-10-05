@@ -50,48 +50,55 @@ def _union(parts: list[MeshData]) -> MeshData:
     return mesh
 
 
-def _cap(front_y: float = -0.2) -> list[MeshData]:
-    """The common cap: top and sides over the crown; the front only reaches down to ``front_y`` (the bangs line)."""
-    h = HEAD_HALF + 0.08
-    return [_box((-h, front_y, -h), (h, HEAD_TOP + 0.14, h), 1),                          # crown + front line
-            _box((-h, -0.55, -h), (h, front_y + 0.05, -HEAD_HALF + 0.02), 0)]            # back of the head, in shadow
+Y_LOW = -1.2                                         # just below the head cube's bottom face: the side and back walls reach the nape
+FRONT_Y = -0.54                                      # the front line stops at the edge of the protected lower face (HAIR-06 zone is the top 45%)
+
+
+def _cap(front_y: float = FRONT_Y, wall: float = 0.1, top: float = HEAD_TOP + 0.14) -> list[MeshData]:
+    """A hollow cap that sits on the head cube: a crown, a back wall and two side walls down to the nape, and a front line down to ``front_y``.
+    The inner faces lie on the head cube (no penetration), the lower front face stays free for the face (CHK-M14)."""
+    o = HEAD_HALF + wall
+    return [_box((-o, HEAD_TOP, -o), (o, top, o), 1),                                         # crown
+            _box((-o, Y_LOW, -o), (o, HEAD_TOP, -HEAD_HALF), 0),                              # back wall, in shadow
+            _box((-o, Y_LOW, -HEAD_HALF), (-HEAD_HALF, HEAD_TOP, HEAD_HALF), 1),              # side walls
+            _box((HEAD_HALF, Y_LOW, -HEAD_HALF), (o, HEAD_TOP, HEAD_HALF), 1),
+            _box((-o, front_y, HEAD_HALF), (o, HEAD_TOP, o), 1)]                              # front line
 
 
 def style_crop() -> MeshData:
-    return _union(_cap(-0.18) + [_box((-0.3, HEAD_TOP + 0.1, 0.1), (0.3, HEAD_TOP + 0.24, 0.5), 2)])
+    return _union(_cap() + [_box((-0.3, HEAD_TOP + 0.1, 0.1), (0.3, HEAD_TOP + 0.24, 0.5), 2)])
 
 
 def style_bob() -> MeshData:
-    h = HEAD_HALF + 0.08
-    return _union(_cap(-0.15) + [_box((-h, -1.05, -h), (-HEAD_HALF + 0.0, -0.15, 0.2), 0), _box((HEAD_HALF - 0.0, -1.05, -h), (h, -0.15, 0.2), 0),
-                                 _box((-h, -1.05, -h), (h, -0.5, -HEAD_HALF + 0.02), 0)])
+    o = HEAD_HALF + 0.16
+    return _union(_cap(wall=0.16) + [_box((-o, -1.5, -o), (o, Y_LOW, -0.52), 0), _box((-0.3, HEAD_TOP + 0.1, 0.1), (0.3, HEAD_TOP + 0.3, 0.5), 2)])
 
 
 def style_spiky() -> MeshData:
-    parts = _cap(-0.2)
+    parts = _cap()
     for i, (x, height) in enumerate(((-0.42, 0.34), (-0.21, 0.5), (0.0, 0.62), (0.21, 0.5), (0.42, 0.34))):
         parts.append(_box((x - 0.07, HEAD_TOP + 0.1, -0.12), (x + 0.07, HEAD_TOP + 0.1 + height, 0.16), 2 if i % 2 else 1))
     return _union(parts)
 
 
 def module_fringe(drop: float, band: int = 1) -> MeshData:
-    return _union([_box((-0.62, -0.2 - drop, 0.55), (0.62, 0.06, 0.68), band)])
+    return _union([_box((-0.7, -0.2 - drop, HEAD_HALF), (0.7, 0.06, HEAD_HALF + 0.16), band)])
 
 
 def module_back(drop: float, band: int = 0) -> MeshData:
-    return _union([_box((-0.62, -0.2 - drop, -0.68), (0.62, 0.06, -0.52), band)])
+    return _union([_box((-0.7, -0.2 - drop, -HEAD_HALF - 0.16), (0.7, 0.06, -HEAD_HALF), band)])
 
 
 STYLES: dict[str, dict] = {
     "hair_short_crop_01": {"build": style_crop, "prompt_phrase": "short tousled crop with a tapered back", "length_class": "short",
                            "silhouette_class": "close", "clump_k": 6, "parting": "left", "default_fringe": "fringe_a", "symmetric": False,
-                           "supported_adjustments": ["volume", "fringe_length", "part_side"]},
+                           "supported_adjustments": ["fringe_length", "back_length"]},
     "hair_bob_03": {"build": style_bob, "prompt_phrase": "chin-length bob with blunt ends", "length_class": "medium",
                     "silhouette_class": "close", "clump_k": 5, "parting": "centre", "default_fringe": "fringe_b", "symmetric": True,
-                    "supported_adjustments": ["fringe_length", "side_length"]},
+                    "supported_adjustments": ["fringe_length", "back_length"]},
     "hair_spiky_05": {"build": style_spiky, "prompt_phrase": "tall swept-up spiky style", "length_class": "short",
                       "silhouette_class": "spiky", "clump_k": 7, "parting": "none", "default_fringe": "none", "symmetric": True,
-                      "supported_adjustments": ["volume", "clump_size"]},
+                      "supported_adjustments": ["fringe_length"]},
 }
 MODULES: dict[str, dict] = {
     "fringe_a": {"kind": "fringe", "prompt_phrase": "side-swept fringe", "build": lambda: module_fringe(0.12)},

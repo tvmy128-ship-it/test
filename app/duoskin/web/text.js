@@ -123,8 +123,13 @@ const STEP_LABELS = /** @type {[RegExp, string][]} */ ([
   [/^plan\.pairwise/, "Comparing the plans"],
   [/^plan\.revise/, "Improving a plan"],
   [/^plan\.select/, "Choosing which plans to show"],
+  [/^concept\.char/, "Drawing a character"],
   [/^concept\.assemble/, "Putting the concept sheet together"],
+  [/^concept\.gate/, "Getting your concepts ready for you"],
   [/^concept\.lock/, "Locking your concept"],
+  [/^part\.start/, "Starting the parts"],
+  [/^build\.plan/, "Planning the build"],
+  [/^build\./, "Building"],
   [/^img\.draft/, "Drawing"],
   [/^img\.gate_a/, "Checking the drawing"],
   [/^img\.gate_b/, "Reviewing the drawing"],
@@ -243,6 +248,18 @@ export const DNA_LABELS = /** @type {Record<string, string>} */ ({
   hair_kit: "Hair style", anchors: "What they share",
 });
 
+/** Friendly names for the spec fields that show up in a "what changes" list (APP_SPEC 6.2). */
+export const SPEC_LABELS = /** @type {Record<string, string>} */ ({
+  top: "Shirt", bottom: "Pants", shoes: "Shoes", hair: "Hair", face: "Face", body: "Body", accessories: "Accessories", prints: "Print", makeup: "Makeup",
+  base_ref: "main colour", second_ref: "second colour", trim_ref: "trim colour", colour_ref: "colour", shadow_ref: "shadow colour", highlight_ref: "highlight colour",
+  sole_ref: "sole colour", accent_ref: "accent colour", legwear_ref: "sock or tights colour", modesty_ref: "under-layer colour", colour_refs: "colours",
+  recipe_id: "style", style_id: "style", fabric_id: "fabric", kit_style_id: "hair style", fringe_id: "fringe", back_id: "back of the hair", sleeve: "sleeve length",
+  hem: "hem", neckline: "neckline", leg: "leg length", waist: "waist", legwear: "socks and tights", motif: "picture", region: "where it sits", scale: "size",
+  size_class: "size", attachment: "where it attaches", category: "type", kind: "kind", description: "description", skin_tone: "skin tone", parting: "parting",
+  iris_style: "eye style", lash_style: "lashes", brow_style: "eyebrows", mouth_style: "mouth", nose_style: "nose", cheek_mark: "cheek mark", default_expression: "usual expression",
+  eye_shape: "eye shape", highlight_style: "eye sparkle", material: "material", build: "how it is built", front: "front opening", block_layout: "colour blocking", presentation: "boy or girl",
+});
+
 /** Which DNA fields each kind of tile uses (PROMPT_BIBLE 3.3), so a tile can highlight them. */
 export const DNA_USED_BY = /** @type {Record<string, string[]>} */ ({
   concept: ["shape_language", "motif_object"],
@@ -257,20 +274,23 @@ export const DNA_USED_BY = /** @type {Record<string, string[]>} */ ({
 
 /** Friendly names for part-asset roles shown in tiles and drawers. @param {string} role */
 export function roleLabel(role) {
-  const r = role.toLowerCase();
+  const r = role.toLowerCase().replace(/\./g, "_");
   const direct = /** @type {Record<string, string>} */ ({
     front: "Front", back: "Back", left: "Left", right: "Right", view_front: "Front", view_back: "Back", view_left: "Left",
     view_right: "Right", flat_front: "Flat front", flat_back: "Flat back", guide_scale: "On the body, to scale", scale: "On the body, to scale",
-    preview_3d: "3D preview", sheet: "Concept sheet", a_front: "A front", a_back: "A back", b_front: "B front", b_back: "B back",
-    readability: "Small size (100 px)", badge: "Badge art", slab: "Flat slab preview", primitive: "Simple shape preview",
-    body_front: "Body front", body_back: "Body back", swatches: "Colour swatches", palette: "Colour swatches",
-    bald_guide: "On a bald head", front_on_head: "On the head",
+    preview_3d: "3D preview", preview_boxes: "On the Roblox box shape", sheet: "Concept sheet", a_front: "A front", a_back: "A back",
+    b_front: "B front", b_back: "B back", readability: "Small size (100 px)", preview100: "Small size (100 px)", final: "The finished art",
+    graphic: "Graphic", badge: "Badge art", slab: "Flat slab preview", primitive: "Simple shape preview", body_front: "Body front",
+    body_back: "Body back", swatches: "Colour swatches", palette: "Colour swatches", bald_guide: "On a bald head", front_on_head: "On the head",
+    tone_sheet: "On the head: 4 expressions, 5 skin tones", neutral: "Neutral", blink: "Blink", mouth_open: "Mouth open", happy: "Happy",
+    canvas: "Face parts, flat", hair_only: "Hair only", views_sheet: "All four views", template: "The Roblox clothing file",
+    modesty_layer: "Under-layer", acc_front: "Front", draft_raw: "Draft", final_raw: "Final (untouched)",
   });
   if (direct[r]) return direct[r];
   const tone = r.match(/tone[_-]?(\d)/);
   const expr = r.match(/(neutral|blink|mouth[_-]?open|happy|smile|sleepy|smug)/);
   if (tone || expr) return [expr ? humanize(expr[1]) : "", tone ? `skin tone ${tone[1]}` : ""].filter(Boolean).join(", ");
-  return humanize(role);
+  return humanize(role.replace(/\./g, " "));
 }
 
 /** The words of a warning-severity. @param {string | number | undefined} s */

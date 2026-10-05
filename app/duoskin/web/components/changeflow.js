@@ -114,7 +114,7 @@ async function confirmChange(gate, changeId, labels) {
   const dnaChanges = diff.dna_changes ?? facts.dna_changes ?? [];
   const dnaPaths = facts.dna_diff ?? cr?.plan?.dna_diff ?? [];
   const estimate = cr?.estimate_usd ?? facts.estimate_usd;
-  const warnings = /** @type {any[]} */ (facts.warnings ?? []);
+  const warnings = /** @type {any[]} */ (facts.lint_warnings ?? facts.warnings ?? cr?.plan?.warnings ?? []);
   const body = [
     h("p", {}, "Here is what would change. Nothing has been redone yet."),
     h("section", {}, h("h3", {}, "What changes in the design"), diffList(specChanges.length ? specChanges : dnaChanges, { empty: "The design card itself does not change." }), dnaPaths.length ? pathList(dnaPaths) : null),

@@ -38,6 +38,10 @@ export function openDialog(o) {
   });
   document.body.append(dialog);
   dialog.showModal();
+  // land on the first thing the user can fill in or press inside the dialog, not on the close button (callers may refocus)
+  /** @type {HTMLElement | null} */
+  const first = body.querySelector("textarea, input:not([type=hidden]), select, button, a[href]") ?? footer.querySelector("button.primary");
+  first?.focus();
   return { el: dialog, body, footer, close, closed };
 }
 

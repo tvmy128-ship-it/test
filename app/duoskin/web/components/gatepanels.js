@@ -4,12 +4,12 @@
 // The CLARIFY and CHANGE_CONFIRM gates are handled by changeflow.js, MANUAL_IMPORT by the Build page.
 import { h, money, humanize } from "../dom.js";
 import { decide } from "./decisions.js";
-import { panel, badge } from "./ui.js";
+import { panel } from "./ui.js";
 import { confirmDialog } from "./modal.js";
 import { figure } from "./tile.js";
 import { runTileAction } from "./tile-actions.js";
 import { toast } from "./toast.js";
-import { stepLabel, providerShort } from "../text.js";
+import { stepLabel } from "../text.js";
 
 const REASONS = /** @type {Record<string, string>} */ ({
   over_cap: "This step would take the duo past its budget cap.",
@@ -89,6 +89,5 @@ export function openGatePanels(projectId, gates, o) {
         h("a", { class: "btn primary", href: `#/p/${projectId}/build` }, "Open the Build page")));
     }
   }
-  void badge; void providerShort;
   return out;
 }

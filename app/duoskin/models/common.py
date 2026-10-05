@@ -19,7 +19,7 @@ Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 Slug = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,40}$")]
 PartId = Annotated[
     str,
-    Field(pattern=r"^(duo|(a|b)\.(face|hair|shirt|pants|colours|acc\.[0-9]|print\.(top|bottom|shoes|charm)\.[0-9]))$"),
+    Field(pattern=r"^(duo|(a|b)\.(face|hair|shirt|pants|colours|acc\.[0-9]|print\.(top|bottom|shoes)\.[0-9]))$"),
 ]
 CharKey = Literal["a", "b"]
 Provider = Literal["anthropic", "openai", "recraft", "tripo", "gemini", "fal"]

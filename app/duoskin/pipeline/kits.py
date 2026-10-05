@@ -281,8 +281,14 @@ def build_manifest(user_dir: Path, *, include_demo: bool = False, blender: bool 
     return manifest
 
 
+#: tests switch the demo kits on or off (the empty-kit e2e scenarios run with ``False``); ``None`` follows the demo mode
+DEMO_OVERRIDE: bool | None = None
+
+
 def want_demo(rt: Runtime) -> bool:
     """Demo kits stand in for missing user kits in demo mode (``Settings.demo_mode``) and under all-mock providers."""
+    if DEMO_OVERRIDE is not None:
+        return DEMO_OVERRIDE
     try:
         return bool(rt.demo)
     except Exception:  # noqa: BLE001

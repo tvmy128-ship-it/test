@@ -98,6 +98,7 @@ T: dict[str, tuple[Any, Status, list[str]]] = {
     "pln.dna_char_diff_min":      (2, "SPEC", ["PLN-DNA-01"]),         # decision doc: A and B differ in >= 2 CHARACTER DNA fields
     "pln.colour_axes_max":        ((2, 1), "SPEC", ["PLN-03", "PLN-04"]),   # (default, same_club): colour axes among the >= 5 contrasts
     "pln.mirror_role_de_max":     (10.0, "DES", ["PLN-06"]),           # mirror profile: a_second ~ b_main and b_second ~ a_main (SOFT) [CALIBRATE]
+    "pln.nearest_card_share":     (0.8, "UNV", ["PLN-16"]),            # share of identical DNA-card fields that counts as "very close" to a recent duo (SOFT hint) [CALIBRATE]
     # removed in v1.2: pln.accessory_cat_jaccard_max (1/3). PLN-03 now uses the (kind, category, motif) tuple rule (bible C1 #16); no number needed.
     # ---- face (FACE) ----
     "face.line_colours":          (1, "DOC", ["FACE-01"]),
@@ -166,6 +167,9 @@ T: dict[str, tuple[Any, Status, list[str]]] = {
     "duo.nearest_duo_dreamsim_max": (0.15, "DES", ["DUO-10"]),         # "very close" to a past duo (SOFT) [CALIBRATE]
     "duo.nearest_duo_phash_max":  (8, "DES", ["DUO-10"]),              # the same, while degraded [CALIBRATE]
     "taste.acc_min_px":           (8, "DES", ["DUO-04", "PLN-14"]),    # SOFT: accessory visible at phone size (px, area-downscaled) [CALIBRATE]
+    "taste.kmeans_k":             (5, "DES", ["DUO-03"]),              # clusters for the phone-size top colours (k-means in CIELAB) [CALIBRATE]
+    "taste.top_n":                (2, "SPEC", ["DUO-03"]),             # the planned main colour must be among the top N clusters (APP_SPEC 3.4)
+    "taste.plan_ratio_share_off": (15, "DES", ["DUO-03"]),             # TASTE_RATIO (SOFT): share points a built colour may be off its declared colour plan [CALIBRATE]
     "taste.layout_ari_warn":      (0.80, "DES", ["DUO-11"]),           # SOFT: A-vs-B colour-block layout, adjusted Rand index above this warns (build, label maps) [CALIBRATE]
     "dreamsim.fixture_tol":       (0.01, "DES", ["DUO-01", "IMG-15"]), # CHK-S14: the fixture pair must return its expected distance +- this [CALIBRATE]
     "pol.ref_dreamsim_min":       (0.25, "DES", ["POL-02"]),

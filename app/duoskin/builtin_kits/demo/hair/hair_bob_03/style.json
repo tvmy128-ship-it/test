@@ -11,8 +11,8 @@
  "silhouette_class": "close",
  "supported_adjustments": [
   "fringe_length",
-  "side_length"
+  "back_length"
  ],
  "symmetric": true,
- "tris": 76
+ "tris": 92
 }

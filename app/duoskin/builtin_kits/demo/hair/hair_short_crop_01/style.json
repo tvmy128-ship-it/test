@@ -10,10 +10,9 @@
  "prompt_phrase": "short tousled crop with a tapered back",
  "silhouette_class": "close",
  "supported_adjustments": [
-  "volume",
   "fringe_length",
-  "part_side"
+  "back_length"
  ],
  "symmetric": false,
- "tris": 46
+ "tris": 76
 }

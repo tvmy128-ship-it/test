@@ -1,7 +1,7 @@
 // @ts-check
 // "What would change" lists: spec and DNA-card diffs from GET /api/specs/{id}/diff/{other} and from a ChangeRequest.
 import { h, humanize } from "../dom.js";
-import { DNA_LABELS } from "../text.js";
+import { DNA_LABELS, SPEC_LABELS } from "../text.js";
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
@@ -17,7 +17,7 @@ export function labelForPath(path) {
     else if (s === "palette") { out.push("Colour " + (segs[i + 1] ?? "")); i += 1; if (segs[i + 1] === "hex") i += 1; }
     else if (s === "shared_anchors") out.push("What they share");
     else if (/^\d+$/.test(s)) out.push(`#${Number(s) + 1}`);
-    else out.push(DNA_LABELS[s] ?? humanize(s));
+    else out.push(DNA_LABELS[s] ?? SPEC_LABELS[s]?.replace(/^./, (c) => c.toUpperCase()) ?? humanize(s));
   }
   return out.join(" › ") || "Everything";
 }

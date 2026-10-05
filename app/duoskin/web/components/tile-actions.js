@@ -104,13 +104,26 @@ export async function runTileAction(env, action, extra = {}) {
       return dlg.closed;
     }
     case "make_manual": {
-      if (!remembered("duoskin-free-plan-seen")) {
-        const ok = await confirmDialog({ title: "Before you use Tripo's website", confirmLabel: "I understand, make the pack", message: h("div", {}, h("p", {}, "On Tripo's FREE plan, your model becomes public (labelled CC BY 4.0) and you get no commercial-use rights."), h("p", {}, "Use a paid plan for anything you may sell, and do not upload unreleased designs on the free plan.")) });
-        if (!ok) return null;
+      const url = `/api/projects/${encodeURIComponent(env.projectId)}/parts/${encodeURIComponent(tile.part_id || tile.tile_id)}/tripo-pack`;
+      const warn = (/** @type {string} */ extra) => confirmDialog({ title: "Before you use Tripo's website", confirmLabel: "I understand, make the pack",
+        message: h("div", {}, h("p", {}, extra || "On Tripo's FREE plan, your model becomes public (labelled CC BY 4.0) and you get no commercial-use rights."), h("p", {}, "Use a paid plan for anything you may sell, and do not upload unreleased designs on the free plan.")) });
+      let acknowledged = Boolean(remembered("duoskin-free-plan-seen"));
+      if (!acknowledged) {
+        if (!(await warn(""))) return null;
         remember("duoskin-free-plan-seen", "1");
+        acknowledged = true;
       }
       try {
-        const res = await post(`/api/projects/${encodeURIComponent(env.projectId)}/parts/${encodeURIComponent(tile.part_id || tile.tile_id)}/tripo-pack`);
+        let res;
+        try {
+          res = await post(url, { acknowledged_free_plan: acknowledged });
+        } catch (err) {
+          // the server asks for the warning to be confirmed once per duo (ACC-10): show it, then ask again
+          if (err instanceof ApiError && err.code === "free_plan_warning_required") {
+            if (!(await warn(String(err.data?.warning || "")))) return null;
+            res = await post(url, { acknowledged_free_plan: true });
+          } else throw err;
+        }
         toast(res?.pack_id ? `Your Tripo pack ${res.pack_id} is ready.` : "Your Tripo pack is ready.", { kind: "ok" });
         env.navigate?.(`/p/${env.projectId}/build`);
       } catch (err) {

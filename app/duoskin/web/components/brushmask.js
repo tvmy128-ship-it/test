@@ -1,8 +1,8 @@
 // @ts-check
 // Brush-mask editor for local edits (APP_SPEC 9.5, 12). The user paints over the picture where the change should happen.
-// Output (POST /api/uploads/mask): an RGBA PNG exactly the size of the picture, painted pixels opaque white, everything
-// else fully transparent. Painting needs a pointer, so the same mask can also be made with the "quick area" buttons
-// (top, bottom, left, right, everything), which work with the keyboard.
+// Output (POST /api/uploads/mask, the OpenAI mask convention): an RGBA PNG exactly the size of the picture, alpha 0 where the
+// model may change the picture (what was painted) and alpha 255 everywhere else. Painting needs a pointer, so the same mask
+// can also be made with the "quick area" buttons (top, bottom, left, right, everything), which work with the keyboard.
 import { h, uid } from "../dom.js";
 
 /**
@@ -111,7 +111,7 @@ export function createBrushMask(o) {
     el,
     hasMask: () => dirty,
     clear,
-    /** The mask as a PNG blob: painted = opaque white, unpainted = transparent. @returns {Promise<Blob>} */
+    /** The mask as a PNG blob: painted = transparent (may change), unpainted = opaque (kept). @returns {Promise<Blob>} */
     toBlob() {
       syncSize();
       const out = document.createElement("canvas");
@@ -121,9 +121,9 @@ export function createBrushMask(o) {
       const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const px = data.data;
       for (let i = 0; i < px.length; i += 4) {
-        const on = px[i + 3] > 40;
-        px[i] = px[i + 1] = px[i + 2] = on ? 255 : 0;
-        px[i + 3] = on ? 255 : 0;
+        const painted = px[i + 3] > 40;
+        px[i] = px[i + 1] = px[i + 2] = painted ? 0 : 255;
+        px[i + 3] = painted ? 0 : 255;
       }
       octx.putImageData(data, 0, 0);
       return new Promise((resolve, reject) => out.toBlob((b) => (b ? resolve(b) : reject(new Error("could not make the mask"))), "image/png"));

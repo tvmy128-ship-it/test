@@ -24,7 +24,8 @@ log = logging.getLogger("duoskin.api")
 
 CORE_ROUTERS = ("health", "state", "events", "settings", "keys", "doctor", "projects", "jobs", "costs", "shutdown",
                 "focus", "gates", "parts", "assets", "exports")
-OPTIONAL_ROUTERS = ("specs", "uploads", "imports", "library", "calibration", "learning", "os_open", "regression", "versions")
+OPTIONAL_ROUTERS = ("specs", "briefs", "plans", "uploads", "imports", "library", "calibration", "learning", "os_open", "regression",
+                    "versions")
 
 
 def get_rt(request: Request) -> Runtime:
