@@ -7,7 +7,7 @@ import re
 
 import pytest
 import specfix
-from helpers import approved_spec, db_project
+from planhelpers import approved_spec, db_project
 
 from duoskin.pipeline import brief as BR
 from duoskin.prompts.llm import compile_llm

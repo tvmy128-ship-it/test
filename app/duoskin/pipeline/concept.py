@@ -214,6 +214,8 @@ def head_editable(guide: guides.Guide, grow: int = TIGHT_GROW_PX) -> np.ndarray:
     out = np.zeros_like(guide.editable)
     for head in guide.head_masks.values():
         out |= ndimage.binary_dilation(head, structure=np.ones((3, 3), bool), iterations=grow)
+    for body in guide.body_masks.values():
+        out &= ~body                                    # the grown edge never covers the shoulders
     return out & guide.editable
 
 
@@ -774,6 +776,8 @@ def run_gate(ctx: StepContext, p: GateParams, inputs: list[Any]) -> StepResult:
     shown = shown_records(rt, p.project_id, p.plan_set_id)
     env = PL.get_envelope(rt, p.plan_set_id)
     existing = open_concept_gate(rt, p.project_id)
+    if p.refresh and existing is None:             # the gate was decided (approved, new plan) while this refresh waited: never open another
+        return StepResult(result={"skipped": True}, message="Gate 1 is no longer open")
     tiles = [tile_for(rt, project, p.plan_set_id, slot, rec, shown, env,
                       previous=next((t for t in existing.tiles if t.tile_id == f"plan{slot}"), None) if existing else None)
              for slot, rec in enumerate(shown)]

@@ -210,6 +210,7 @@ def run_repair(ctx: StepContext, p: MeshStepParams, inputs: list[Any], *, hair: 
     blocking = common.hard_failures(list(res.checks))
     mirrored = bool(res.facts.get("mirrored"))
     return StepResult(outputs=list(files.values()), result={"ok": res.ok and not blocking, "files": files, "facts": slim_facts(res.facts), "mirrored": mirrored,
+                                                            "only_mirrored": only_mirrored(blocking, mirrored),
                                                             "licence": prev.get("licence"), "mock": bool(prev.get("mock")),
                                                             "reason": "; ".join(f"{r.check_id}: {r.evidence}" for r in blocking[:3]) or "; ".join(res.messages[:2]),
                                                             "messages": res.messages[:6], "degraded": res.degraded,
@@ -254,6 +255,15 @@ def materialise_set(ctx: StepContext, files: dict[str, str], work: Path) -> Path
     return gltf_path
 
 
+FLIP_FIXABLE = ("CHK-M08", "CHK-M13")
+
+
+def only_mirrored(blocking: list[Any], mirrored: bool) -> bool:
+    """A mirrored model fails the orientation rule (M08) and the view match (M13) because it is a mirror image: when nothing else is wrong, the
+    flip is offered (APP_SPEC 10.9 step 8; never applied without the click)."""
+    return bool(blocking) and bool(mirrored) and all(r.check_id in FLIP_FIXABLE for r in blocking)
+
+
 KIT_NOT_APPLICABLE = {
     "CHK-M08": "kit hair is made by code in the attachment frame: it has no orientation to find",
     "CHK-M13": "kit hair is chosen by silhouette match (the kit-match score and its warning measure it); mesh.judge compares the renders with the views",
@@ -293,7 +303,7 @@ def run_validate(ctx: StepContext, p: MeshStepParams, inputs: list[Any]) -> Step
     common.store_checks(ctx, list(res.checks))
     blocking = common.hard_failures(list(res.checks))
     mirrored = bool(res.facts.get("mirrored") or prev.get("mirrored"))
-    only_mirror = bool(blocking) and all(r.check_id == "CHK-M08" for r in blocking) and mirrored
+    only_mirror = only_mirrored(blocking, mirrored)
     return StepResult(result={**{k: v for k, v in prev.items() if k not in ("checks",)}, "ok": res.ok and not blocking, "mirrored": mirrored,
                               "only_mirrored": only_mirror, "failed": [r.check_id for r in blocking],
                               "reason": "; ".join(f"{r.check_id}: {r.evidence}" for r in blocking[:3]), "validate_facts": slim_facts(res.facts),

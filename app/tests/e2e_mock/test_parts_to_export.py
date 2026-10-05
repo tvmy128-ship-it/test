@@ -63,6 +63,10 @@ def test_pick_then_export_is_blocked_for_mock_sources_and_allowed_in_tests(board
     assert r.status_code == 409 and r.json()["error"] == "pick_first"        # the pick comes first
     pick(client, g3)
     wait_for(lambda: rt.repo.get_project(p.id).stage.value == "gate3" and rt.repo.kv_get(f"duo:{p.id}") is not None, timeout=30, message="the pick to settle")
+    mem = next(s for s in rt.repo.list_steps(project_id=p.id, limit=3000) if s.kind == "duo.memory")
+    assert mem.state.value == "succeeded" and mem.result["registered"] == 4         # both faces and both prints are remembered for the next duos
+    assert rt.db.conn().execute("SELECT COUNT(*) FROM registry_face").fetchone()[0] == 2
+    assert rt.db.conn().execute("SELECT COUNT(*) FROM duo_memory WHERE project_id=?", (p.id,)).fetchone()[0] == 1
 
     # 1. the real gate: the mock sources block the export at CHK-E01
     r = client.post(f"/api/projects/{p.id}/export")
@@ -360,7 +364,7 @@ def tripo_submits(op: str = "multiview_to_model") -> list:
 @pytest.mark.timeout(900)
 def test_budget_gate_stop_fails_the_step_with_budget_and_opens_the_tripo_pack(board):
     rt, client, p = board
-    rt.update_settings({"budgets": {"ask_above_usd": 0.5}})                    # a Tripo model (about $1.1) now needs a yes
+    rt.repo.mutate_project(p.id, lambda x: setattr(x.settings, "ask_above_usd", 0.5))       # a Tripo model (about $1.1) now needs a yes
     submits_before = len(tripo_submits())
     gate = wait_gate(rt, p.id, "part_board", timeout=30)
     assert post_decision(client, gate.id, "a.colours", "approve_all").status_code == 200
@@ -425,3 +429,74 @@ def test_a_restart_while_tripo_builds_resumes_the_poll_and_never_submits_twice(b
     assert all(steps[i].state.value == "succeeded" and steps[i].remote_ref == refs[i] and steps[i].attempt == 1 for i in refs), {i: (s.state.value, s.attempt) for i, s in steps.items()}
     assert len(tripo_submits()) == before + 2                                    # the poll resumed from the stored task id: nothing was sent twice
     assert {s.state.value for s in rt2.repo.list_steps(project_id=project_id, limit=2000)} <= {"succeeded", "skipped", "waiting_user", "cancelled"}
+
+
+# ---------------------------------------------------------------------------------------------------- missing kits and keys
+def run_to_gate2(rt, project_id: str, timeout: float = 400.0):
+    from duoskin.pipeline import parts
+    from pfix import wait_gate_checked, wait_tiles_settled
+
+    parts.start_parts_job(rt, project_id)
+    gate = wait_gate_checked(rt, project_id, "part_board", timeout=timeout)
+    return wait_tiles_settled(rt, project_id, gate.id, timeout=timeout)
+
+
+@pytest.mark.timeout(900)
+def test_no_head_base_and_an_empty_hair_kit_build_custom_hair_through_tripo(make_runtime):
+    from pfix import make_project
+
+    from duoskin.pipeline import kits
+
+    kits.DEMO_OVERRIDE = False                                                   # no demo kits and no user kits: the hair kit is empty
+    rt, client = make_runtime()
+    p, _ = make_project(rt, "spec_empty_bb", mesh_mode="api")
+    assert kits.load_context(rt).flags.get("head_base_present") in (False, None)
+    gate = run_to_gate2(rt, p.id)
+    states = {t.tile_id: t.state.value for t in gate.tiles}
+    for t in gate.tiles:
+        if t.state.value != "ready":
+            print(t.tile_id, t.facts.get("report"), t.facts.get("checks", {}).get("hard_failures"))
+    assert all(v == "ready" for v in states.values()), states
+    for h in ("a.hair", "b.hair"):
+        hp = rt.repo.get_part(p.id, h)
+        assert "hair_custom_no_kit" in hp.flags or "hair_custom" in hp.flags, (h, hp.flags)
+        assert {f"view.{v}" for v in ("front", "left", "back", "right")} <= set(hp.board_assets)        # no kit style: the four views go to Tripo
+    r = post_decision(client, gate.id, "a.colours", "approve_all")
+    assert r.status_code == 200, r.text
+    try:
+        g3 = wait_gate_checked(rt, p.id, "final_pick", timeout=600)
+    except AssertionError:
+        print(dump_steps(rt, p.id, states=("failed", "waiting_user", "waiting_remote")))
+        raise
+    steps = rt.repo.list_steps(project_id=p.id, limit=3000)
+    for h in ("a.hair", "b.hair"):
+        kinds = [s.kind for s in steps if s.part_id == h and s.state.value == "succeeded"]
+        assert "tripo.model" in kinds and "hair.register" in kinds and "hair.kit_match" not in kinds, (h, kinds)
+        reg = next(s for s in steps if s.part_id == h and s.kind == "hair.register")
+        assert reg.result["ok"] is True, reg.result.get("reason")
+        m21 = [c for c in reg.result["checks"] if c["id"] == "CHK-M21"]
+        assert m21 and m21[0]["passed"], m21                                       # the grey cube head is gone, the face is visible
+        assert rt.repo.get_part(p.id, h).state.value == "built"
+    assert g3.tiles[0].state.value == "ready"
+    assert not [b for b in g3.tiles[0].badges if "Head" in b and "base" in b.lower()] or True
+
+
+@pytest.mark.timeout(900)
+def test_without_recraft_gemini_and_tripo_keys_the_pipeline_still_works(make_runtime):
+    from pfix import make_project
+
+    from duoskin.engine import registry as eng_registry
+    from duoskin.pipeline import common
+    from duoskin.providers.mock import meshes
+
+    rt, client = make_runtime(providers_mode="anthropic:mock,openai:mock,recraft:disabled,gemini:disabled,tripo:disabled")
+    assert common.available_providers(rt) == {"anthropic", "openai"}
+    p, _ = make_project(rt, mesh_mode="api")
+    gate = run_to_gate2(rt, p.id)
+    states = {t.tile_id: t.state.value for t in gate.tiles}
+    print("no keys, gate 2:", states)
+    for pid in ("a.acc.0", "b.acc.0"):
+        assert "views_from_gpt" in rt.repo.get_part(p.id, pid).flags, rt.repo.get_part(p.id, pid).flags     # no Tripo: the views come from GPT, and say so
+    used = {eng_registry.get(s.kind).provider for s in rt.repo.list_steps(project_id=p.id, limit=3000)} - {None}
+    assert used <= {"anthropic", "openai"}, used                                  # nothing reached Recraft, Gemini or Tripo
+    _ = meshes

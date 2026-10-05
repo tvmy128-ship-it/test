@@ -135,8 +135,8 @@ def _material_info(geom) -> tuple[Image.Image | None, tuple[float, float, float,
     if mat is not None:
         img = getattr(mat, "baseColorTexture", None) or getattr(mat, "image", None)
         fac = getattr(mat, "baseColorFactor", None)
-        if fac is None and getattr(mat, "main_color", None) is not None:
-            fac = np.asarray(mat.main_color, float) / 255.0
+        if fac is None and img is None and getattr(mat, "main_color", None) is not None:       # a flat colour; with a texture, no factor in the file means white (glTF 2.0),
+            fac = np.asarray(mat.main_color, float) / 255.0                                  # and trimesh's main_color is then the mean of the texture, not a factor
         if fac is not None:
             f = np.asarray(fac, float).reshape(-1)
             if f.max() > 1.5:

@@ -440,7 +440,6 @@ def plan_job_factory(rt: Runtime, job: Any, project: Project | None) -> list[Ste
     steps.append(planner)
     steps.append(_new_step(rt, "plan.lint", job.id, project.id, LintParams(project_id=project.id, plan_set_id=plan_set_id, round=0, mode="initial",
                                                                           from_step=planner.id), deps=[planner.id]))
-    rt.bus.emit("project.stage", {"project_id": project.id, "stage": Stage.PLANNING.value}, project.id)
     return steps
 
 

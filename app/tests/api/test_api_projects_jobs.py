@@ -151,7 +151,8 @@ def test_reference_limits(client, monkeypatch):
 
 
 # ------------------------------------------------------------------------------------------------- plan, pause, archive
-def test_plan_is_501_until_the_pipeline_registers_a_job_factory(client):
+def test_plan_is_501_until_the_pipeline_registers_a_job_factory(client, monkeypatch):
+    monkeypatch.setattr(scheduler_mod, "_factories", {k: v for k, v in scheduler_mod._factories.items() if k != "plan"})   # the plan lane registers one
     p = mk(client)
     r = client.post(f"/api/projects/{p['id']}/plan")
     assert r.status_code == 501 and r.json()["error"] == "not_implemented"

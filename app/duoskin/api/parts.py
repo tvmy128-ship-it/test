@@ -1,6 +1,7 @@
 """Part routes (APP_SPEC §13): one part with its links, checks and provenance summary, and the Tripo pack of a hair or accessory tile."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException
@@ -33,8 +34,6 @@ def tripo_pack(project_id: str, part_id: str, body: Annotated[dict[str, Any] | N
     part = rt.repo.get_part(project_id, part_id)
     if part.kind not in (PartKind.HAIR, PartKind.ACCESSORY):
         raise HTTPException(status_code=422, detail={"error": "not_a_mesh_part", "message": "only hair and accessory tiles have a Tripo pack"})
-    if part.build_assets.get("gltf") is None and part.kind == PartKind.ACCESSORY and part.board_assets.get("build") is not None:
-        pass
     ack_key = f"free_plan_ack:{project_id}"
     acknowledged = bool((body or {}).get("acknowledged_free_plan")) or bool(rt.repo.kv_get(ack_key))
     if not acknowledged:
@@ -46,7 +45,4 @@ def tripo_pack(project_id: str, part_id: str, body: Annotated[dict[str, Any] | N
     state = manual_mesh.build_pack_for(rt, project_id, part)
     manual_mesh.start_manual(rt, project_id, part_id, reason="made by hand")
     return {"pack_id": state["pack_id"], "folder": state["folder"], "return_dir": state["return_dir"], "inbox": str(manual_mesh.inbox_dir(rt)),
-            "files": sorted(p.name for p in __import__("pathlib").Path(state["folder"]).iterdir())}
-
-
-_ = HTTPException
+            "files": sorted(f.name for f in Path(state["folder"]).iterdir() if f.is_file())}

@@ -20,17 +20,21 @@ def load_spec_dict(name: str = "spec_complement_gb") -> dict[str, Any]:
     return json.loads((FIXTURES / f"{name}.json").read_text(encoding="utf-8"))
 
 
+INK = {"spec_empty_bb": "#3A1F4D"}
+
+
 def locked_spec(name: str = "spec_complement_gb") -> dict[str, Any]:
     """The fixture spec as the part pipeline sees a locked spec. The fixture's near-black line colour cannot pass FACE-06 (line-to-skin dE >= 20
     on the darkest of the 5 tones), so the ink colour becomes a dark indigo and both brows use it; nothing else changes."""
     spec = load_spec_dict(name)
     for c in spec["palette"]:
         if c["id"] == "p6":
-            c["hex"] = "#2D1B69"
-            c["name"] = "ink indigo"
+            c["hex"] = INK.get(name, "#2D1B69")        # a dark ink that is not near any iris colour of the spec (F_LID_COVERS counts iris-coloured lid pixels)
+            c["name"] = "ink"
     for ch in ("a", "b"):
         spec[ch]["face"]["brow_ref"] = "p6"
-        spec[ch]["face"]["pupil_ref"] = "p4"     # orange iris + indigo pupil blend outside the iris/pupil colours (F_LASH_LID_SPLIT): charcoal does not
+        if name == "spec_complement_gb":
+            spec[ch]["face"]["pupil_ref"] = "p4"     # orange iris + indigo pupil blend outside the iris/pupil colours (F_LASH_LID_SPLIT): charcoal does not
     return spec
 
 

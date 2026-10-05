@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from helpers import (
+from planhelpers import (
     approve,
     change_status,
     concept_gate,
@@ -364,7 +364,15 @@ def test_what_the_kits_cannot_build_is_listed_and_approval_needs_the_acknowledge
     assert [t for t in gate["tiles"] if not t["facts"]["not_buildable"]]
     tile = capes[0]
     refused = decide(client, gate, tile, "approve")
-    assert refused.status_code == 422 and refused.json()["error"] == "ack_required"
+    if refused.status_code == 200 and refused.json()["provisional"]:
+        # warnings were released with this first choice, so the approval is provisional: confirming it is what applies it, and that is refused
+        did = refused.json()["decision"]["id"]
+        ids = [w["id"] for w in refused.json()["released_warnings"]]
+        confirmed = client.post(f"/api/gates/{gate['id']}/decisions/{did}/confirm", json={"override_warnings": ids})
+        assert confirmed.status_code == 422 and confirmed.json()["error"] == "ack_required"
+        assert client.delete(f"/api/gates/{gate['id']}/decisions/{did}").status_code == 204
+    else:
+        assert refused.status_code == 422 and refused.json()["error"] == "ack_required"
     assert concept_gate(client, pid) is not None
     body = approve(client, gate, tile, choice="ack:CON-04")
     assert body["decision"]["choice"] == "ack:CON-04"
