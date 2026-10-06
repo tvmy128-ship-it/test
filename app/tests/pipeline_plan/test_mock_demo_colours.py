@@ -60,9 +60,16 @@ def test_a_palette_colour_survives_the_round_trip_name_and_back():
             assert de2000_hex("#{:02X}{:02X}{:02X}".format(*back), p["hex"]) < 1.0, (family, p, name)
 
 
-@pytest.mark.timeout(300)
-def test_the_faces_of_the_mock_planner_pass_the_face_checks_on_every_skin_tone(inv):  # noqa: F811
-    families = ["monochrome_accent", "warm_pastel", "neon_night"]
+FAMILY_TRIOS = [sorted(R.FAMILY_HUES)[i:i + 3] for i in range(0, len(R.FAMILY_HUES), 3)]
+FAMILY_TRIOS[-1] = sorted(R.FAMILY_HUES)[-3:]          # the last trio re-uses families so that every plan set has three
+
+
+@pytest.mark.timeout(400)
+@pytest.mark.parametrize("families", FAMILY_TRIOS, ids=["+".join(t) for t in FAMILY_TRIOS])
+def test_the_faces_of_the_mock_planner_pass_the_face_checks_in_every_palette_family(inv, families):  # noqa: F811
+    """Every palette family, both characters: the iris, pupil and line colours the mock picks pass the face checks (found by clicking the app
+    through: with the jewel tones the pupil was a green that the closed-lid blend of the lash and the skin matched, and one duo in seven reached the
+    part board with a face that needed a person)."""
     out = plan(seed=5, palette_suggestion=json.dumps(families))
     assert {s["world"]["palette_family"] for s in out["specs"]} == set(families)
     canvas = FC.load_canvas()

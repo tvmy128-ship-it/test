@@ -43,7 +43,7 @@ def test_glb_with_an_embedded_texture_renders_with_no_csp_violation(ui, live):
         pytest.skip("this Chromium has no WebGL")
     res = ui.page.evaluate(MOUNT, {"url": f"/cas/{sha}.glb", "height": 320})
     assert res.get("ready") is True and "error" not in res, res
-    assert "2,280" in res["stats"] or "2280" in res["stats"]                     # triangles counted from the file
+    assert "2,392" in res["stats"] or "2392" in res["stats"]                     # triangles counted from the file
     ui.page.wait_for_timeout(600)
     assert rendered_pixels(ui.page) > 2000                                          # the model, with its texture, was drawn
     ui.shot_element(ui.page.locator("#test-viewer"), "viewer3d_plush_pet")

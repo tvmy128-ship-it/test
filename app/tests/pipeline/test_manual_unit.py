@@ -131,3 +131,9 @@ def test_polish_pack_contents(rt, board):
     assert not list((folder / "return").iterdir())
     assert "3600" in (folder / "POLISH.txt").read_text() and "head_guide" in (folder / "POLISH.txt").read_text()
     assert time.time() > 0
+
+
+def test_the_settings_text_keeps_a_label_readable_instead_of_question_marks():
+    assert tripo_pack._ascii("B \u00b7 bag in the second (body back)") == "B - bag in the second (body back)"
+    assert tripo_pack._ascii("It\u2019s \u201cthe\u201d plan \u2014 caf\u00e9\u2026") == "It's \"the\" plan - cafe..."
+    assert "?" not in tripo_pack._ascii("A \u00b7 hair clip slab in (hat)") and tripo_pack._ascii("\u4e2d").isascii()

@@ -38,6 +38,35 @@ def test_slab_is_thin_watertight_bevelled_and_passes_chk_m20(back):
     assert m.texture.size == (1024, 1024) and tx.min_alpha(m.texture) == 255 and not tx.is_flat(m.texture)
 
 
+@pytest.mark.parametrize("shape", ["diamond", "hexagon", "square", "triangle"])
+def test_a_slab_with_sharp_corners_passes_the_file_gate_too(shape):
+    """A diamond or a hexagon (corners rounded a little by the tracing, so each tip has a short edge) used to get an inset outline that crossed itself:
+    the caps overlapped (CHK-M11 coplanar intersecting triangles) and came out reversed (CHK-M20 back island on the front). Found by running the whole
+    app: two of the five badge shapes of the mock pictures failed, and the part waited behind a Tripo pack that could never be made."""
+    from duoskin.mesh import validate
+
+    img = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    pts = {"diamond": [(256, 60), (452, 256), (256, 452), (60, 256)],
+           "hexagon": [(256, 50), (434, 153), (434, 359), (256, 462), (78, 359), (78, 153)],
+           "square": [(70, 70), (440, 70), (440, 440), (70, 440)],
+           "triangle": [(256, 60), (450, 440), (62, 440)]}[shape]
+    d.polygon(pts, fill=(200, 80, 90, 255), outline=(40, 30, 50, 255), width=8)
+    r = slab.build_slab(img, size_studs=1.0, thickness=0.1)
+    m = r.mesh
+    chk = slab.check_slab(m, m.meta["slab"])[0]
+    assert chk.passed, chk.evidence
+    w = geo.weld(m.vertices, m.faces)
+    assert validate.coplanar_intersections(w.vertices, w.faces) == 0
+    assert geo.topology_stats(w.faces)["watertight"] and geo.signed_volume(w.vertices, w.faces) > 0
+
+
+def test_an_inset_whose_short_edge_is_turned_round_is_not_used():
+    tip = np.array([[0.346, -0.002], [0.346, 0.004], [0.002, 0.346], [-0.004, 0.346], [-0.346, 0.002], [-0.346, -0.004], [-0.006, -0.345], [0.002, -0.346]])
+    assert not slab._valid_inset([tip], [slab.inset_polygon(tip, 0.02)], 0.02), "a bevel wider than the tip's short edge is refused"
+    assert slab._valid_inset([tip], [slab.inset_polygon(tip, 0.004)], 0.004), "a bevel narrower than it is fine"
+
+
 def test_thickness_is_raised_to_the_validator_minimum():
     r = slab.build_slab(badge(), size_studs=2.0, thickness=0.03)
     assert abs(r.mesh.extents[2] - 0.08) < 1e-6 and any("raised" in m for m in r.messages)

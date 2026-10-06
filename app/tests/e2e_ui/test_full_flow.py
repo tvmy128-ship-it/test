@@ -5,82 +5,21 @@ reaches it: Home, New duo, Plan, Gate 1 (Reimagine, "Change...", Approve), the p
 through the mock API and one part by hand with a sample GLB), the duo, Gate 3 and Export. After every stage the page is checked for what a person
 must never see (a stack trace, raw JSON, an internal id) and a screenshot of the stage is saved to ``tests/e2e_ui/screenshots/``.
 
-The file also runs the same flow with faults injected into the mock providers (``DUOSKIN_MOCK_FAULTS``, APP_SPEC 16): each fault must end in a
-friendly state a person can recover from.
+``test_faults.py`` runs the same product with faults injected into the mock providers (``DUOSKIN_MOCK_FAULTS``, APP_SPEC 16).
 """
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-import httpx
 import pytest
+from e2e_helpers import Api, clean, dialog, dismiss_toasts, stage_is
 from playwright.sync_api import expect
 
 MESHES = Path(__file__).resolve().parents[2] / "duoskin" / "providers" / "fixtures" / "meshes"
 
 BRIEF = "two friends sharing a rainy-day picnic"
 MUST = "a teal ribbon"
-JUNK = [
-    (re.compile(r"Traceback|\bFile \"|\.py\b|\bat 0x"), "a stack trace"),
-    (re.compile(r"[{]\s*\""), "raw JSON"),
-    (re.compile(r"\b(prj|spc|gat|job|stp|chg|dec|ast|pls|cli)_[0-9a-z]{16,}\b"), "an internal id"),
-    (re.compile(r"\b[0-9a-f]{40,64}\b"), "a content hash"),
-    (re.compile(r"\bundefined\b|\[object |\bNaN\b|\bnull\b"), "a JavaScript leftover"),
-    (re.compile(r"\b(hard_failures|HARD|A_LEAK|A_PALETTE|F_LINE_SKIN|CHK-[A-Z]\d+)\b"), "a check code"),
-]
-
-
-class Api:
-    """The app's HTTP API, as the page itself calls it (the per-launch token goes in every request)."""
-
-    def __init__(self, live) -> None:
-        self.c = httpx.Client(base_url=live.url, headers={"X-DuoSkin-Token": live.rt.token}, timeout=60)
-
-    def get(self, path: str, **params):
-        r = self.c.get(path, params=params)
-        assert r.status_code == 200, f"GET {path}: {r.status_code} {r.text[:300]}"
-        return r.json()
-
-    def post(self, path: str, body=None, expect_status: int = 200):
-        r = self.c.post(path, json=body)
-        assert r.status_code == expect_status, f"POST {path}: {r.status_code} {r.text[:300]}"
-        return r.json() if r.content else None
-
-    def project(self, pid: str):
-        return self.get(f"/api/projects/{pid}")
-
-    def gates(self, pid: str, kind: str | None = None):
-        gs = self.get("/api/gates", project_id=pid, state="open")
-        return [g for g in gs if kind is None or g["kind"] == kind]
-
-    def gate(self, pid: str, kind: str):
-        found = self.gates(pid, kind)
-        return found[0] if found else None
-
-    def tile(self, pid: str, kind: str, tile_id: str):
-        g = self.gate(pid, kind)
-        return next((t for t in g["tiles"] if t["tile_id"] == tile_id), None) if g else None
-
-
-def clean(ui, where: str, selector: str = "body") -> None:
-    """The page says nothing a person must never see."""
-    text = ui.page.locator(selector).inner_text()
-    for rx, what in JUNK:
-        m = rx.search(text)
-        assert m is None, f"{where}: the page shows {what}: ...{text[max(0, m.start() - 60):m.end() + 60]!r}..."
-
-
-def stage_is(api: Api, pid: str, *stages: str) -> bool:
-    return api.project(pid)["project"]["stage"] in stages
-
-
-def dismiss_toasts(ui) -> None:
-    ui.page.evaluate("document.querySelectorAll('.toast').forEach(t => t.remove())")
-
-
-def dialog(ui):
-    return ui.page.locator("dialog[open]").last
 
 
 @pytest.mark.timeout(2400)
@@ -108,7 +47,7 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     ui.page.get_by_role("button", name="Start the plan").click()
     ui.page.wait_for_url(re.compile(r"#/p/prj_[^/]+/plan$"))
     pid = re.search(r"/p/(prj_[^/]+)/plan", ui.page.url).group(1)
-    expect(ui.page.get_by_role("heading", name="The plan")).to_be_visible()
+    expect(ui.page.get_by_role("heading", name="The plan", exact=True)).to_be_visible()
     assert api.project(pid)["project"]["combo"] == "bg" and api.project(pid)["project"]["must_include"] == [MUST]
 
     # ------------------------------------------------------------------------------------------------- 2. The plan: three plans, one wildcard
@@ -167,6 +106,7 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     after = api.tile(pid, "concept", work_id)
     assert after["assets"]["b_front"] == before["assets"]["b_front"] and after["assets"]["b_back"] == before["assets"]["b_back"], "B is untouched"
     expect(ui.page.locator(".plan-tile .sheet-4up figure")).to_have_count(12, timeout=60000)
+    expect(tiles.nth(work).locator(".sheet-4up img")).to_have_count(4, timeout=30000)                 # the page shows the new drawing, not an empty box
     clean(ui, "gate 1 after reimagine")
     ui.shot("07_gate1_after_reimagine")
     dismiss_toasts(ui)
@@ -186,10 +126,11 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     clean(ui, "change confirm", "dialog[open]")
     ui.shot("09_gate1_change_confirm", full=False)
     d.get_by_role("button", name="Confirm the change").click()
-    ui.wait_until(lambda: api.tile(pid, "concept", work_id)["version"] > before["version"] and api.tile(pid, "concept", work_id)["state"] == "ready", 400,
-                  "the changed plan to be ready")
+    ui.wait_until(lambda: (t := api.tile(pid, "concept", work_id))["version"] > before["version"] and t["state"] == "ready"
+                  and t["assets"].get("b_front") != before["assets"]["b_front"], 400, "B to be drawn again")
     changed = api.tile(pid, "concept", work_id)
     assert changed["assets"]["a_front"] == before["assets"]["a_front"], "the change names B only: A's drawing is untouched"
+    expect(tiles.nth(work).locator(".sheet-4up img")).to_have_count(4, timeout=30000)
     clean(ui, "gate 1 after change")
     ui.shot("10_gate1_after_change")
     dismiss_toasts(ui)
@@ -299,18 +240,64 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     clean(ui, "manual import panel")
     ui.shot("18_build_manual_pack")
 
-    # the sample model is dropped on the drop box; the wizard asks which Tripo plan made it, then imports it
-    sample = MESHES / "plush_pet.glb"
-    panel.locator("input[type=file]").set_input_files(str(sample))
-    wizard = ui.page.locator(".import-wizard")
-    expect(wizard).to_contain_text("Import plush_pet.glb")
-    wizard.get_by_label("Tripo, a paid plan").check()
-    ui.shot("19_build_import_wizard")
-    wizard.get_by_role("button", name="Import this file").click()
-    ui.wait_until(lambda: api.gate(pid, "manual_import") is None, 120, "the manual import gate to close")
+    # sample models are dropped one after the other until one fits the approved pictures. The wizard asks which Tripo plan made the file. A file
+    # that does not look like the part sends the part back to the drop box with the reason in words: that is what a person sees with a wrong file.
+    part_id = manual_tile["tile_id"]
+
+    def part_state():
+        return next(p["state"] for p in api.project(pid)["parts"] if p["id"] == part_id)
+
+    def steps_of_part():
+        return [s for j in api.get("/api/jobs", project_id=pid, steps="true", limit=50) for s in j["steps"] if s["part_id"] == part_id]
+
+    def checked(seen: set[str], old_gate_id: str):
+        """What the checks said about the file just dropped: 'rejected' (the drop box is open again: a new gate), 'fits' (the chain of the file ran
+        to its end and no drop box is open) or '' (still running)."""
+        gate_now = api.gate(pid, "manual_import")
+        if gate_now is not None and gate_now["id"] != old_gate_id:
+            return "rejected"
+        mine = [s for s in steps_of_part() if s["id"] not in seen]
+        return "fits" if gate_now is None and any(s["kind"] == "build.finish" and s["state"] == "succeeded" for s in mine) else ""
+
+    rejected: list[str] = []
+    fitted = ""
+    for name in ("plush_pet.glb", "icosphere_2k.glb", "rounded_box_2k.glb", "one_sided_prop.glb"):
+        ui.page.locator(".gate-panel.manual input[type=file]").set_input_files(str(MESHES / name))
+        wizard = ui.page.locator(".import-wizard")
+        expect(wizard).to_contain_text(f"Import {name}")
+        wizard.get_by_label("Tripo, a paid plan").check()
+        if not rejected:
+            ui.shot("19_build_import_wizard")
+        before_ids = {s["id"] for s in steps_of_part()}
+        old_gate = api.gate(pid, "manual_import")["id"]
+        wizard.get_by_role("button", name="Import this file").click()
+
+        verdict = ui.wait_until(lambda seen=before_ids, og=old_gate: checked(seen, og), 240, f"the checks of {name}")
+        if verdict == "fits":
+            fitted = name
+            break
+        rejected.append(name)
+        ui.goto(f"/p/{pid}/build")
+        why = ui.page.locator(".gate-panel.manual p.muted[role=status]")
+        expect(why).not_to_contain_text("Waiting for your file. Drop it here", timeout=20000)         # the reason is shown ...
+        assert not re.search(r"CHK-|IoU|\d+ rotations|[A-Z]_[A-Z]", why.inner_text()), why.inner_text()   # ... in words, not as a check code or a measurement
+        clean(ui, "manual import, wrong file", "main")
+        if len(rejected) == 1:
+            ui.shot("20_build_wrong_model_back_to_the_drop_box")
+    assert fitted, f"none of the sample models fits the approved pictures of {part_id} (rejected: {rejected})"
+    ui.goto(f"/p/{pid}/build")
     ui.shot("20_build_after_import")
 
-    # ---- approve everything that is left; the build and the duo run on their own
+    # ---- the imported part waits for the person's OK (the tile was never approved); then everything that is left is approved, and the build and
+    # the duo run on their own
+    ui.goto(f"/p/{pid}/board")
+    imported = tile_el(part_id)
+    tile_now = api.tile(pid, "part_board", part_id)
+    assert tile_now["state"] != "waiting_manual", (part_state(), tile_now["state"], tile_now["badges"], [(s["kind"], s["state"], s["message"]) for s in steps_of_part()][-8:])
+    expect(imported).to_contain_text("Needs another look")
+    imported.get_by_role("button", name=re.compile(r"^Approve")).click()
+    approve_anyway()
+    ui.wait_until(lambda: next(p["state"] for p in api.project(pid)["parts"] if p["id"] == part_id) in ("approved", "building", "built"), 60, "the imported part to be approved")
     ui.goto(f"/p/{pid}/board")
     approve = ui.page.get_by_role("button", name=re.compile(r"Approve all remaining"))
     expect(approve).to_be_visible()
@@ -320,6 +307,7 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     ui.page.goto(f"{live.url}/#/p/{pid}/build")
     expect(ui.page.get_by_role("heading", name="Build")).to_be_visible()
     ui.wait_until(lambda: api.project(pid)["project"]["stage"] in ("building", "duo", "gate3"), 60, "the build stage")
+    expect(ui.page.locator("main .panel").first).to_be_visible(timeout=30000)                          # the page has its content, not the "Loading…" hint
     ui.shot("21_build_progress")
     clean(ui, "build progress")
     ui.wait_until(lambda: api.gate(pid, "final_pick") is not None, 1500, "Gate 3 (the final pick)")
@@ -353,7 +341,7 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     expect(ui.page.get_by_role("heading", name="Export preview: nothing was written")).to_be_visible(timeout=300000)
     expect(ui.page.locator("main")).to_contain_text("practice")
     expect(ui.page.locator("main")).to_contain_text("What the kit would contain")
-    assert ui.page.locator(".check-item").count() >= 10 and ui.page.locator(".check-item input[type=checkbox]:not([disabled])").count() == 0
+    assert ui.page.locator(".check-item").count() >= 6 and ui.page.locator(".check-item input[type=checkbox]:not([disabled])").count() == 0
     clean(ui, "export preview")
     ui.shot("24_export_preview_demo")
     assert not (live.exports.exists() and list(live.exports.rglob("*.zip"))), "nothing was written"

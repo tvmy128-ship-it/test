@@ -80,8 +80,15 @@ def make_pack_id(project_slug: str, part_id: str, *, token: str | None = None) -
     return f"DS-{_slug(project_slug, 'project')}-{part}-{t}"
 
 
+_PUNCTUATION = str.maketrans({"\u00b7": "-", "\u2022": "-", "\u2013": "-", "\u2014": "-", "\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"', "\u2026": "...",
+                              "\u00a0": " "})
+
+
 def _ascii(text: str) -> str:
-    return unicodedata.normalize("NFKD", text).encode("ascii", "replace").decode("ascii")
+    """The SETTINGS.txt is plain ASCII (any editor opens it): the middle dot of a tile label ("B · bag") and the dashes and quotes become their
+    plain forms, not a question mark ("For B ? bag"); a letter loses its accent, anything else becomes ``?``."""
+    decomposed = unicodedata.normalize("NFKD", text.translate(_PUNCTUATION))
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).encode("ascii", "replace").decode("ascii")
 
 
 def _load(src: Any) -> Image.Image:

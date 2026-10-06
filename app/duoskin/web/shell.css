@@ -97,7 +97,7 @@ img { max-width: 100%; }
 .stage.current .stage-link { color: var(--ink); }
 .stage.todo .stage-link { color: var(--muted); }
 .stage-link.disabled { cursor: default; }
-.stage-turn { font-size: 11px; background: var(--info); color: var(--surface); border-radius: 999px; padding: 0 8px; font-weight: 700; }
+.stage-turn { font-size: 11px; background: var(--info); color: var(--surface); border-radius: 999px; padding: 0 8px; font-weight: 700; white-space: nowrap; }
 .stagebar-idle { margin: 0; color: var(--muted); font-size: 14px; }
 .costbar { margin-left: auto; }
 .costbar-inner { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }

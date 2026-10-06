@@ -13,7 +13,7 @@ const LICENCES = [["own_work", "My own work"], ["commercial_ok", "Licence allows
 
 /** @param {import("../router.js").PageContext} ctx */
 export async function render(ctx) {
-  const body = h("div", {});
+  const body = h("div", { class: "page-body" });
   setChildren(ctx.root, pageHeader({ title: "Library", lead: "The kits and collections DuoSkin builds with: hair styles, head bases, fabrics, and what you have collected." }), body);
 
   const draw = async () => {

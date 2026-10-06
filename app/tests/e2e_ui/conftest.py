@@ -25,6 +25,7 @@ from duoskin.engine import registry as eng_registry
 from duoskin.engine.testkit import make_app, wait_for
 from duoskin.models import kitenums
 from duoskin.pipeline import export, kits
+from duoskin.providers import faults as fault_injection
 from duoskin.providers import registry as provider_registry
 
 try:
@@ -95,6 +96,7 @@ def start_app(tmp_path, isolated_process_state):
     def start(faults: str = "", demo: bool = True) -> Live:
         if faults:
             isolated_process_state.setenv("DUOSKIN_MOCK_FAULTS", faults)
+        fault_injection.reset_default_injector()
         provider_registry.reset()
         home = tmp_path / "home"
         exports = tmp_path / "exports"
@@ -188,17 +190,38 @@ class UI:
         assert not violations, f"Content-Security-Policy violations: {violations}"
 
 
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    setattr(item, f"rep_{call.when}", outcome.get_result())
+
+
 @pytest.fixture
-def open_page(browser):
+def open_page(browser, request, tmp_path):
     contexts = []
+    uis: list[UI] = []
 
     def make(live: Live, *, prefix: str = "", width: int = 1280, height: int = 800) -> UI:
         ctx = browser.new_context(viewport={"width": width, "height": height}, color_scheme="light", device_scale_factor=1, accept_downloads=True)
         contexts.append(ctx)
         page = ctx.new_page()
         page.set_default_timeout(20000)
-        return UI(page, live, prefix)
+        ui = UI(page, live, prefix)
+        uis.append(ui)
+        return ui
 
     yield make
+    rep = getattr(request.node, "rep_call", None)
+    if rep is not None and rep.failed:                        # what the page looked like when the test failed (a failing flow is hard to read without it)
+        out = Path(os.environ.get("DUOSKIN_E2E_FAILED_DIR") or tmp_path)       # pytest keeps only the last few temp folders
+        out.mkdir(parents=True, exist_ok=True)
+        for k, ui in enumerate(uis):
+            try:
+                png = out / f"failed_{request.node.name[:30]}_{k}.png"
+                png.write_bytes(ui.page.screenshot(full_page=True))
+                (out / f"failed_{request.node.name[:30]}_{k}.txt").write_text(ui.page.url + "\n\n" + ui.page.locator("body").inner_text(), encoding="utf-8")
+                print(f"\nFAILED PAGE: {png} and {png.with_suffix('.txt')}")
+            except Exception as exc:  # noqa: BLE001  (the page may be gone already)
+                print(f"\nno picture of the failed page: {exc}")
     for c in contexts:
         c.close()

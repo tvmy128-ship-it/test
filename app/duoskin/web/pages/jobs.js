@@ -22,7 +22,7 @@ function averageSeconds(steps) {
 
 /** @param {import("../router.js").PageContext} ctx */
 export async function render(ctx) {
-  const body = h("div", {});
+  const body = h("div", { class: "page-body" });
   const filter = h("select", { "aria-label": "Show jobs" }, [["active", "Running and waiting"], ["all", "All recent jobs"], ["failed", "Only failed"]].map(([v, t]) => h("option", { value: v }, t)));
   setChildren(ctx.root, pageHeader({ title: "Jobs", lead: "Everything DuoSkin is working on or waiting for, in one place." }), h("div", { class: "row" }, h("label", {}, "Show "), filter), body);
   const open = new Set();

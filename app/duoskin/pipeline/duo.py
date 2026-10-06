@@ -211,7 +211,7 @@ def run_render(ctx: StepContext, p: DuoParams, inputs: list[Any]) -> StepResult:
         faces[c] = poses
     sheet = sheets.duo_sheet(views["a"], views["b"], order=("front", "back"))
     assets["sheet"] = common.put_png(ctx, sheet, role="duo_sheet", part_id="duo", provenance=pv, status="candidate").sha256
-    strip = sheets.phone_strip([views["a"]["front"], views["a"]["back"], views["b"]["front"], views["b"]["back"]])
+    strip = sheets.phone_strip([views["a"]["front"], views["a"]["back"], views["b"]["front"], views["b"]["back"]])    # 150 px high, already made 2x (nearest)
     assets["phone_strip"] = common.put_png(ctx, strip, role="phone_strip", part_id="duo", provenance=pv, status="candidate").sha256
     face_sheet = sheets.face_pose_sheet([*faces["a"], *faces["b"]], cols=4)
     assets["face_poses"] = common.put_png(ctx, face_sheet, role="face_poses", part_id="duo", provenance=pv, status="candidate").sha256

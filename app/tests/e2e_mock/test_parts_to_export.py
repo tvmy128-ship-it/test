@@ -51,6 +51,13 @@ def test_gate2_to_gate3_builds_every_part_and_the_duo(board):
     assert tile.state.value == "ready" and tile.tile_id == "c1"
     assert any("DEMO" in b for b in tile.badges), tile.badges                  # mock sources: nothing here can be exported
     assert {"sheet", "phone_strip", "face_poses", "a.front", "b.front"} <= set(tile.assets)
+    import io
+
+    from PIL import Image
+
+    strip = Image.open(io.BytesIO(rt.cas.get(tile.assets["phone_strip"])))
+    assert strip.height == 2 * (150 + 12), "the strip is made 2x here (150 px high, nearest): the judge's picture must be at least 256 px on a side"
+    assert strip.width < 1200, "and the page shows it at this size, whole, in a normal window (it was shown at twice this size, and a portrait was off the page)"
     assert tile.facts["blocking"] == []
     assert tile.facts["ip"] is not None and tile.facts["checks"] is not None
 

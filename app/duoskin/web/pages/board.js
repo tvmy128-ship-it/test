@@ -25,7 +25,7 @@ function rank(t) {
 /** @param {import("../router.js").PageContext} ctx */
 export async function render(ctx) {
   const id = ctx.params.id;
-  const body = h("div", {});
+  const body = h("div", { class: "page-body" });
   setChildren(ctx.root, pageHeader({ title: "The parts", lead: "Every part is shown alone. Approve the ones you like, or ask for a new try. Only approved parts get built.", back: { href: `#/p/${id}`, label: "Your duo" } }), body);
 
   const draw = async () => {

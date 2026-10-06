@@ -642,7 +642,7 @@ def run_planner(ctx: StepContext, p: PlannerParams, inputs: list[Any]) -> StepRe
     return StepResult(outputs=[asset.sha256], result={"plan_sha": asset.sha256, "specs": len(plan.specs), "rule_problems": problems,
                                                       "thinking": thinking[:400], "cached": cached, "request_id": rid, "order_seed": seed,
                                                       "structure_suggestion": inputs_.get("structure_suggestion", "")},
-                      message=f"{len(plan.specs)} spec(s) written")
+                      message=f"{len(plan.specs)} {'plan' if len(plan.specs) == 1 else 'plans'} written")
 
 
 def estimate_planner(p: PlannerParams) -> float:
@@ -793,7 +793,7 @@ def run_lint(ctx: StepContext, p: LintParams, inputs: list[Any]) -> StepResult:
     if p.mode != "replacement":
         _spawn_after_lint(ctx, p, recs, bundle, result)
     rt.bus.emit("spec.updated", {"project_id": p.project_id, "plan_set_id": p.plan_set_id, "lint": True}, p.project_id)
-    return StepResult(result=result, message=f"{len(bundle.unclean())} spec(s) need a revision" if bundle.unclean() else "all plans pass the rules")
+    return StepResult(result=result, message=f"{len(bundle.unclean())} {'plan needs' if len(bundle.unclean()) == 1 else 'plans need'} a revision" if bundle.unclean() else "all plans pass the rules")
 
 
 def _spawn_after_lint(ctx: StepContext, p: LintParams, recs: list[SpecRecord], bundle: LI.LintBundle, result: dict[str, Any]) -> None:
@@ -1041,7 +1041,7 @@ def run_revise(ctx: StepContext, p: ReviseParams, inputs: list[Any]) -> StepResu
         paths = LI.finding_paths(env_findings)
         envelope = {"patch": [o.model_dump() for o in rev.patch], "note": rev.note[:300], "finding_paths": paths}
     return StepResult(result={"round": p.round, "revisions": revisions, "envelope": envelope, "revised": sorted(revisions)},
-                      message=f"{len(revisions)} plan(s) revised" if revisions else "nothing to revise")
+                      message=f"{len(revisions)} {'plan' if len(revisions) == 1 else 'plans'} revised" if revisions else "nothing to revise")
 
 
 def estimate_revise(p: ReviseParams) -> float:
@@ -1139,7 +1139,7 @@ def run_select(ctx: StepContext, p: SelectParams, inputs: list[Any]) -> StepResu
     rt.bus.emit("spec.updated", {"project_id": p.project_id, "plan_set_id": p.plan_set_id, "shown": [x.rec.id for x in shown]}, p.project_id)
     return StepResult(result={"shown": [x.rec.id for x in shown], "ranks": {x.rec.id: i for i, x in enumerate(shown)}, "wins": wins,
                               "points": points, "notice": shape.notice, "dropped": env.get("dropped", [])},
-                      message=f"{len(shown)} plan(s) go on to the concept pictures")
+                      message=f"{len(shown)} {'plan goes' if len(shown) == 1 else 'plans go'} on to the concept pictures")
 
 
 # ---------------------------------------------------------------------------------------------------- the hand-off to the part board

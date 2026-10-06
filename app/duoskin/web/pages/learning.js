@@ -17,7 +17,7 @@ const LABELS = /** @type {Record<string, string>} */ ({
 
 /** @param {import("../router.js").PageContext} ctx */
 export async function render(ctx) {
-  const body = h("div", {});
+  const body = h("div", { class: "page-body" });
   setChildren(ctx.root, pageHeader({ title: "Learning", lead: "A weekly look at what is working: which checks help, how much a duo costs, and how varied your duos are." }), body);
 
   const draw = async () => {

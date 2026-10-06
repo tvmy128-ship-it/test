@@ -143,3 +143,6 @@
 .check-item { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 16px; background: var(--surface-2); }
 .check-item h3 { display: flex; align-items: center; margin: 0 0 4px; }
 .check-item .checklist li { background: var(--surface); }
+
+/* a page whose content is still being fetched shows a hint instead of a blank area */
+.page-body:empty::before { content: "Loading…"; display: block; color: var(--muted); padding: 12px 0; }

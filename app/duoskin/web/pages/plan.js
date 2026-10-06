@@ -4,7 +4,7 @@
 import { get, tryGet, post, friendly, ApiError } from "../api.js";
 import { h, humanize, setChildren } from "../dom.js";
 import { pageHeader, panel, badge, progress, emptyState, errorNote, notAvailable } from "../components/ui.js";
-import { openGatePanels } from "../components/gatepanels.js";
+import { openGatePanels, failedStepsPanel } from "../components/gatepanels.js";
 import { toast } from "../components/toast.js";
 import { stepLabel, stepStateLabel, planPhase, structureLabel } from "../text.js";
 import { diffList } from "../components/diff.js";
@@ -34,8 +34,8 @@ export async function render(ctx) {
   } catch { /* the notes are optional */ }
   if (!ctx.active()) return;
 
-  const body = h("div", {});
-  setChildren(ctx.root, pageHeader({ title: "The plan", lead: "Three plans are being written and checked. Nothing here costs more than the small planning steps; you pick one next.", back: { href: `#/p/${id}`, label: "Your duo" } }), body);
+  const body = h("div", { class: "page-body" });
+  setChildren(ctx.root, pageHeader({ title: "The plan", lead: "Three plans are written, checked and drawn here. Nothing costs more than the small planning steps; you pick one next.", back: { href: `#/p/${id}`, label: "Your duo" } }), body);
 
   const draw = async () => {
     /** @type {any} */ let bundle; /** @type {any[]} */ let jobs = []; let specs = { data: /** @type {any[]} */ ([]), unavailable: false };
@@ -58,6 +58,8 @@ export async function render(ctx) {
 
     const parts = [];
     parts.push(...openGatePanels(id, gates.filter((g) => g.kind !== "concept"), { refresh: draw, navigate: ctx.navigate }));
+    const failedPanel = await failedStepsPanel(id, draw, ctx.signal);           // a step that did not work is said at the top, not only in the long list below
+    if (failedPanel) parts.push(failedPanel);
     if (concept) {
       parts.push(panel({ class: "next-card" }, h("h2", {}, "Your concepts are ready"), h("p", { class: "next-sentence" }, "Three plans were drawn. Pick the one you like, or ask for changes."),
         h("a", { class: "btn primary big", href: `#/p/${id}/gate1` }, "Pick a concept")));
@@ -73,7 +75,9 @@ export async function render(ctx) {
     const groups = [];
     for (const st of steps.filter((x) => x.state !== "superseded")) {
       const last = groups[groups.length - 1];
-      if (last && last.kind === st.kind) last.steps.push(st); else groups.push({ kind: st.kind, steps: [st] });
+      // the three plans are drawn side by side, so their steps interleave: one row per kind ("Drawing a character, 4 of 6 done"), not one per plan
+      const same = st.kind.startsWith("concept.") ? groups.find((g) => g.kind === st.kind) : last && last.kind === st.kind ? last : undefined;
+      if (same) same.steps.push(st); else groups.push({ kind: st.kind, steps: [st] });
     }
     const demo = Boolean(store.health?.demo);
     const stepRows = groups.length ? groups.map((g) => {
@@ -94,7 +98,7 @@ export async function render(ctx) {
         failed ? h("span", { class: "step-error" }, failed.error?.user_hint || "This step did not work.", " ",
           h("button", { type: "button", class: "btn small", onclick: async () => { try { await post(`/api/steps/${failed.id}/retry`); await draw(); } catch (e) { toast(friendly(e), { kind: "bad" }); } } }, "Try again")) : null);
     }) : [emptyState("Nothing has run yet", p.stage === "brief" ? "Start the plan to see the steps here." : "The first steps appear in a moment.")];
-    const drafts = steps.filter((s) => /^img\./.test(s.kind) || s.kind.startsWith("concept."));
+    const drafts = steps.filter((s) => (/^img\./.test(s.kind) || s.kind.startsWith("concept.")) && s.state !== "waiting_user" && s.state !== "superseded");   // the step that waits for your pick is not a drawing
     const doneDrafts = drafts.filter((s) => s.state === "succeeded").length;
     parts.push(panel({ title: "What is happening" }, h("ol", { class: "timeline" }, stepRows),
       drafts.length ? h("p", { class: "muted" }, `Concept drawings: ${doneDrafts} of ${drafts.length} steps done.`) : null,

@@ -186,6 +186,11 @@ def _valid_inset(polys: list[np.ndarray], insets: list[np.ndarray], b: float) ->
                 return False
             if (sa > 0 and abs(sc) > abs(sa) * 1.001) or (sa < 0 and abs(sc) < abs(sa) * 0.999):
                 return False
+            # a short edge at a sharp tip (a diamond or a hexagon with its corners rounded by the tracing) is turned round by the mitres of its two
+            # ends: the inset outline then crosses itself at every tip, the cap triangulation overlaps itself and the caps come out reversed
+            # (coplanar intersecting triangles and a back island on the front: CHK-M11, CHK-M20). Every edge must keep its direction.
+            if bool((np.einsum("ij,ij->i", np.roll(a, -1, axis=0) - a, np.roll(c, -1, axis=0) - c) <= 0.0).any()):
+                return False
         base_area = _cross_section(polys).area()
         inset_area = _cross_section(insets).area()
         per = sum(float(np.linalg.norm(np.roll(p, -1, axis=0) - p, axis=1).sum()) for p in polys)

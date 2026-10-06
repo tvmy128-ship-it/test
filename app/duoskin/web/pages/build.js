@@ -10,6 +10,7 @@ import { openGatePanels } from "../components/gatepanels.js";
 import { decide } from "../components/decisions.js";
 import { confirmDialog } from "../components/modal.js";
 import { toast } from "../components/toast.js";
+import { state as store } from "../store.js";
 import { stepLabel, stepStateLabel, partKindLabel, stateLabel, checkLabel } from "../text.js";
 
 const ACCEPT = [".glb", ".gltf", ".fbx", ".zip", ".obj", ".blend"];
@@ -30,13 +31,15 @@ function stepNote(s) {
 function plainReason(text) {
   const t = String(text || "").replace(/^(CHK-[A-Z0-9]+|[A-Z]_[A-Z_]+):\s*/, "");
   if (/thinner than/.test(t)) return `The automatic model was too thin in places (${t}). Roblox needs at least 0.05 stud.`;
+  if (/rotations|orientation|iou/i.test(t)) return "The model does not look like the approved pictures from any side, so it was not used. Check that it is the right file for this part, then drop it again.";
+  if (/mirror/i.test(t)) return "The model looks mirrored. Check which picture you gave Tripo as Left and Right, or use Flip left/right once you have looked at it.";
   return /^[A-Z]/.test(t) ? t : t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 /** @param {import("../router.js").PageContext} ctx */
 export async function render(ctx) {
   const id = ctx.params.id;
-  const body = h("div", {});
+  const body = h("div", { class: "page-body" });
   setChildren(ctx.root, pageHeader({ title: "Build", lead: "The approved parts are being made into real clothes and 3D pieces. You can leave this page; it keeps going.", back: { href: `#/p/${id}`, label: "Your duo" } }), body);
   /** @type {Set<string>} */
   const keepOpen = new Set();
@@ -82,7 +85,7 @@ export async function render(ctx) {
     const unassigned = /** @type {any[]} */ (Array.isArray(inbox.data) ? inbox.data : inbox.data?.unassigned ?? inbox.data?.entries ?? inbox.data?.items ?? [])
       .filter((/** @type {any} */ e) => !e.assigned_part && !e.assigned && !e.part_id);
     setChildren(body, ...panels,
-      note({ api: "3D parts: Tripo makes them for you through its service (uses your Tripo credits).", manual: "3D parts: you make them on Tripo's website. A pack is prepared for each one and you bring the file back.", ask: "3D parts: you will be asked how to make them when that step starts." }[/** @type {"api"|"manual"|"ask"} */ (project.settings?.mesh_mode ?? "ask")] ?? "", "info"),
+      note({ api: store.health?.demo ? "3D parts: a practice stand-in for Tripo makes them for you. Nothing is charged." : "3D parts: Tripo makes them for you through its service (uses your Tripo credits).", manual: "3D parts: you make them on Tripo's website. A pack is prepared for each one and you bring the file back.", ask: "3D parts: you will be asked how to make them when that step starts." }[/** @type {"api"|"manual"|"ask"} */ (project.settings?.mesh_mode ?? "ask")] ?? "", "info"),
       total ? panel({ title: "Progress" }, h("p", {}, `${done} of ${total} steps done`), progress(total ? done / total : 0, "Build progress")) : null,
       ...manualGates.map((g) => manualImportPanel(id, g, draw)),
       partCards.length ? h("div", { class: "build-parts" }, partCards)

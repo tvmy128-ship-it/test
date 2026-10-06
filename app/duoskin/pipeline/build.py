@@ -459,6 +459,14 @@ def mesh_failed(ctx: StepContext, part: Part, p: MeshStepParams, prev: dict[str,
         parts.set_tile_facts(rt, project_id, part.id, report=f"the kit hair failed the mesh gate: {reason}")
     if prev.get("handled"):
         return "handled"
+    if not all(f"view.{v}" in part.board_assets for v in ("front", "left", "back", "right")):
+        # made by code (a sticker slab, a primitive): there are no four approved pictures to put in a Tripo pack, so a pack could never be made and
+        # the part would wait for ever behind a "Try again" that fails again. The person is asked to look at the part instead (as for any failed build).
+        parts.set_tile_facts(rt, project_id, part.id, report=f"The build of this part did not pass the checks: {reason or 'the model could not be made'}. "
+                                                              "Draw it again or change it, then approve it again.")
+        parts.set_part_state(rt, project_id, part.id, PartState.NEEDS_HUMAN, flags_add=["build_failed"])
+        parts.refresh_tile(rt, project_id, part.id)
+        return "needs_help"
     manual_mesh.start_manual(rt, project_id, part.id, job_id=ctx.step.job_id, reason=reason or "the model could not be made automatically",
                              step_ctx=ctx)
     return "manual"
@@ -555,7 +563,11 @@ def run_finish(ctx: StepContext, p: FinishParams, inputs: list[Any]) -> StepResu
     try:
         stamped = deps.stamp_build(rt.repo, project_id, part.id)
     except ValueError as exc:
-        parts.set_part_state(rt, project_id, part.id, PartState.STALE)
+        # a model made by hand before the tile was approved (or after its approval was lost): the part waits for the person's OK, and the board
+        # says so (the tile is refreshed, the "waiting for your file" flag of the pack that is now imported is dropped)
+        parts.set_part_state(rt, project_id, part.id, PartState.STALE, flags_remove=["waiting_manual"])
+        parts.set_tile_facts(rt, project_id, part.id, report="The 3D model is ready and passed the checks. Approve this part again to build with it.")
+        parts.refresh_tile(rt, project_id, part.id)
         return StepResult(result={"ok": False, "reason": str(exc)}, message="the approval is gone: approve the tile again")
     rt.bus.emit("part.state", {"project_id": project_id, "part_id": part.id, "state": "built"}, project_id)
     started = maybe_start_duo(rt, project_id)

@@ -63,7 +63,7 @@ function blockedText(data, status) {
 /** @param {import("../router.js").PageContext} ctx */
 export async function render(ctx) {
   const id = ctx.params.id;
-  const body = h("div", {});
+  const body = h("div", { class: "page-body" });
   setChildren(ctx.root, pageHeader({ title: "Export", lead: "Everything you need to upload to Roblox, in one folder, with a checklist so nothing is forgotten.", back: { href: `#/p/${id}`, label: "Your duo" } }), body);
 
   const draw = async () => {
@@ -99,7 +99,8 @@ export async function render(ctx) {
     /** @param {any} it @param {boolean} [preview] a preview lists the steps but nothing can be ticked: no kit was written */
     const itemCard = (it, preview = false) => h("section", { class: "check-item", dataset: { itemId: it.item_id } },
       h("h3", {}, it.character ? h("span", { class: `char-chip ${it.character}` }, String(it.character).toUpperCase()) : null, humanize(it.type)),
-      h("p", { class: "muted" }, it.channel_text ?? "", it.fee_robux ? ` Upload fee: ${it.fee_robux} Robux${it.fee_note ? ` (${it.fee_note})` : ""}. Check Roblox for current prices.` : ""),
+      h("p", { class: "muted" }, it.channel_text ? String(it.channel_text).replace(/\.?\s*$/, ".") : "",         // "... > Upload Asset." (a sentence of its own)
+        it.fee_robux ? ` Upload fee: ${it.fee_robux} Robux${it.fee_note ? ` (${String(it.fee_note).replace(/\.+\s*$/, "")})` : ""}.${/check roblox/i.test(String(it.fee_note ?? "")) ? "" : " Check Roblox for current prices."}` : ""),
       it.requirements?.length ? h("ul", { class: "plain-list small muted" }, it.requirements.map((/** @type {string} */ r) => h("li", {}, r))) : null,
       h("ul", { class: "checklist" }, (it.steps ?? []).map((/** @type {any} */ s) => {
         const cid = `ck-${it.item_id}-${s.step_id}`.replace(/[^A-Za-z0-9_-]/g, "_");

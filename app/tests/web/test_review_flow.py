@@ -235,7 +235,7 @@ def test_a_finished_build_step_shows_no_log_line_and_a_thin_model_is_explained(u
 
 def test_gate_3_does_not_scroll_sideways_on_a_narrow_window(ui, live, plain_gates):
     p = seed.project(live.rt, "Night Market", "bg", Stage.GATE3)
-    seed.final_gate(live.rt, p, candidates=1, strip_width=600)             # shown at twice its size: 1200 px, wider than the window
+    seed.final_gate(live.rt, p, candidates=1, strip_width=1200)            # a strip wider than the window
     ui.page.set_viewport_size({"width": 700, "height": 900})
     ui.goto(f"/p/{p.id}/gate3")
     expect(ui.page.locator(".candidate")).to_have_count(1)
@@ -243,3 +243,132 @@ def test_gate_3_does_not_scroll_sideways_on_a_narrow_window(ui, live, plain_gate
     widths = ui.page.evaluate("[document.documentElement.scrollWidth, window.innerWidth, document.querySelector('.phone-strip').scrollWidth, document.querySelector('.phone-strip').clientWidth]")
     assert widths[0] <= widths[1], f"the page scrolls sideways: {widths}"
     assert widths[3] <= widths[1]
+
+
+def test_the_plan_page_shows_one_row_per_kind_of_drawing_step_not_one_per_plan(ui, live):
+    from duoskin.models.job import JobKind, Step, StepState
+    p = seed.project(live.rt, "Plush Koi", "bg", Stage.PLANNING)
+    j = seed.job(live.rt, p.id, JobKind.PLAN)
+    now = utcnow()
+    steps = []
+    for k in range(3):                    # three plans drawn side by side: their steps interleave (char, char, assemble) x 3
+        for n in range(2):
+            steps.append(Step(id=f"stp_c{k}{n}", job_id=j.id, project_id=p.id, kind="concept.char", state=StepState.SUCCEEDED if k < 2 else StepState.RUNNING, progress=1.0 if k < 2 else 0.3,
+                              message="drawing character A (first drafts)", created_at=now))
+        steps.append(Step(id=f"stp_a{k}", job_id=j.id, project_id=p.id, kind="concept.assemble", state=StepState.PENDING, created_at=now))
+    steps.append(Step(id="stp_gate", job_id=j.id, project_id=p.id, kind="concept.gate", state=StepState.WAITING_USER, message="waiting for you (concept)", created_at=now))
+    live.rt.repo.insert_steps(steps)
+    ui.goto(f"/p/{p.id}/plan")
+    rows = ui.page.locator(".timeline li")
+    expect(rows.filter(has_text="Drawing a character")).to_have_count(1)
+    expect(rows.filter(has_text="Putting the concept sheet together")).to_have_count(1)
+    expect(rows.filter(has_text="Drawing a character")).to_contain_text("4 of 6 done")
+    expect(ui.page.locator("main")).to_contain_text("Concept drawings: 4 of 9 steps done.")           # the step that waits for the pick is not a drawing
+    assert "being written" not in ui.page.locator("main h1 + p").inner_text()
+
+
+def test_the_your_turn_pill_of_the_stage_bar_stays_on_one_line(ui, live):
+    p = seed.project(live.rt, "Moon Tea", "gg", Stage.GATE2)
+    seed.board_gate(live.rt, p)
+    ui.page.set_viewport_size({"width": 680, "height": 900})               # narrow enough that the pill wrapped before ("Your" / "turn")
+    ui.goto(f"/p/{p.id}/board")
+    pill = ui.page.locator(".stage-turn")
+    expect(pill).to_have_count(1)
+    box = pill.bounding_box()
+    assert box is not None and box["height"] < 22, f"the pill wrapped onto two lines: {box}"
+
+
+def test_the_build_page_says_in_demo_mode_that_nothing_is_charged_for_the_3d_parts(ui, live):
+    p = seed.project(live.rt, "Moon Tea", "gg", Stage.BUILDING, mesh_mode="api")
+    seed.board_gate(live.rt, p)
+    ui.goto(f"/p/{p.id}/build")
+    assert live.rt.demo, "the test app runs on practice services"
+    note = ui.page.locator(".note", has_text="3D parts")
+    expect(note).to_have_count(1)
+    expect(note).to_contain_text("a practice stand-in for Tripo makes them for you. Nothing is charged.")
+    assert "your Tripo credits" not in note.inner_text()
+
+
+def test_a_model_that_did_not_match_the_pictures_is_explained_in_words_when_the_part_waits_for_a_file_again(ui, live):
+    from . import test_gate3_export_build as manual
+
+    p = seed.project(live.rt, "Moon Tea", "gg", Stage.BUILDING)
+    seed.board_gate(live.rt, p)
+    manual.manual_gate(live, p, reason="CHK-M08: best of 24 rotations matches the approved views at IoU 0.31 (< 0.60)")
+    ui.goto(f"/p/{p.id}/build")
+    status = ui.page.locator(".gate-panel.manual p.muted[role=status]")
+    text = status.inner_text()
+    assert "CHK-M08" not in text and "IoU" not in text and "rotations" not in text
+    expect(status).to_contain_text("does not look like the approved pictures")
+
+
+def test_a_page_whose_data_is_still_coming_says_so_instead_of_showing_a_blank_area(ui, live):
+    p = seed.project(live.rt, "Moon Tea", "gg", Stage.GATE2)
+    seed.board_gate(live.rt, p)
+    ui.goto(f"/p/{p.id}/board")
+    expect(ui.page.locator("main .page-body")).to_have_count(1)                                       # the pages that fetch data share the container
+    hint = ui.page.evaluate("""() => {
+        const el = document.createElement('div'); el.className = 'page-body'; document.querySelector('main').append(el);
+        const content = getComputedStyle(el, '::before').content; el.remove(); return content; }""")
+    assert "Loading" in hint, hint
+
+
+def test_gate_3_does_not_say_there_are_no_judge_notes_when_the_judge_looked_and_found_nothing(ui, live, plain_gates):
+    p = seed.project(live.rt, "Night Market", "bg", Stage.GATE3)
+    seed.final_gate(live.rt, p, candidates=1, facts_extra={"judge": {"levels": {"belong_together": "strong", "thumbnail_readability": "ok"}, "notes": []}})
+    ui.goto(f"/p/{p.id}/gate3")
+    expect(ui.page.locator(".candidate .reviews")).to_contain_text("found nothing that would stop an upload")
+    assert "No judge" not in ui.page.locator(".candidate").inner_text()
+    q = seed.project(live.rt, "Night Market 2", "bg", Stage.GATE3)
+    seed.final_gate(live.rt, q, candidates=1, facts_extra={"judge": {"levels": {}, "notes": []}})
+    ui.goto(f"/p/{q.id}/gate3")
+    expect(ui.page.locator(".candidate .reviews")).to_contain_text("has not looked at this duo yet")
+
+
+def test_the_phone_strip_is_shown_at_its_own_size_not_enlarged_a_second_time(ui, live, plain_gates):
+    """The pipeline makes the strip 150 px high and 2x (nearest) because the judge needs at least 256 px on a side; the page used to double it again,
+    so a real strip (about 900 px wide) was 1800 px wide and its last portrait was off the page."""
+    p = seed.project(live.rt, "Night Market", "bg", Stage.GATE3)
+    seed.final_gate(live.rt, p, candidates=1, strip_width=900)
+    ui.goto(f"/p/{p.id}/gate3")
+    ui.page.wait_for_timeout(300)
+    natural, shown = ui.page.locator(".phone-strip img").first.evaluate("i => [i.naturalWidth, i.getBoundingClientRect().width]")
+    assert natural == 900 and shown == 900, (natural, shown)
+
+
+def test_the_export_item_card_reads_as_sentences_and_says_check_prices_once(ui, live):
+    p = seed.project(live.rt, "Night Market", "bg", Stage.GATE3)
+    note = "80 Robux upload fee per submission. Figures are from Roblox's creator-docs of 2026-09-26: check Roblox for current prices."
+    item = {"item_id": "a_shirt", "character": "a", "type": "Shirt", "channel_text": "Creator Dashboard > Avatar Items > Classics > Upload Asset", "fee_robux": 80, "fee_note": note,
+            "steps": [{"step_id": "confirm_final", "text": "Check the final pictures", "ticked": False, "locked": False}]}
+    body = {"status": "blocked", "reason": "mock", "mock": True, "banners": [], "version": 0, "preview": {"checklist": {"items": [item]}, "items": [{"item_id": "a_shirt", "character": "a", "type": "Shirt"}]}}
+    ui.page.route(re.compile(r"/api/exports/"), lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps(body)))
+    ui.page.route(re.compile(r"/api/health$"), lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps({"ok": True, "demo": True})))
+    ui.goto(f"/p/{p.id}/export")
+    text = ui.page.locator(".check-item p.muted").first.inner_text()
+    assert "Upload Asset. Upload fee: 80 Robux" in text, text
+    assert text.lower().count("check roblox for current prices") == 1 and ".)" not in text, text
+
+
+def test_the_ip_result_of_a_simpler_text_check_is_explained_instead_of_claiming_a_brand(ui, live, plain_gates):
+    p = seed.project(live.rt, "Night Market", "bg", Stage.GATE3)
+    seed.final_gate(live.rt, p, candidates=1, facts_extra={"ip": {"ok": False, "fails": [], "unsure": [], "ocr": [
+        "b: degraded (glyph_fallback): glyph score 0.50; OCR unavailable (rapidocr or onnxruntime is not installed); using the glyph-shape detector"]}})
+    ui.goto(f"/p/{p.id}/gate3")
+    reviews = ui.page.locator(".candidate .reviews").inner_text()
+    assert "simpler mode" in reviews and "Look at the duo yourself" in reviews
+    assert "may look like a brand" not in reviews and "glyph" not in reviews and "onnxruntime" not in reviews
+
+
+def test_a_failed_planning_step_is_said_at_the_top_of_the_plan_page_not_only_in_the_long_list(ui, live, fake_plan):
+    fake_plan.fail_lint = True
+    fake_plan.release.set()
+    p = seed.project(live.rt, "Plush Koi", "bg", Stage.BRIEF)
+    job = api(live, "POST", f"/api/projects/{p.id}/plan").json()
+    wait_for(lambda: api(live, "GET", f"/api/jobs/{job['id']}").json()["job"]["state"] == "failed", 10, message="the job to fail")
+    ui.goto(f"/p/{p.id}/plan")
+    panel = ui.page.locator(".failed-steps")
+    expect(panel).to_contain_text("One step did not work")
+    box = panel.bounding_box()
+    assert box is not None and box["y"] < 500, "the panel is at the top of the page: a person does not have to scroll to the end of the list to find it"
+    expect(panel.get_by_role("button", name="Try again")).to_have_count(1)

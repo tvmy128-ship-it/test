@@ -217,12 +217,19 @@ def _spec(inv: Any, plan: int, structure: str, family: str, wildcard: bool, comb
     obj = OBJECTS[plan % len(OBJECTS)]
     a = _character(inv, 0, plan, "a", pal, combo[0], rng, obj)
     b = _character(inv, 1, plan, "b", pal, combo[1], rng, obj)
-    if a["top"]["recipe_id"] == b["top"]["recipe_id"]:
-        tops = [t for t in inv.ids("TopRecipeKit") if t != a["top"]["recipe_id"] and inv.recipe(t).family != "crop_top"]
+    fam = lambda rid: inv.recipe(rid).family
+    # A and B need a different TYPE of top or of bottom (CHK-G0-05: the family, not the recipe: "tee" and "tee_long" are both tees)
+    same_type = fam(a["top"]["recipe_id"]) == fam(b["top"]["recipe_id"]) and fam(a["bottom"]["recipe_id"]) == fam(b["bottom"]["recipe_id"])
+    if a["top"]["recipe_id"] == b["top"]["recipe_id"] or same_type:
+        tops = [t for t in inv.ids("TopRecipeKit") if fam(t) not in (fam(a["top"]["recipe_id"]), "crop_top")] \
+            or [t for t in inv.ids("TopRecipeKit") if t != a["top"]["recipe_id"] and fam(t) != "crop_top"]
         if tops:
             b["top"]["recipe_id"] = tops[0]
-            for attr, pref in (("sleeve", ("long", "short")), ("neckline", ("crew", "v_neck")), ("block_layout", ("solid", "horizontal_band")), ("hem", ("hip_untucked",))):
+            for attr, pref in (("sleeve", ("long", "short")), ("neckline", ("crew", "v_neck")), ("block_layout", ("solid", "horizontal_band")), ("hem", ("hip_untucked",)),
+                              ("front", ("closed", "open", "layered"))):
                 b["top"][attr] = _cut(inv, tops[0], attr, pref, 1)
+            inners = [i for i in inv.ids("InnerTopKit") if i not in ("none", tops[0]) and fam(i) != "crop_top"]       # an inner top only goes with an open or layered front
+            b["top"]["inner_recipe_id"] = (inners[0] if inners else "none") if b["top"]["front"] != "closed" else "none"
     contrasts = [("top_type", a["top"]["recipe_id"], b["top"]["recipe_id"]), ("sleeve_length", a["top"]["sleeve"], b["top"]["sleeve"]),
                  ("neckline", a["top"]["neckline"], b["top"]["neckline"]), ("leg_length", a["bottom"]["leg"], b["bottom"]["leg"]),
                  ("face_mouth", a["face"]["mouth_style"], b["face"]["mouth_style"]), ("expression", a["face"]["default_expression"], b["face"]["default_expression"]),

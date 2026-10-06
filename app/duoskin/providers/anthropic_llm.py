@@ -398,7 +398,7 @@ def refusal_error(stop_details: Any, request_id: str | None, cost: dict[str, Any
     msg = f"Claude declined the request ({category or 'no category'})" + (f": {detail}" if detail else "")
     return ProviderError(PROVIDER, "refusal", msg, code=str(category) if category else None, request_id=request_id,
                          billed="yes", cost=cost,
-                         user_hint=f"Claude declined: {category or 'this request'}. Reword it or change the design.")
+                         user_hint="Claude declined to answer this step. Try again; if it keeps declining, reword the idea or change the design a little.")   # the category stays in the log
 
 
 def truncated_error(stop_reason: str, request_id: str | None, cost: dict[str, Any] | None = None) -> ProviderError:

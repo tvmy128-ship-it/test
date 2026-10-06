@@ -108,6 +108,16 @@ def test_reimagine_changes_the_concept_picture_not_only_the_skin_tone():
         assert abs(int((np.abs(base - bg).sum(axis=-1) > 36).sum()) - int((np.abs(other - bg).sum(axis=-1) > 36).sum())) < 0.01 * base.shape[0] * base.shape[1]
 
 
+def test_reimagine_of_a_part_picture_is_never_the_very_same_picture():
+    """A part picture is one flat colour in one of five shapes. A new nonce used to give the same picture one time in five (the same shape again):
+    the person pressed Reimagine and nothing changed. The size now varies with the request's own seed too."""
+    prompt = "A flat sticker print, teal and gold."
+    pics = [MockImages().generate(req(prompt=prompt, size="1024x1024", background="transparent", tag="I2", nonce=f"n{k}"), CTX).images[0] for k in range(30)]
+    assert len(set(pics)) == 30, "30 nonces give 30 different pictures"
+    colours = {tuple(np.asarray(decode(b).convert("RGBA"))[512, 512]) for b in pics}
+    assert len(colours) == 1, "the colours stay the same: only the drawing changes"
+
+
 def test_guide_edit_paints_the_mask_area_and_leaves_everything_else_untouched():
     base = png_bytes(1024, 1024, (240, 240, 240, 255))
     r = MockImages().edit(req(prompt="Fill the area in green.", images=(NamedPng("guide.png", base),), mask=NamedPng("mask.png", mask_png()), tag="I4"), CTX)
@@ -118,6 +128,23 @@ def test_guide_edit_paints_the_mask_area_and_leaves_everything_else_untouched():
     inv[200:600, 200:600] = False
     assert np.array_equal(out[inv], ref[inv])                           # paste-back and the ring check pass because nothing moved
     assert out[400, 400, 1] > out[400, 400, 0]                          # green wins over red
+
+
+def test_reimagine_of_a_guide_edit_is_a_different_drawing_in_the_prompt_colours():
+    """The concept pictures are guide edits (the character's shape is the guide, the mask is what the model may paint). The colour of the paint used
+    to ignore the nonce, so "Reimagine" brought back the identical picture (found by clicking the app through, tests/e2e_ui)."""
+    base = png_bytes(1024, 1024, (240, 240, 240, 255))
+    prompt = "Paint the shirt navy, the trousers light blue and the hair dark brown."
+    outs = {}
+    for nonce in ("a", "b", "c", "d", "e", "f"):
+        r = MockImages().edit(req(prompt=prompt, images=(NamedPng("guide.png", base),), mask=NamedPng("mask.png", mask_png()), tag="I1", nonce=nonce), CTX)
+        outs[nonce] = r.images[0]
+    assert len(set(outs.values())) == 6, "six nonces give six different pictures"
+    from duoskin.providers.mock import _draw as D
+    named = [tuple(c) for c in D.colors_from_text(prompt)]
+    for png in outs.values():
+        px = tuple(int(v) for v in np.asarray(decode(png).convert("RGB"))[400, 400])
+        assert any(max(abs(a - b) for a, b in zip(px, c, strict=True)) <= 3 for c in named), f"{px} is not (within 3 steps) a colour of the prompt {named}"
 
 
 def test_finalize_returns_a_lightly_sharpened_copy_that_keeps_alpha():

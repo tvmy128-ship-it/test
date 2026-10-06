@@ -193,7 +193,11 @@ def _face_colours(face: dict[str, Any], spec: dict[str, Any], pal: dict[str, str
         face[key] = ink["id"]
     iris, white = pal[face["iris_ref"]], pal[by_role["neutral_light"]["id"]]
     dark = [by_role[r]["id"] for r in ("modesty", "hair_a", "hair_b") if r in by_role]
-    best = max(dark, key=lambda pid: min(de2000_hex(pal[pid], ink["hex"]), de2000_hex(pal[pid], iris), de2000_hex(pal[pid], white)))
+    apart = [pid for pid in dark if min(de2000_hex(pal[pid], ink["hex"]), de2000_hex(pal[pid], iris), de2000_hex(pal[pid], white)) >= 10.0]
+    # of the colours that are not the ink, the iris or the white, the one closest to the iris: the edge between the iris and the pupil is a blend,
+    # and the split check (F_LASH_LID_SPLIT) rejects the blends of two colours that are far apart (a green pupil in a raspberry iris, a brown one
+    # in a blue iris); the ink itself cannot be the pupil (F_LID_COVERS: the lash would leave iris-coloured pixels under the closed lid)
+    best = min(apart or dark, key=lambda pid: de2000_hex(pal[pid], iris))
     face["iris_dark_ref"] = face["pupil_ref"] = best
 
 
@@ -252,6 +256,8 @@ def planner_builder(call: Any) -> dict[str, Any]:
     palettes = [f for f in palettes if f in R.FAMILY_HUES][:3] if isinstance(palettes, list) else []
     families = palettes if len(palettes) == 3 else rng.sample(family_pool, 3)
     wildcard = rng.randrange(3)
+    if wildcard == 1 and ("[mock:dangling]" in low or "[mock:unfixable]" in low):
+        wildcard = 2                       # the broken plan of these hooks is plan 1 and is a plain plan (a broken wildcard has its own hook)
     if replacement:
         wildcard = 0 if (want and want.group(1) == "true" and "[mock:no_wildcard_replacement]" not in low) else -1
     brief_colors = D.colors_from_text(brief, 3)
@@ -264,10 +270,10 @@ def planner_builder(call: Any) -> dict[str, Any]:
     for i, spec in enumerate(specs):
         spec["world"]["theme"] = _words(themes[(i + rng.randrange(len(themes))) % len(themes)], 8)
     specs = _vary_objects(specs, rng, _tag(text, "recent_cards") + " " + _tag(text, "avoid"))
-    if not replacement and "[mock:notbuildable]" in low:
-        specs[0]["b"]["accessories"][0]["description"] = "a flowing cape on the back in the main colours"
     for i, spec in enumerate(specs):
         _lint_ready(spec, i + plan_offset, inv)
+    if not replacement and "[mock:notbuildable]" in low:       # after the touch-up: an object-mascot plan's touch-up rewrites the accessory descriptions (the cape was lost)
+        specs[0]["b"]["accessories"][0]["description"] = "a flowing cape on the back in the main colours"
     must = [ln.strip(" -*\t") for ln in _tag(text, "must_include").splitlines() if ln.strip(" -*\t") and ln.strip() != "none"]
     constraints = [{"text": _words(ln, 12), "spec_paths": ["/a/accessories/0"]} for ln in must]
     out = {"specs": specs, "brief_constraints": constraints,

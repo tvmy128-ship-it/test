@@ -37,7 +37,7 @@ function coverage(mi) {
 /** @param {import("../router.js").PageContext} ctx */
 export async function render(ctx) {
   const id = ctx.params.id;
-  const body = h("div", {});
+  const body = h("div", { class: "page-body" });
   setChildren(ctx.root, pageHeader({ title: "Pick a concept", lead: "Three plans were drawn. Approve the one you like, try again, or say what to change. Nothing big is built until you approve.", back: { href: `#/p/${id}`, label: "Your duo" } }), body);
 
   const draw = async () => {

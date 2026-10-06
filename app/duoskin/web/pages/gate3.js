@@ -31,7 +31,7 @@ function textLines(v) {
 /** @param {import("../router.js").PageContext} ctx */
 export async function render(ctx) {
   const id = ctx.params.id;
-  const body = h("div", {});
+  const body = h("div", { class: "page-body" });
   setChildren(ctx.root, pageHeader({ title: "Pick the final duo", lead: "Look at the finished pair from every side. Pick one, or change a single part and look again.", back: { href: `#/p/${id}`, label: "Your duo" } }), body);
   /** @type {{viewer: {dispose(): void}}[]} */
   let viewers = [];
@@ -92,7 +92,8 @@ function candidate(gate, t, i, project, parts, similarityOn, firstChoice, refres
   const ipUnsure = typeof ip === "object" && ip ? list(ip.unsure) : [];
   const ipFails = typeof ip === "object" && ip ? [...list(ip.fails), ...list(ip.ocr)] : [];
   const ipOk = ip == null ? null : typeof ip === "object" ? ip.passed !== false && ip.ok !== false && !ipUnsure.length && !ipFails.length : Boolean(ip);
-  const ipNote = typeof ip !== "object" || !ip ? "" : ipFails.length ? "Something in the pictures may look like a brand, a known character or writing." : ipUnsure.length ? "The check was not sure about this one." : String(ip.notes || ip.note || "");
+  const ipDegraded = typeof ip === "object" && ip && list(ip.ocr).some((/** @type {any} */ x) => /degraded|not installed|unavailable/i.test(String(x)));      // the text reader is missing: a simpler detector guessed
+  const ipNote = typeof ip !== "object" || !ip ? "" : ipDegraded && !list(ip.fails).length ? "The text check ran in a simpler mode (the text-reading part is not installed), so it can think it sees writing where there is none. Look at the duo yourself." : ipFails.length ? "Something in the pictures may look like a brand, a known character or writing." : ipUnsure.length ? "The check was not sure about this one." : String(ip.notes || ip.note || "");
   const sim = facts.similarity;
   const simOn = sim && typeof sim === "object" && "on" in sim ? Boolean(sim.on) : similarityOn;
   const simDone = sim && typeof sim === "object" ? Object.keys(sim).some((k) => k !== "on" && sim[k] != null) : Boolean(sim);
@@ -128,11 +129,11 @@ function candidate(gate, t, i, project, parts, similarityOn, firstChoice, refres
     blocking.length ? h("div", { class: "hard-fails", role: "note" }, h("p", { class: "hard-title" }, "Needs fixing first"), h("ul", {}, blocking.map((x) => h("li", {}, x)))) : null,
     assets.sheet ? h("section", {}, h("h3", {}, "The whole duo"), h("div", { class: "hero" }, figure(assets.sheet, "sheet"))) : null,
     h("section", {}, h("h3", {}, "From every side"), sideRow("a"), sideRow("b")),
-    phone.length ? h("section", {}, h("h3", {}, "On a phone screen"), h("div", { class: "phone-strip" }, phone.map(([r, sha]) => h("figure", { class: "fig" }, casImage(sha, { alt: roleLabel(r), className: "pixelated", onLoad: (img) => { img.style.width = `${img.naturalWidth * 2}px`; } }), h("figcaption", {}, roleLabel(r)))))) : null,
+    phone.length ? h("section", {}, h("h3", {}, "On a phone screen"), h("div", { class: "phone-strip" }, phone.map(([r, sha]) => h("figure", { class: "fig" }, casImage(sha, { alt: roleLabel(r), className: "pixelated" }), h("figcaption", {}, roleLabel(r)))))) : null,
     poses.length ? h("section", {}, h("h3", {}, "The face in five poses"), h("div", { class: poses.some(([r]) => r === "face_poses") ? "hero" : "strip" }, poses.map(([r, sha]) => h("figure", { class: r === "face_poses" ? "fig" : "fig small" }, casImage(sha, { alt: r === "face_poses" ? "The face in five poses" : roleLabel(r) }), r === "face_poses" ? null : h("figcaption", {}, roleLabel(r)))))) : null,
     viewer ? h("section", {}, h("h3", {}, "In 3D"), viewer.el) : null,
     h("section", { class: "reviews" }, h("h3", {}, "What the checks say"),
-      judgeNotes.length ? h("div", {}, h("h4", {}, "The judge's notes"), h("ul", {}, judgeNotes.map((l) => h("li", {}, l)))) : h("p", { class: "muted" }, "No judge's notes yet."),
+      judgeNotes.length ? h("div", {}, h("h4", {}, "The judge's notes"), h("ul", {}, judgeNotes.map((l) => h("li", {}, l)))) : h("p", { class: "muted" }, judgeLevels.length ? "The judge looked at the duo and found nothing that would stop an upload." : "The judge has not looked at this duo yet."),
       judgeLevels.length ? h("details", {}, h("summary", {}, "How the judge scored it"), h("dl", { class: "levels" }, judgeLevels.map(([k, v]) => [h("dt", {}, humanize(k)), h("dd", {}, humanize(String(v)))]))) : null,
       code.length ? h("div", {}, h("h4", {}, "Measured facts"), h("ul", {}, code.map((l) => h("li", {}, l)))) : null,
       h("div", {}, h("h4", {}, "Is it too close to something that exists?"), ipOk === null ? h("p", { class: "muted" }, "Not checked yet.") : h("p", {}, badge(ipOk ? "Looks original" : "Needs a look", ipOk ? "ok" : "bad"), " ", ipNote)),

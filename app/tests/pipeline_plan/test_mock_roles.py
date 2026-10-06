@@ -195,3 +195,21 @@ def test_the_reference_and_taste_roles_answer_what_their_gate_a_keeps(inv):
     prof = MR.taste_builder(call("L2_taste", TasteProfile, text))
     TasteProfile.model_validate(prof)
     assert [r["evidence_ids"] for r in prof["likes"]] == [["a1", "a2"]] and [r["evidence_ids"] for r in prof["dislikes"]] == [["r1", "r2"]]
+
+
+def test_the_not_buildable_hook_keeps_its_cape_when_the_first_plan_is_an_object_mascot_plan(inv):
+    """The touch-up of an object-mascot plan rewrites the accessory descriptions: the hook ran before it and the cape was lost, so about one run in six
+    of the tests that need a plan with a cape found none (the Gate 1 "cannot build" list was empty)."""
+    out = plan(brief_text="a duo with a cape [mock:notbuildable]", structure_suggestion=json.dumps(["object_mascot", "mirror", "complement"]))
+    assert out["specs"][0]["world"]["pair_structure"] == "object_mascot"
+    assert "cape" in out["specs"][0]["b"]["accessories"][0]["description"]
+    assert [s["world"]["pair_structure"] for s in out["specs"]] == ["object_mascot", "mirror", "complement"]
+
+
+@pytest.mark.parametrize("hook", ["[mock:dangling]", "[mock:unfixable]"])
+def test_the_broken_plan_of_the_hooks_is_never_the_wildcard(inv, hook):
+    """The tests that read a dropped plan expect a plain plan: plan 1 was the wildcard one time in three, and they failed one run in three."""
+    for seed in range(60):
+        out = plan(seed=seed, brief_text=f"a duo {hook}")
+        assert out["specs"][1]["is_wildcard"] is False and sum(s["is_wildcard"] for s in out["specs"]) == 1, seed
+        assert out["specs"][1]["a"]["top"]["base_ref"] in ("p98", "p99")

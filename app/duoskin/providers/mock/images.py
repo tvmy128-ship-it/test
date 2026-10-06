@@ -78,7 +78,7 @@ class MockImages(MockBase, ImageProviderBase):
         self.record("openai", f"images.{'edit' if edit else 'generate'}", canon)
         ctx.tick()
         behaviour = self.fault("openai", tag=req.tag)
-        ctx.progress(0.5, "mock image")
+        ctx.progress(0.5, "drawing a practice picture")
         base_seed = seed_from_hash(digest)
         outs: list[bytes] = []
         for i in range(req.n):
@@ -114,11 +114,20 @@ class MockImages(MockBase, ImageProviderBase):
             return D.to_png(D.lightly_sharpened(D.decode(bytes(images[0].data))))
         if edit and mask is not None and images:
             base = D.decode(bytes(images[0].data))
-            color = pal[i % len(pal)] if len(D.colors_from_text(req.prompt)) > 1 else D.shade(pal[0], 10 * i)
+            # the colour is picked by the request's own seed (it includes the nonce): a Reimagine of a drawing made this way is a different drawing
+            # (a person pressed the button and the picture used to come back pixel for pixel the same); only colours of the prompt are used
+            named = len(D.colors_from_text(req.prompt))                  # the first `named` entries of the palette are the prompt's colours, the rest is filler
+            if named > 1:
+                color = pal[(i + rng.randrange(named)) % named]
+            else:
+                color = D.shade(pal[0], 10 * i + 4 * (rng.randrange(3) - 1))
+            color = tuple(max(0, min(255, c + rng.randrange(-3, 4))) for c in color)       # a few steps of difference: well inside the palette check's tolerance
             return D.to_png(D.paint_masked(base, bytes(mask.data), color))
         if _is_concept(req):
             return D.to_png(D.blocky_sheet(w, h, pal, rng))
-        shape = D.shape_rgba(w, h, pal[0], rng, margin=0.13 + 0.012 * (i % 5), outline=False, highlight=0.0)   # one flat palette colour (see shape_rgba)
+        # one flat palette colour (see shape_rgba); the size is jittered by the request's own seed, so that a Reimagine (a new nonce) never returns
+        # the very same picture even when it picks the same one of the five shapes
+        shape = D.shape_rgba(w, h, pal[0], rng, margin=0.12 + 0.04 * rng.random() + 0.012 * (i % 5), outline=False, highlight=0.0)
         return D.to_png(shape if req.background == "transparent" else D.over_background(shape))
 
     @staticmethod

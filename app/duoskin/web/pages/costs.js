@@ -13,7 +13,7 @@ const BASIS = /** @type {Record<string, [string, string]>} */ ({
 
 /** @param {import("../router.js").PageContext} ctx */
 export async function render(ctx) {
-  const body = h("div", {});
+  const body = h("div", { class: "page-body" });
   const projects = /** @type {any[]} */ (store.snapshot?.projects ?? []);
   const sel = h("select", { "aria-label": "Show costs for" }, h("option", { value: "" }, "All duos"), projects.map((p) => h("option", { value: p.id, selected: p.id === ctx.query.get("project") }, p.name)));
   setChildren(ctx.root, pageHeader({ title: "Costs", lead: "Every call that costs money, what we expected, and what it really cost." }), h("div", { class: "row" }, h("label", {}, "Show "), sel), body);

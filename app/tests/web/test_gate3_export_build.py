@@ -47,7 +47,7 @@ def test_candidate_shows_sides_phone_strip_poses_3d_and_the_reviews(ui, live, pl
     strip = cand.locator(".phone-strip img").first
     ui.page.wait_for_timeout(300)
     sizes = strip.evaluate("i => [i.naturalWidth, i.getBoundingClientRect().width, getComputedStyle(i).imageRendering]")
-    assert sizes[1] == sizes[0] * 2 and sizes[2] == "pixelated"                                # shown 2x with nearest-neighbour scaling
+    assert sizes[1] == sizes[0] and sizes[2] == "pixelated"                                    # shown at its own size (the pipeline already made it 2x), nearest-neighbour
     expect(cand.locator("section", has_text="five poses").locator("img")).to_have_count(1)    # the face in 5 poses, one picture
     expect(cand.locator(".reviews")).to_contain_text("The pair reads as a set from across the room.")
     expect(cand.locator(".reviews")).to_contain_text("Clone band: well clear of the nearest duo")
@@ -199,11 +199,11 @@ def test_export_not_built_yet_says_so_kindly(ui, live):
 
 
 # ------------------------------------------------------------------------------------------------------------- build
-def manual_gate(live, p, part_id="a.hair"):
+def manual_gate(live, p, part_id="a.hair", reason="made by hand"):
     j = seed.job(live.rt, p.id)
     facts = {"pack_id": "DS-moon-tea-a-hair-3fa9c1", "folder": "C:\\Users\\you\\DuoSkin Exports\\TripoPacks\\moon-tea\\DS-moon-tea-a-hair-3fa9c1",
              "return_dir": "C:\\Users\\you\\DuoSkin Exports\\TripoPacks\\moon-tea\\DS-moon-tea-a-hair-3fa9c1\\return", "inbox": "C:\\inbox",
-             "settings_text": "FREE PLAN WARNING\n1. Pick the newest model.\n2. Triangle mesh, face limit about 4000.", "reason": "made by hand", "status": "waiting"}
+             "settings_text": "FREE PLAN WARNING\n1. Pick the newest model.\n2. Triangle mesh, face limit about 4000.", "reason": reason, "status": "waiting"}
     tile = GateTile(tile_id=part_id, part_id=part_id, label="A · Hair", facts=facts, allowed_actions=allowed_actions_for(GateKind.MANUAL_IMPORT))
     return live.rt.gates.open_gate(Gate(id="", project_id=p.id, job_id=j.id, kind=GateKind.MANUAL_IMPORT, tiles=[tile], opened_at=utcnow()))
 

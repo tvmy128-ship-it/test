@@ -112,6 +112,7 @@ def test_refusal_is_not_retryable_and_carries_cost():
     e = ei.value
     assert e.kind == "refusal" and e.group == "refusal" and not e.retryable and e.billed == "yes"
     assert e.cost and e.cost["usd"] > 0 and "declined" in e.user_message.lower()
+    assert "cyber" not in e.user_message and "Try again" in e.user_message, "the category stays in the log; a person is told what to do, in plain words"
 
 
 @pytest.mark.parametrize("stop", ["max_tokens", "model_context_window_exceeded"])
