@@ -258,7 +258,9 @@ def test_the_failure_causes_are_counted_by_failure_mode_id(rt):
         add_check(rt, p.id, "A_ALPHA", passed=False, kind="hard", fm_ids=["IMG-01"])
     add_check(rt, p.id, "A_HALO", passed=False, kind="hard", fm_ids=["IMG-02"])
     causes = cal.failure_causes(rt)
-    assert causes[0] == {"fm_id": "IMG-01", "failures": 3, "check_ids": ["A_ALPHA"]} and causes[1]["fm_id"] == "IMG-02"
+    assert {k: causes[0][k] for k in ("fm_id", "failures", "check_ids")} == {"fm_id": "IMG-01", "failures": 3, "check_ids": ["A_ALPHA"]}
+    assert causes[1]["fm_id"] == "IMG-02"
+    assert "transparency" in causes[0]["label"].lower() and "A_ALPHA" not in causes[0]["label"]  # plain words, not the code
 
 
 def test_cost_per_approved_duo_counts_all_spend_but_not_regression_projects(rt):

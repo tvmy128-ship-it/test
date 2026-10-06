@@ -124,9 +124,10 @@ export async function render(ctx) {
   function causesPanel(r) {
     const rows = /** @type {any[]} */ (r.top_failure_causes ?? []);
     if (!rows.length) return null;
-    return panel({ title: "What went wrong most often", lead: "The checks that failed most, grouped by their failure id." },
-      h("div", { class: "table-wrap" }, h("table", { class: "table compact" }, h("thead", {}, h("tr", {}, ["Failure id", "Times", "Checks"].map((t) => h("th", {}, t)))),
-        h("tbody", {}, rows.map((c) => h("tr", {}, h("td", {}, String(c.fm_id)), h("td", { class: "rate-cell" }, String(c.failures)), h("td", {}, (c.check_ids ?? []).join(", "))))))));
+    // plain words on screen; the internal ids only live in the hover text, for support
+    return panel({ title: "What went wrong most often", lead: "The checks that failed most often, in plain words." },
+      h("div", { class: "table-wrap" }, h("table", { class: "table compact" }, h("thead", {}, h("tr", {}, ["What failed", "Times"].map((t) => h("th", {}, t)))),
+        h("tbody", {}, rows.map((c) => h("tr", { title: `${c.fm_id}: ${(c.check_ids ?? []).join(", ")}` }, h("td", {}, String(c.label || (c.titles ?? []).join("; ") || "A check")), h("td", { class: "rate-cell" }, String(c.failures))))))));
   }
 
   // ------------------------------------------------------------------------------------------------ the quality limits

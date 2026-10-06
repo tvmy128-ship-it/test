@@ -740,7 +740,15 @@ def failure_causes(rt: Any, limit: int = 8) -> list[dict[str, Any]]:
         for f in fm:
             counts[f] += 1
             who[f].add(r["cid"])
-    return [{"fm_id": f, "failures": n, "check_ids": sorted(who[f])} for f, n in counts.most_common(limit)]
+    def title_of(cid: str) -> str:
+        try:
+            return str(getattr(policy.meta(cid), "title", "") or cid)
+        except Exception:  # an unknown check id must not break the report
+            return cid
+
+    return [{"fm_id": f, "failures": n, "check_ids": sorted(who[f]),
+             "label": "; ".join(sorted({title_of(c) for c in who[f]})[:2]),
+             "titles": sorted({title_of(c) for c in who[f]})} for f, n in counts.most_common(limit)]
 
 
 def revisit_triggers(rt: Any) -> list[dict[str, str]]:
