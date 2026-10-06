@@ -24,7 +24,7 @@ duo checks, Gate 3 pick, export.
 | Duo checks, Gate 3, export kit (files, checklist, provenance, manifest, secret scan) | `pipeline/{duo,export}.py` | built; export of mock output is blocked |
 | Web UI: 15 pages, 9 components, three.js viewer | `duoskin/web` | built, 92 browser tests |
 | Windows install: `setup.bat`, `start.bat`, `doctor.bat`, hashed lock for Python 3.12-3.14 | `app/*.bat`, `requirements/` | written and simulated, **never run on Windows** |
-| Learning loop: label logging, weekly report, regression job, variety guard, drills | `engine/calibration.py`, `pipeline/{regression,drills}.py` | see section 4 |
+| Learning loop: label logging, weekly report, warning auto-hide, regression job over 40 fixed briefs, variety guard, drills, threshold tuner | `engine/calibration.py`, `pipeline/{regression,drills}.py`, Learning and Calibration pages | built, tested in mock mode |
 
 About 58,000 lines of Python, 4,500+ automated tests (unit, API, engine, providers, mesh, clothing, imaging, security, Windows
 hygiene, browser).
@@ -60,6 +60,12 @@ hygiene, browser).
 - Head-base kit and `kit_build.py`; hair polish round trip is optional and basic; H3.1 hair route; AI-made fabric and fold tiles
   (procedural ones ship); extra Gate 3 candidates and face alternatives; storage/GC panel and the test-day runner in the UI.
 - OpenAI streaming previews; optional-component downloads in Settings.
+- Learning loop details: the variety guard accepts a candidate change only if variety (distribution spread and mean pairwise
+  distance) drops by at most 5% and quality does not drop; warnings auto-hide when overridden on more than 25% of the last 20
+  showings (at least 8); a check that fires on more than 30% of duos is demoted to warn-only (never Roblox, IP, stray-text,
+  security or integrity checks); the threshold tuner needs about 200 labels and only moves bad-tail bounds; drills unlock after 5
+  approved duos, 20 items per session, at most 25% of labels. Candidate model arms for the regression job are an in-memory override
+  (not a saved setting). `tools/export_dreamsim_onnx.py` has never been run (it needs torch); its pins are UNVERIFIED.
 - Anything marked UNVERIFIED in the code (see section 6).
 
 ## 5. Deviations from the docs (the code wins)
