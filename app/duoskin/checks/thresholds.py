@@ -193,6 +193,18 @@ T: dict[str, tuple[Any, Status, list[str]]] = {
     "calib.wildcard_pick_rate":   (0.30, "DES", ["PLN-08"]),           # suggest more novelty weight when the wildcard is picked this often [CALIBRATE]
     "calib.first_try_approval_min": (0.50, "DES", ["CON-07"]),         # Gate 1 first-try approval below this triggers the 12-concepts review [CALIBRATE]
     "calib.variety_drop_max":     (0.05, "SPEC", ["ENG-08"]),          # variety guard on the same 40 briefs
+    # ---- keys added by the learning track (APP_SPEC 3.1, 3.8, 3.9): sample sizes and window lengths of the calibration code ----
+    "calib.override_window":      (20, "SPEC", ["ENG-10"]),            # a warning is judged on its last 20 showings
+    "calib.warning_min_showings": (8, "DES", ["ENG-10"]),              # never auto-hide on fewer showings than this (one override out of one is not 100%) [CALIBRATE]
+    "calib.demote_min_duos":      (10, "DES", ["ENG-10"]),             # a fire rate needs this many duos in which the check ran before it can demote a check [CALIBRATE]
+    "calib.tuner_min_values":     (20, "DES", ["ENG-10"]),             # approved-duo values needed per threshold before the tuner proposes a bound [CALIBRATE]
+    "calib.drill_min_duos":       (5, "SPEC", ["ENG-10"]),             # drills unlock with this many approved duos (APP_SPEC 3.8)
+    "calib.drill_session_items":  (20, "SPEC", ["ENG-10"]),            # about 20 drill items per session (10 to 15 minutes)
+    "calib.drill_variants_per_base": (5, "SPEC", ["ENG-10"]),          # at most about 5 variants of one base duo per session
+    "calib.drill_session_minutes": ((10, 15), "SPEC", ["ENG-10"]),     # the timer: a quiet clock, never a deadline
+    "calib.regression_briefs":    (40, "SPEC", ["ENG-08"]),            # the fixed regression brief set (APP_SPEC 3.9)
+    "calib.regression_sample":    (10, "SPEC", ["ENG-08"]),            # the cheaper sample the dialog offers
+    "calib.quality_drop_max":     (0.0, "SPEC", ["ENG-08"]),           # the variety guard: the candidate may not lower the quality score (0 = no drop at all)
     # ---- process ----
     "budget.per_duo_usd":         (15.0, "DES", ["ENG-05"]),
     "ladder.max_fixes_per_part":  (3, "SPEC", ["ENG-05"]),       # workflow stop rule
@@ -282,6 +294,9 @@ T: dict[str, tuple[Any, Status, list[str]]] = {
 # fmt: on
 
 _OVERRIDES: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar("duoskin_threshold_overrides", default=None)
+#: Process-wide calibrated values: tuner proposals the person accepted (``engine.calibration`` loads them from the database at start-up).
+#: A ``with overrides(...)`` block still wins over them, and the table default is used for every other name.
+_CALIBRATED: dict[str, Any] = {}
 
 
 class UnknownThreshold(KeyError):
@@ -301,6 +316,8 @@ def get(name: str) -> Any:
     if ov and name in ov:
         _entry(name)  # still validates the name
         return ov[name]
+    if name in _CALIBRATED:
+        return _CALIBRATED[name]
     return _entry(name)[0]
 
 
@@ -356,3 +373,22 @@ def overrides(values: dict[str, Any]) -> Iterator[None]:
         yield
     finally:
         _OVERRIDES.reset(tok)
+
+
+def set_calibrated(values: dict[str, Any] | None) -> dict[str, Any]:
+    """Install the process-wide calibrated values (replacing the previous set). Only tunable (DES/UNV) names are accepted; returns the set now active.
+
+    Called by ``engine.calibration.load_calibrated`` at start-up and when the person accepts a tuner proposal."""
+    clean: dict[str, Any] = {}
+    for k, v in (values or {}).items():
+        if not is_tunable(k):
+            raise ValueError(f"threshold {k!r} has status {status_of(k)} and cannot be calibrated")
+        clean[k] = v
+    _CALIBRATED.clear()
+    _CALIBRATED.update(clean)
+    return dict(_CALIBRATED)
+
+
+def calibrated() -> dict[str, Any]:
+    """A copy of the calibrated values that are active in this process."""
+    return dict(_CALIBRATED)

@@ -84,8 +84,14 @@ hygiene, browser).
    Ctrl+C. Or start the manual **windows** workflow from the repo's Actions tab: it runs setup, doctor and the tests on
    `windows-latest` for Python 3.12 to 3.14 (it never runs on push).
 2. Real keys, one cheap probe per provider (Settings > Keys > Test key), then one real duo with a low budget cap. Request shapes
-   for Claude and GPT Image were checked against the installed SDK types; Tripo, Recraft and Gemini shapes only against
-   third-party sources (see the provider module comments marked UNVERIFIED).
+   for Claude and GPT Image were checked against the installed SDK types and the Claude docs; Tripo, Recraft and Gemini shapes
+   only against third-party sources, so they are the likeliest to need a tweak on the first real call. Cheapest probes, in
+   order of how likely they are to break:
+   - Tripo: free file upload, then `image-to-multiview` (about $0.10); check the output URL host.
+   - Recraft: free `users/me`, then one vectorize (about $0.01), then one `recraftv4_1_vector` image (about $0.08).
+   - Claude: one tiny `claude-opus-5` call (under $0.001) to confirm the fallback option is accepted.
+   - OpenAI: Test key (about $0.006), then one low-quality edit with a mask and several images.
+   - Gemini (optional): free model lookup, then one judge call (about $0.002).
 3. Roblox Studio tests, in order (the helper files are written into the export kit's `studio/` folder when you export): run
    `studio/validation_rules.luau` and compare with `roblox/limits.json`; calibrate the forward axis with `calibration_arrow.gltf`; import one accessory and run **Save to Roblox** validation (do NOT click Submit, that
    pays); the Accessory Fitting Tool comparison; the Block Avatar shirt/pants test (seams 418/467, R6); the head and facial

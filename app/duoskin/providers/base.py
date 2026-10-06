@@ -513,12 +513,14 @@ CONSERVATIVE_FLAGS: dict[str, Any] = {
     "openai.rgba_image1_ok": False,
     "openai.usage_present": False,
     "recraft.background_color_honoured": False,
-    "recraft.file_field_name": "file",
+    "recraft.file_field_name": "image",
     "recraft.style_match_ok": True,
+    "recraft.response_format": "b64_json",
     "tripo.orthographic_projection": False,
     "tripo.texture_version_delight": False,
     "tripo.balance_excludes_frozen": False,
     "tripo.convert_on_file_token": False,
+    "tripo.multiview_object_inputs": False,
     "anthropic.sonnet_fallbacks": False,
 }
 

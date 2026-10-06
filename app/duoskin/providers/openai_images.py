@@ -19,6 +19,17 @@ Rules enforced here (CHK-P02, CHK-P08, GEN-01..GEN-08):
   and ``has_real_alpha`` help). ``mask`` is guidance only (the model re-renders the whole image); paste-back and the
   ring check belong to the caller.
 * Capability flags decide the mask and RGBA Image 1 rules (``openai.mask_multi_ok``, ``openai.rgba_image1_ok``).
+
+Request-shape provenance (review lens 6, offline): VERIFIED against the installed ``openai`` 3.24.0 SDK types
+(``types/image_generate_params.py``, ``types/image_edit_params.py``, ``types/image_model.py``; ``tests/providers/test_providers_real_api_shapes.py``
+checks the kwargs and the multipart wire format): the model ids ``gpt-image-2.5-flare``, ``gpt-image-2.5-sunburst`` (both also as
+``-2026-09-08`` snapshots), ``gpt-image-2`` and ``gpt-image-2-2026-04-21``; ``quality`` low/medium/high (``xhigh`` and ``max`` only on the
+2.5 models); ``size`` ``WxH`` (multiples of 16, ratio at most 3:1, at most 3840x2160, above 2560x1440 experimental); ``background``
+opaque/transparent/auto (transparent needs ``output_format`` png or webp; for ``gpt-image-2`` it is a preview); ``output_format``;
+``n`` 1..10; ``user``; edit ``image`` as a list (multipart field ``image[]``) and ``mask`` (PNG, <4 MB, alpha 0 = editable, applied to the
+first image); ``input_fidelity`` is ignored by ``gpt-image-2`` and is never sent. Responses are always base64 (``response_format`` is for
+retired models and is never sent). UNVERIFIED: the ``usage`` object on a 2.5 response (the SDK documents it for ``gpt-image-1`` only;
+a missing ``usage`` falls back to the estimate in ``pricing.openai_image_cost``) and the exact pixel / edge limits "of the model".
 """
 from __future__ import annotations
 
@@ -54,6 +65,7 @@ MAX_MASK_BYTES = 4 * 1024 * 1024
 FLATTEN_COLOR = (0xF2, 0xF2, 0xF2)
 MODEL_RE = re.compile(r"^(gpt-image-2\.5-(flare|sunburst)|gpt-image-2)(-\d{4}-\d{2}-\d{2})?$")
 SNAPSHOT_RE = re.compile(r"-\d{4}-\d{2}-\d{2}$")
+QUALITY_XHIGH_RE = re.compile(r"^gpt-image-2\.5-(flare|sunburst)")     # openai 3.24.0 image_generate_params: only these two have xhigh / max
 QUALITIES = ("low", "medium", "high", "xhigh", "max")      # never "auto"
 Quality = Literal["low", "medium", "high", "xhigh", "max"]
 DROPPABLE_PARAMS = ("user", "output_format", "background")   # dropped after a `capability` error proved them unsupported
@@ -190,6 +202,9 @@ def validate_request(req: ImageRequest, *, edit: bool, flags: CapabilityFlags | 
         raise _bad(f"model {req.model!r} is not a pinned GPT Image model (edit would default to gpt-image-1.5)", "model_not_pinned")
     if req.quality not in QUALITIES:
         raise _bad(f"quality {req.quality!r} is not one of {QUALITIES} (never 'auto')", "bad_quality")
+    if req.quality in ("xhigh", "max") and not QUALITY_XHIGH_RE.match(req.model):
+        raise _bad(f"quality {req.quality!r} exists only on gpt-image-2.5-flare / -sunburst (SDK docs); {req.model} supports low, medium, high",
+                   "quality_unsupported_for_model", "The app asked for a quality level this image model does not have. This is a bug; nothing was sent.")
     if req.background not in ("opaque", "transparent"):
         raise _bad(f"background {req.background!r} must be 'opaque' or 'transparent'", "bad_background")
     if req.output_format != "png":

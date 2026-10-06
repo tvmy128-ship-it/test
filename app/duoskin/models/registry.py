@@ -44,12 +44,17 @@ class Label(Strict):
 
 
 class CheckStat(Strict):
+    """One check in one ISO week (``window_start`` = the Monday, ``YYYY-MM-DD``). ``check_id="*gate:<kind>"`` rows hold the denominators:
+    ``approved_total`` / ``rejected_total`` count the tile decisions of that gate kind (additive fields of the learning track)."""
+
     check_id: str
     window_start: str
     flagged_approved: int = 0
     flagged_rejected: int = 0
     shown: int = 0
     overridden: int = 0
+    approved_total: int = 0
+    rejected_total: int = 0
 
 
 class InboxEntry(Strict):

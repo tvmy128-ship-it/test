@@ -26,6 +26,15 @@ DEFAULT_PRICES: dict[str, Any] = {
         "opus": {"input": 5.0, "output": 25.0},
         "sonnet": {"input": 2.0, "output": 10.0},
         "cache_read_mult": 0.1, "cache_write_5m_mult": 1.25, "cache_write_1h_mult": 2.0, "batch_mult": 0.5,
+        # Per-model rows (bundled claude-api docs, shared/models.md + prompt-caching.md, 2026-09): Opus 4.8 / Opus 5 ($5/$25) and
+        # Sonnet 5 ($2/$10) are the family rows above; these models differ. ``cache_read_mult`` overrides the family value.
+        "models": {
+            "claude-opus-5-5": {"input": 4.0, "output": 20.0, "cache_read_mult": 0.05},
+            "claude-sonnet-5-5": {"input": 2.0, "output": 10.0},
+            "claude-fable-5-1": {"input": 10.0, "output": 50.0, "cache_read_mult": 0.025},
+            "claude-fable-5": {"input": 10.0, "output": 50.0},
+            "claude-haiku-4-5": {"input": 1.0, "output": 5.0},
+        },
     },
     "openai_image": {   # USD per million tokens (Flare and Sunburst share the rates)
         "text_in": 5.0, "image_in": 8.0, "image_out": 30.0,
@@ -133,8 +142,28 @@ class PriceEstimate:
 # --------------------------------------------------------------------------------------------------------------
 
 def _claude_rates(model: str) -> dict[str, float]:
+    """Rates of one model: a ``claude.models.<id>`` row when the table has one (a newer model with its own price), else the
+    ``sonnet`` or ``opus`` family row."""
     t = prices()["claude"]
+    row = (t.get("models") or {}).get(model.lower())
+    if row:
+        return row
     return t["sonnet"] if "sonnet" in model.lower() or "haiku" in model.lower() else t["opus"]
+
+
+def combine_claude_costs(costs: list[dict[str, Any]]) -> dict[str, Any]:
+    """One cost record for the several attempts of one call (a server-side fallback chain bills every attempt at its own model's
+    rates): the usd values add up, units of the same name add up with a quantity-weighted unit price. The last attempt names the model."""
+    if len(costs) == 1:
+        return costs[0]
+    merged: dict[str, dict[str, Any]] = {}
+    for c in costs:
+        for u in c["units"]:
+            cur = merged.setdefault(u["name"], {"name": u["name"], "qty": 0.0, "usd": 0.0})
+            cur["qty"] += u["qty"]
+            cur["usd"] += u["qty"] * u["unit_price_usd"]
+    units = [{"name": m["name"], "qty": m["qty"], "unit_price_usd": (m["usd"] / m["qty"]) if m["qty"] else 0.0} for m in merged.values()]
+    return {**costs[-1], "units": units, "usd": round(sum(c["usd"] for c in costs), 6)}
 
 
 def claude_cost(model: str, usage: dict[str, int] | None, *, operation: str, request_id: str | None = None,
@@ -156,7 +185,7 @@ def claude_cost(model: str, usage: dict[str, int] | None, *, operation: str, req
     p_in, p_out = r["input"] * per, r["output"] * per
     units = [
         _unit("input_tokens", inp, p_in), _unit("output_tokens", out, p_out),
-        _unit("cache_read_tokens", cr, p_in * t["cache_read_mult"]),
+        _unit("cache_read_tokens", cr, p_in * r.get("cache_read_mult", t["cache_read_mult"])),
         _unit("cache_write_5m_tokens", w5, p_in * t["cache_write_5m_mult"]),
         _unit("cache_write_1h_tokens", w1, p_in * t["cache_write_1h_mult"]),
     ]
@@ -174,7 +203,7 @@ def estimate_claude(model: str, *, input_tokens: int, output_tokens: int, cached
     """Worst-case-ish estimate: ``output_tokens`` is the expected output, not ``max_tokens``."""
     r = _claude_rates(model)
     t = prices()["claude"]
-    usd = ((input_tokens - cached_input_tokens) * r["input"] + cached_input_tokens * r["input"] * t["cache_read_mult"]
+    usd = ((input_tokens - cached_input_tokens) * r["input"] + cached_input_tokens * r["input"] * r.get("cache_read_mult", t["cache_read_mult"])
            + output_tokens * r["output"]) * 1e-6
     if batch:
         usd *= t["batch_mult"]

@@ -20,6 +20,17 @@ Safety rules (ENG-03, ENG-06, ENG-07, ACC-05, ACC-06):
   (``glTF``, ``Kaydara FBX Binary``, ``PK``), SHA-256; a 403/404 on a signed URL re-GETs the task for fresh URLs (up to 3 times).
 * A poll soft timeout (20 minutes) marks the status ``slow`` and keeps polling; it never resubmits.
 * Signed URLs and the Bearer key are never logged or put in error messages.
+
+Request-shape provenance (review lens 6, offline). Tripo ships no SDK type for v3 and no unauthenticated OpenAPI file, so nothing here is
+verified against a vendor-published schema. The reference is ``tripo_openapi_head.yaml`` (a locally maintained OpenAPI of
+``https://developers.tripo3d.ai/en/docs``, the Tripo C# SDK source) plus the ComfyUI Tripo node: **UNVERIFIED against the vendor's
+official docs**. ``tests/providers/test_providers_real_api_shapes.py`` checks every body this module builds against that reference
+(``additionalProperties: false``: an unknown key is what the first real call would reject): paths, ``Authorization: Bearer``, multipart
+``file`` on ``POST /files`` (answer ``data.file_token``), ``inputs: [{"front": token}, ...]`` for multiview (a plain string per view is
+what the reference allows; the ``InputSourceObject`` form ``{"type": "png", "file_token": ...}`` is the fallback if Tripo rejects it),
+statuses ``queued/running/success/failed/cancelled`` (banned/expired/unknown map to failed), ``error_code`` 2008 and 2018, the output keys
+``model_url`` / ``rendered_image_url`` / ``generate_multiview_image.*_view_url``. Two endpoint-specific key sets are enforced in
+``TripoApi._create``: ``text-to-model`` has no ``orientation`` / ``texture_alignment`` and ``image-to-model`` has no ``orthographic_projection``.
 """
 from __future__ import annotations
 
@@ -51,7 +62,9 @@ from duoskin.providers.pricing import tripo_cost, tripo_credits
 
 PROVIDER = "tripo"
 API_ROOT = "https://openapi.tripo3d.ai/v3"
-DOWNLOAD_HOSTS = ("tripo-data.rg1.data.tripo3d.com", "*.tripo3d.ai")
+# [UNVERIFIED] the v3 signed-URL host: the v2 API answered from tripo-data.rg1.data.tripo3d.com (.com); the v3 API lives on .ai, so both
+# Tripo domains are allowed (a wrong guess here fails AFTER the paid task finished).
+DOWNLOAD_HOSTS = ("tripo-data.rg1.data.tripo3d.com", "*.tripo3d.ai", "*.tripo3d.com")
 MAX_DOWNLOAD_BYTES = 150 * 1024 * 1024
 P2, P1, H31 = "P2-20260801", "P1-20260311", "v3.1-20260211"
 VIEWS = ("front", "left", "back", "right")           # "left" = the SUBJECT's own left side (90 degrees)
@@ -78,6 +91,12 @@ ENDPOINTS: dict[str, str] = {
 }
 _OP_OF_PATH = {v: k for k, v in ENDPOINTS.items()}
 PAID_OPS = frozenset(set(ENDPOINTS) - {"upload", "import_model"})
+# Keys that ``P2Params.body()`` carries for the generation routes but that the endpoint's request schema does not have (reference:
+# tripo_openapi_head.yaml, ``additionalProperties: false``). Dropped from the wire body after ``check_body``.
+ENDPOINT_UNSUPPORTED_KEYS: dict[str, frozenset[str]] = {
+    "text_to_model": frozenset({"orientation", "texture_alignment"}),
+    "image_to_model": frozenset({"orthographic_projection"}),
+}
 
 
 # --------------------------------------------------------------------------------------------------------------
@@ -212,20 +231,22 @@ def check_body(b: dict[str, Any], route: str = "p2", allow: Iterable[str] = ()) 
     return b
 
 
-def views_inputs(views: dict[str, str]) -> list[dict[str, str]]:
-    """Named view objects in the fixed order: ``[{"front": tok}, {"left": tok}, ...]`` (never positional)."""
+def views_inputs(views: dict[str, str], *, as_objects: bool = False) -> list[dict[str, Any]]:
+    """Named view objects in the fixed order: ``[{"front": tok}, {"left": tok}, ...]`` (never positional). ``as_objects`` sends each token
+    as an ``InputSourceObject`` (``{"type": "png", "file_token": tok}``): the fallback form of the reference schema, used after Tripo
+    rejected the plain-string form (flag ``tripo.multiview_object_inputs``)."""
     if "front" not in views or len(views) < 2 or not set(views) <= set(VIEWS):
         raise ProviderError(PROVIDER, "bad_request", "multiview needs the front view plus at least one of left, back, right",
                             code="bad_views", billed="no")
     for v, tok in views.items():
         if not isinstance(tok, str) or not tok:
             raise ProviderError(PROVIDER, "bad_request", f"view {v!r} has no file token", code="bad_views", billed="no")
-    return [{v: views[v]} for v in VIEWS if v in views]
+    return [{v: ({"type": "png", "file_token": views[v]} if as_objects else views[v])} for v in VIEWS if v in views]
 
 
-def multiview_body(views: dict[str, str] | str, p: RouteParams) -> dict[str, Any]:
+def multiview_body(views: dict[str, str] | str, p: RouteParams, *, as_objects: bool = False) -> dict[str, Any]:
     """T3 body. A ``str`` reuses a multiview task (``inputs: [{"task_id": ...}]``)."""
-    inputs = [{"task_id": views}] if isinstance(views, str) else views_inputs(views)
+    inputs = [{"task_id": views}] if isinstance(views, str) else views_inputs(views, as_objects=as_objects)
     return {**p.body(), "inputs": inputs}
 
 
@@ -621,8 +642,19 @@ class TripoCommon:
 
     def multiview_to_model(self, views: dict[View, str] | str, p: RouteParams, *, ctx: CallCtx | None = None) -> str:
         """T3 (110 credits on P2). ``views``: named file tokens (front required), or a task id to reuse a multiview task."""
-        body = multiview_body(views, p)
-        return self._create("multiview_to_model", body, ctx, model=body["model"], route=p.route, allow=p.explicit_extras())
+        as_objects = isinstance(views, dict) and bool(self.flags.get("tripo.multiview_object_inputs"))
+        body = multiview_body(views, p, as_objects=as_objects)
+        try:
+            return self._create("multiview_to_model", body, ctx, model=body["model"], route=p.route, allow=p.explicit_extras())
+        except ProviderError as e:
+            # [UNVERIFIED] the reference allows a plain string per view; a 400/422 that blames the inputs (nothing was created, billed
+            # "no") retries ONCE with the InputSourceObject form and remembers it.
+            if (as_objects or not isinstance(views, dict) or e.kind != "bad_request" or e.http not in (400, 422)
+                    or "input" not in (e.message or "").lower()):
+                raise
+            self.flags.set("tripo.multiview_object_inputs", True)
+            body = multiview_body(views, p, as_objects=True)
+            return self._create("multiview_to_model", body, ctx, model=body["model"], route=p.route, allow=p.explicit_extras())
 
     def image_to_model(self, token: str, p: RouteParams, *, ctx: CallCtx | None = None) -> str:
         """T4 (``enable_image_autofix`` is always false)."""
@@ -846,6 +878,9 @@ class TripoApi(TripoCommon):
         ctx = ctx or CallCtx.null()
         if route is not None:
             check_body(body, route, allow)
+        drop = ENDPOINT_UNSUPPORTED_KEYS.get(op)
+        if drop and drop & body.keys():
+            body = {k: v for k, v in body.items() if k not in drop}
         if self.check_balance and op in PAID_OPS:
             self.ensure_credits(tripo_credits(op, views=views, route=route))
         self.last_body = body
@@ -978,6 +1013,7 @@ __all__ = [
     "API_ROOT",
     "DOWNLOAD_HOSTS",
     "ENDPOINTS",
+    "ENDPOINT_UNSUPPORTED_KEYS",
     "FACE_LIMIT",
     "FACE_LIMIT_RANGE",
     "FORBIDDEN_BODY_KEYS",

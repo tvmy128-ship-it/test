@@ -172,8 +172,10 @@ def test_an_approval_with_released_warnings_is_provisional_until_confirmed(rt):
     final = rt.gates.confirm(gate.id, out.decision.id, ["w1"])
     assert final.provisional is False and final.warnings_overridden == ["w1"] and final.approval is not None
     assert rt.repo.get_part(project.id, "a.shirt").state == PartState.APPROVED
-    labels = rt.db.conn().execute("SELECT kind, source, json FROM labels").fetchall()
-    assert [(r["kind"], r["source"]) for r in labels] == [("warning_override", "gate")] and "w1" in labels[0]["json"]
+    labels = rt.db.conn().execute("SELECT kind, source, json FROM labels ORDER BY rowid").fetchall()
+    # the override is a label, and so is the approval itself (the learning track logs every real gate choice, APP_SPEC 3.8)
+    assert sorted((r["kind"], r["source"]) for r in labels) == [("like_dislike", "gate"), ("warning_override", "gate")]
+    assert "w1" in next(r["json"] for r in labels if r["kind"] == "warning_override")
     with pytest.raises(ConflictError):
         rt.gates.confirm(gate.id, out.decision.id, [])                                 # already final
 

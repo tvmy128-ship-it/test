@@ -238,29 +238,29 @@ def test_create_style_rejects_svg_wrong_pairing_and_too_many():
 
 # ----- vectorize and removeBackground -------------------------------------------------------------------------------
 
-def test_vectorize_posts_file_field_and_shape_limit():
+def test_vectorize_posts_image_field_and_shape_limit():
     spy = Spy(json_response({"image": {"b64_json": b64(SVG)}}, headers={"x-request-id": "v1"}))
     p = provider(spy)
     out = p.vectorize(png_bytes(300, 300), max_num_shapes=40)
     spy.assert_hit(1)
     raw = spy.requests[0].content
     assert out == SVG and str(spy.requests[0].url).endswith("/v1/images/vectorize")
-    assert b'name="file"' in raw and b'name="max_num_shapes"' in raw and b"40" in raw and b'name="limit_num_shapes"' in raw
+    assert b'name="image"' in raw and b'name="max_num_shapes"' in raw and b"40" in raw and b'name="limit_num_shapes"' in raw
     assert b"svg_compression" not in raw
 
 
 def test_vectorize_field_name_fallback_stores_flag():
-    spy = Spy(httpx.Response(400, json={"message": "missing file"}), json_response({"image": {"b64_json": b64(SVG)}}))
+    spy = Spy(httpx.Response(400, json={"message": "missing image"}), json_response({"image": {"b64_json": b64(SVG)}}))
     flags = CapabilityFlags()
     p = provider(spy, flags=flags)
     assert p.vectorize(png_bytes(300, 300)) == SVG
     spy.assert_hit(2)
-    assert b'name="file"' in spy.requests[0].content and b'name="image"' in spy.requests[1].content
-    assert flags.get("recraft.file_field_name") == "image"
+    assert b'name="image"' in spy.requests[0].content and b'name="file"' in spy.requests[1].content
+    assert flags.get("recraft.file_field_name") == "file"
     # the stored flag is used first from now on
     spy2 = Spy(json_response({"image": {"b64_json": b64(SVG)}}))
     provider(spy2, flags=flags).vectorize(png_bytes(300, 300))
-    assert b'name="image"' in spy2.requests[0].content
+    assert b'name="file"' in spy2.requests[0].content
 
 
 def test_remove_background_returns_png_and_checks_input_limits():

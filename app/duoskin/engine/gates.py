@@ -235,6 +235,7 @@ class GateService:
             for w in t.facts.get("warnings", []) or []:
                 if not isinstance(w, dict) or "id" not in w or w["id"] in exclude:
                     continue
+                w = self._calibrated(w)                     # catch rate on rejected duos, and the auto-hide of a warning that is overridden too often (§3.1)
                 if w.get("visible", True) is False:         # auto-hidden by calibration (§3.1)
                     continue
                 if fresh_only and not w.get("fresh"):
@@ -242,6 +243,16 @@ class GateService:
                 pool.append({**w, "tile_id": t.tile_id})
         pool.sort(key=_rank_warning)
         return pool[:MAX_RELEASED_WARNINGS]
+
+    def _calibrated(self, warning: dict[str, Any]) -> dict[str, Any]:
+        """The warning with its calibrated catch rate and visibility (``engine.calibration``); a calibration problem never blocks a gate."""
+        try:
+            from duoskin.engine import calibration
+
+            return calibration.annotate_warning(self.rt, warning)
+        except Exception:
+            log.exception("calibration could not annotate a warning")
+            return warning
 
     # ------------------------------------------------------------------------------------------------ decide
     def decide(self, gate_id: str, body: GateDecisionIn) -> DecisionOutcome:
@@ -348,12 +359,19 @@ class GateService:
             if not d.provisional:
                 raise ConflictError("only a provisional decision can be withdrawn", None, code="not_provisional")
             self.repo.delete_decision(decision_id)
+            try:
+                from duoskin.engine import calibration
+
+                calibration.on_withdrawn(self.rt, d)           # going back means the warnings were heeded (§3.1)
+            except Exception:
+                log.exception("calibration could not record a withdrawn decision")
 
     # ------------------------------------------------------------------------------------------------ apply
     def _apply(self, gate: Gate, decision: GateDecision) -> GateDecision:
         project_id = gate.project_id
         tile = next(t for t in gate.tiles if t.tile_id == decision.tile_id)
         before = {t.tile_id: t.model_dump_json() for t in gate.tiles}
+        learn = self._snapshot(gate, decision)
         applier = self._appliers.get(gate.kind.value, self._apply_default)
         ac = ApplyContext(self.rt, gate, tile, decision, project_id)
         result = applier(ac) or ApplyResult()
@@ -380,6 +398,7 @@ class GateService:
             gate = gate.model_copy(update={"state": "decided", "decided_at": utcnow()})
         self.repo.save_decision(decision)
         self.repo.save_gate(gate)
+        self._learn(learn, decision)
         for t in changed:
             self.bus.emit("tile.updated", {"gate_id": gate.id, "tile_id": t.tile_id, "state": t.state.value,
                                            "version": t.version}, gate.project_id or None)
@@ -389,6 +408,26 @@ class GateService:
             self.complete_step(gate.step_id, result={"gate_id": gate.id, "decision_id": decision.id,
                                                      "action": decision.action.value, **result.step_result})
         return decision
+
+    def _snapshot(self, gate: Gate, decision: GateDecision) -> Any:
+        try:
+            from duoskin.engine import calibration
+
+            return calibration.snapshot(gate, decision)
+        except Exception:
+            log.exception("calibration could not read a decision")
+            return None
+
+    def _learn(self, snap: Any, decision: GateDecision) -> None:
+        """Every final decision is a label and feeds the check statistics (APP_SPEC §3.1: overrides, flag rates, catch rates)."""
+        if snap is None:
+            return
+        try:
+            from duoskin.engine import calibration
+
+            calibration.on_decision(self.rt, snap, decision)
+        except Exception:
+            log.exception("calibration could not record a decision")
 
     def close_gate(self, gate_id: str, state: Literal["decided", "superseded"] = "decided") -> Gate:
         """Close a gate from outside a decision (an import finished a MANUAL_IMPORT gate, a new gate replaced it)."""

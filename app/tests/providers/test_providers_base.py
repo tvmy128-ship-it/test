@@ -192,7 +192,7 @@ def test_limiter_for_is_shared_and_updated_in_place():
 def test_unknown_flags_select_the_conservative_path():
     f = B.CapabilityFlags()
     assert f.get("openai.mask_multi_ok") is False and f.get("openai.rgba_image1_ok") is False
-    assert f.get("recraft.file_field_name") == "file" and f.get("tripo.balance_excludes_frozen") is False
+    assert f.get("recraft.file_field_name") == "image" and f.get("tripo.balance_excludes_frozen") is False
     assert f.get("anthropic.sonnet_fallbacks") is False and f.get("anthropic.schema_ok.L3_planner") is True
     assert f.get("totally.unknown") is None and f.get("totally.unknown", 7) == 7
     assert not f.is_set("openai.mask_multi_ok")

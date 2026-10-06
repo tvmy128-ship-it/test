@@ -59,6 +59,7 @@ class Runtime:
         self.paths = paths
         self._settings = settings
         self._effective: Settings | None = None
+        self._model_override: dict[str, str] = {}            # in-memory candidate model snapshots (the regression job's candidate arm); never saved
         self.provider_override = parse_providers_mode(providers_mode if providers_mode is not None
                                                       else os.environ.get("DUOSKIN_PROVIDERS"))
         self.instance_id = uuid.uuid4().hex
@@ -106,14 +107,35 @@ class Runtime:
         eff = self._effective
         if eff is None:
             with self._settings_lock:
-                if self.provider_override:
+                if self.provider_override or self._model_override:
                     data = self._settings.model_dump(mode="json")
                     data["providers"]["modes"].update({k: v.value for k, v in self.provider_override.items()})
+                    data["models"].update(self._model_override)
                     eff = Settings.model_validate(data)
                 else:
                     eff = self._settings
                 self._effective = eff
         return eff
+
+    def set_model_override(self, models: dict[str, str] | None) -> dict[str, str]:
+        """Use these model snapshots (``{"planner": "claude-opus-5-20261001", ...}``) for every provider call until cleared with ``None``.
+
+        **In memory only**: nothing is written to ``settings.json``, so a restart always goes back to the saved defaults. The regression job's
+        candidate arm uses it to exercise a candidate version before the person promotes it (APP_SPEC §3.9). Returns the override now active."""
+        with self._settings_lock:
+            self._model_override = dict(models or {})
+            self._effective = None
+        try:
+            from duoskin.providers import registry as provider_registry
+
+            provider_registry.default_registry().reset()          # adapters were built with the old route table
+        except Exception:    # noqa: BLE001 - the next adapter lookup still reads the effective settings
+            log.warning("could not reset the provider adapters after a model override")
+        return dict(self._model_override)
+
+    @property
+    def model_override(self) -> dict[str, str]:
+        return dict(self._model_override)
 
     def update_settings(self, patch: dict[str, Any]) -> Settings:
         """Apply a nested partial update, persist it and return the new persisted settings."""

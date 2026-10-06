@@ -11,9 +11,20 @@
   allow-listed, auth-free ``Downloader``. Every result is magic-byte sniffed (``<svg`` vs ``PNG``).
 * Token bucket from ``LIMITER_DEFAULTS`` (100 images/min, 5 requests/s). 429 backs off with jitter (honouring
   ``Retry-After``) a few times; 5xx is retried at most twice.
-* Multipart field name for ``vectorize`` / ``removeBackground``: ``file``, falling back to ``image`` once and storing
-  the ``recraft.file_field_name`` flag [UNVERIFIED].
+* Multipart field name for ``vectorize`` / ``removeBackground``: ``image`` (what Recraft's own MCP server, generated from its API
+  spec, and the ComfyUI Recraft node send), falling back to ``file`` once and storing the ``recraft.file_field_name`` flag.
 * Every SVG still goes through ``imaging/svg.py`` before any of its pixels are used (the caller's job).
+
+Request-shape provenance (review lens 6, offline). Recraft publishes no SDK in this environment, so nothing is verified against
+Recraft's own documentation pages. The references are third-party or derived: the Recraft MCP server's generated client (an official
+Recraft repository, older API revision), the API Evangelist OpenAPI profile and the ComfyUI Recraft nodes (V4 / V4.1 era): **UNVERIFIED
+against the vendor's official docs**. ``tests/providers/test_providers_real_api_shapes.py`` checks the bodies against the union of the
+keys those sources use. Seen in two or more sources: ``POST /v1/images/generations`` with ``prompt``, ``model``, ``size``, ``n``,
+``style_id``, ``controls.colors[].rgb``, ``controls.background_color.rgb``, the V4 / V4-pro size presets, ``POST /v1/styles`` (multipart
+``style`` + ``model`` + ``file1..fileN`` in the V4 ComfyUI node; the MCP client's older shape was ``images``), ``GET /v1/users/me``
+(``credits``), answers ``data[].url|b64_json|image_id``, ``image.url`` and ``credits``. Seen in ONE source only: ``style_match``
+(ComfyUI), ``response_format="b64_json"`` (named in the API profile, never exercised by the references: a 400 about it switches the
+adapter to ``url`` once), ``limit_num_shapes`` / ``max_num_shapes`` (none; from the adapter author's memory of the docs).
 """
 from __future__ import annotations
 
@@ -231,6 +242,17 @@ class RecraftProvider:
     def response_format(self) -> str:
         return self._response_format or str(self.flags.get("recraft.response_format", "b64_json"))
 
+    def _switch_to_url(self, err: ProviderError) -> bool:
+        """``response_format="b64_json"`` is named by the API profile but no reference client ever sends it. A 400 that blames it
+        switches this adapter to ``url`` (stored in the ``recraft.response_format`` flag) once; the caller retries the same request."""
+        if err.kind != "bad_request" or self._response_format is not None or self.response_format != "b64_json":
+            return False
+        low = (err.message or "").lower()
+        if "response_format" not in low and "b64_json" not in low:
+            return False
+        self.flags.set("recraft.response_format", "url")
+        return True
+
     # ----- HTTP ---------------------------------------------------------------------------------------------
     def _map_response_error(self, resp: Any) -> ProviderError:
         try:
@@ -315,7 +337,14 @@ class RecraftProvider:
         body = build_body(req, response_format=self.response_format, style_match_ok=bool(self.flags.get("recraft.style_match_ok", True)))
         assert not set(FORBIDDEN_BODY_KEYS) & set(body), "forbidden Recraft body key"
         self.last_request = body
-        resp = self._request("POST", "/images/generations", ctx, images=req.n, json=body)
+        try:
+            resp = self._request("POST", "/images/generations", ctx, images=req.n, json=body)
+        except ProviderError as e:
+            if not self._switch_to_url(e):
+                raise
+            body = build_body(req, response_format=self.response_format, style_match_ok=bool(self.flags.get("recraft.style_match_ok", True)))
+            self.last_request = body
+            resp = self._request("POST", "/images/generations", ctx, images=req.n, json=body)
         data = self._json(resp)
         items = data.get("data") or []
         rid = resp.headers.get("x-request-id")
@@ -353,17 +382,22 @@ class RecraftProvider:
 
     # ----- utility endpoints --------------------------------------------------------------------------------
     def _file_endpoint(self, path: str, png: bytes, extra: dict[str, str], ctx: CallCtx) -> dict[str, Any]:
-        """Multipart call with the ``file`` / ``image`` field-name fallback."""
-        names = [str(self.flags.get("recraft.file_field_name", "file"))]
-        names.append("image" if names[0] == "file" else "file")
+        """Multipart call with the ``image`` / ``file`` field-name fallback (and the ``b64_json`` -> ``url`` fallback)."""
+        names = [str(self.flags.get("recraft.file_field_name", "image"))]
+        names.append("file" if names[0] == "image" else "image")
         last: ProviderError | None = None
-        for i, field_name in enumerate(names):
+        i = 0
+        while i < 2:
+            field_name = names[i]
             try:
                 resp = self._request("POST", path, ctx, files={field_name: ("image.png", png, "image/png")},
                                      data={"response_format": self.response_format, **extra})
             except ProviderError as e:
+                if self._switch_to_url(e):
+                    continue                                    # same field name, now asking for a URL
                 if e.kind == "bad_request" and i == 0:
                     last = e
+                    i += 1
                     continue
                 raise
             if i == 1:

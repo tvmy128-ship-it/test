@@ -12,6 +12,16 @@ Two roles on ``generateContent`` over httpx REST (the transport can be swapped f
 
 Model ids are pinned (no ``-latest``). An image marked private goes to Gemini only when its key is marked billed
 (CHK-P11). The key travels in the ``x-goog-api-key`` header and never appears in a URL, message or log.
+
+Request-shape provenance (review lens 6, offline): VERIFIED against the official ``google-genai`` 2.11.0 Python SDK source (the REST field
+names in ``types.py`` / the ``*_to_mldev`` converters in ``models.py``; ``tests/providers/ref/google_genai_rest_keys.json`` is extracted from it and
+``tests/providers/test_providers_real_api_shapes.py`` checks both request bodies against it): ``POST {base}/models/{model}:generateContent``,
+``x-goog-api-key``, ``contents[].parts[].inlineData{mimeType,data}``, ``generationConfig`` with ``responseMimeType``, ``responseJsonSchema``,
+``responseModalities``, ``mediaResolution`` (``MEDIA_RESOLUTION_HIGH``), ``thinkingConfig.thinkingLevel`` (MINIMAL / LOW / MEDIUM / HIGH),
+``imageConfig{aspectRatio,imageSize}`` (``1K`` / ``2K`` / ``4K``), the model ids ``gemini-3.8-flash`` and ``gemini-3.1-flash-image`` (both in the SDK's
+model list), the finish reasons ``IMAGE_SAFETY`` / ``IMAGE_PROHIBITED_CONTENT`` / ``IMAGE_RECITATION`` and the block reasons. UNVERIFIED: the
+claim that MINIMAL is invalid on 3.8 (the SDK enum lists it), which aspect ratios the image model accepts (the SDK documents 1:1, 2:3, 3:2, 3:4,
+4:3, 9:16, 16:9, 21:9) and the image price.
 """
 from __future__ import annotations
 

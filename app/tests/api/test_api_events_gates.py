@@ -227,7 +227,8 @@ def test_warnings_are_withheld_released_after_the_first_choice_and_confirmed(cli
     assert ok.status_code == 200 and ok.json()["provisional"] is False and ok.json()["warnings_overridden"] == ["w2"] and ok.json()["approval"]
     assert client.get(f"/api/projects/{project['id']}/parts/a.shirt").json()["part"]["state"] == "approved"
     labels = rt.db.conn().execute("SELECT kind, source FROM labels").fetchall()
-    assert [(x["kind"], x["source"]) for x in labels] == [("warning_override", "gate")]
+    # the override is a label, and so is the approval itself (the learning track logs every real gate choice, APP_SPEC 3.8)
+    assert sorted((x["kind"], x["source"]) for x in labels) == [("like_dislike", "gate"), ("warning_override", "gate")]
     assert client.post(f"/api/gates/{gate.id}/decisions/{dec_id}/confirm", json={}).status_code == 409
 
 

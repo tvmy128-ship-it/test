@@ -190,11 +190,27 @@ def image_blocks(images: Sequence[bytes]) -> list[dict[str, Any]]:
     return [image_block(bytes(b)) for b in images]
 
 
-def _llm_key(template_id: str, prompt: Any, schema_name: str, images: Sequence[bytes], nonce: str) -> str:
+def _llm_key(template_id: str, prompt: Any, schema_name: str, images: Sequence[bytes], nonce: str, model: str = "") -> str:
     from duoskin.prompts.system_blocks import system_sha
 
-    return sha256_of({"call": template_id, "version": prompt.template_version, "prompt": prompt.sha256, "system": system_sha(prompt.system),
-                      "schema": schema_name, "images": [pixel_sha(b) for b in images], "nonce": nonce, "kind": "llm"})
+    key = {"call": template_id, "version": prompt.template_version, "prompt": prompt.sha256, "system": system_sha(prompt.system),
+           "schema": schema_name, "images": [pixel_sha(b) for b in images], "nonce": nonce, "kind": "llm"}
+    if model:
+        key["model"] = model        # an answer from one model snapshot is never served as another one's (the regression job's candidate arm)
+    return sha256_of(key)
+
+
+ROUTE_ROLE = {"L1": "planner", "L3": "planner", "L6": "planner", "L7": "planner", "L4": "critic", "L5": "critic", "L12": "judge", "L13": "judge",
+              "L14": "judge"}
+
+
+def route_model(rt: Runtime | None, template_id: str) -> str:
+    """The model snapshot the settings pin for this template's route (``models.planner`` and so on); empty when unknown."""
+    try:
+        models = rt.effective_settings().models      # type: ignore[union-attr]
+        return str(getattr(models, ROUTE_ROLE.get(template_id.split(".")[0], "checker"), "") or "")
+    except Exception:    # noqa: BLE001 - a context without settings simply has no model in its key
+        return ""
 
 
 def llm_call(ctx: StepContext, template_id: str, inputs: dict[str, Any], *, images: Sequence[bytes] = (), counter: CallCounter | None = None,
@@ -240,7 +256,7 @@ def send_prompt(ctx: StepContext, prompt: Any, *, images: Sequence[bytes] = (), 
     rt = ctx.rt
     template_id = prompt.template_id
     schema = schema_class(prompt)
-    key = _llm_key(template_id, prompt, schema.__name__, images, nonce)
+    key = _llm_key(template_id, prompt, schema.__name__, images, nonce, route_model(rt, template_id))
     hit = rt.cache.lookup(key)
     if hit is not None and isinstance(hit.result.get("parsed"), dict):
         try:

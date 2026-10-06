@@ -15,6 +15,22 @@ One function does every model call: ``AnthropicProvider.call(route, system=..., 
   ``truncated`` too; a Pydantic failure is ``kind="validation"``. Every outcome after the request was accepted
   carries the call's ``cost`` (also pushed to ``cost_sink``), because the tokens were billed.
 * Requested and served model are both logged on the result; a cache monitor raises a SOFT alert (CHK-X04).
+
+Request-shape provenance (review lens 6, offline):
+
+* VERIFIED against the installed ``anthropic`` 1.11.0 request types (``tests/providers/test_providers_real_api_shapes.py`` validates the
+  captured wire body of every route with ``typing.get_type_hints``): ``model``, ``max_tokens``, ``stream``, ``system`` text blocks with
+  ``cache_control`` (``type``/``ttl``), ``messages`` with base64 / file image blocks, ``thinking={"type": "adaptive", "display": ...}``,
+  ``output_config={"effort": ..., "format": {"type": "json_schema", "schema": ...}}``, beta ``fallbacks="default"``, the
+  ``betas`` header values, batch ``requests[].params``.
+* VERIFIED against the bundled claude-api docs (``shared/models.md``, ``shared/model-migration.md``): model ids ``claude-opus-5`` and
+  ``claude-sonnet-5`` (aliases, no dated id); ``fallbacks: "default"`` goes with beta ``server-side-fallback-2026-07-01`` (the array
+  form needs ``-2026-06-01``; mixing them is a 400); ``thinking: {"type": "disabled"}`` 400s on Claude Opus 5.5 / Sonnet 5.5 / Fable
+  (``thinking_config`` below falls back to adaptive + ``effort: low``); a mid-stream fallback leaves the declined model's partial text
+  in ``content`` before a ``fallback`` block, and the top-level ``usage`` covers only the attempt that produced the message
+  (``usage.iterations`` is the per-attempt bill).
+* UNVERIFIED (docs silent): the 256 px minimum image side and the 2000 px edge cap above 20 images (``check_content_images``), and the
+  legacy ``client.beta.files`` path (the SDK now also has a GA ``client.files``; the pipeline does not use Files yet).
 """
 from __future__ import annotations
 
@@ -23,6 +39,7 @@ import concurrent.futures
 import copy
 import dataclasses
 import json
+import re
 import threading
 import time
 from collections.abc import Callable, Iterator, Sequence
@@ -44,7 +61,7 @@ from duoskin.providers.base import (
     request_hash,
     scrub,
 )
-from duoskin.providers.pricing import claude_cost
+from duoskin.providers.pricing import claude_cost, combine_claude_costs
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -56,6 +73,22 @@ MIN_IMAGE_SIDE = 256
 MAX_IMAGE_EDGE = 2576
 MAX_IMAGE_EDGE_MANY = 2000      # when the request carries more than 20 images
 FORBIDDEN_PARAMS = ("temperature", "top_p", "top_k", "budget_tokens")
+MAX_OUTPUT_TOKENS = 128_000        # shared/models.md: 128K max output on Opus 5 / Sonnet 5 (a doubled retry never asks for more)
+# Models whose API returns a 400 for ``thinking: {"type": "disabled"}`` (models.md / model-migration.md: Opus 5.5, Sonnet 5.5 and the
+# Fable / Mythos tiers). The documented replacement for "thinking off" there is adaptive thinking at effort ``low``.
+_THINKING_ALWAYS_ON = re.compile(r"(?:opus|sonnet)-5-\d|fable|mythos")
+
+
+def thinking_config(model: str, enabled: bool) -> dict[str, Any]:
+    """The ``thinking`` request field. Normal routes: adaptive with ``display="summarized"`` (UI only). The schema smoke test
+    (``enabled=False``) sends ``disabled`` where the model accepts it and otherwise the documented replacement, adaptive thinking
+    whose text is omitted (the caller keeps effort ``low``)."""
+    if enabled:
+        return {"type": "adaptive", "display": "summarized"}
+    if _THINKING_ALWAYS_ON.search(model):
+        return {"type": "adaptive", "display": "omitted"}
+    return {"type": "disabled"}
+
 
 Route = Literal["L1_reference", "L2_taste", "L3_planner", "L4_critic", "L5_pairwise", "L6_reviser", "L7_change",
                 "L9_hair_match", "L10_repair", "L11_checker", "L12_duo_judge", "L12_duo_review", "L13_ip",
@@ -455,6 +488,45 @@ def map_sdk_error(e: BaseException) -> ProviderError:
     return ProviderError(PROVIDER, "other", f"{type(e).__name__}: {scrub(e)}")
 
 
+def answer_text(blocks: Sequence[Any]) -> str | None:
+    """The structured-output text of a final message. Thinking blocks come first and are skipped. After a *mid-stream* server-side
+    fallback ``content`` holds the declined model's partial text, then a ``fallback`` block, then the fallback model's blocks (docs:
+    "a mid-stream block keeps the partial, marks the boundary with the block, and continues"): the answer is the text after the last
+    ``fallback`` block, or, if the fallback model continued the partial instead of restarting, all text joined; whichever parses as
+    JSON wins. Without a ``fallback`` block this is the first text block."""
+    texts = [(i, str(getattr(b, "text", ""))) for i, b in enumerate(blocks) if getattr(b, "type", "") == "text"]
+    if not texts:
+        return None
+    last_fb = max((i for i, b in enumerate(blocks) if getattr(b, "type", "") == "fallback"), default=-1)
+    if last_fb < 0:
+        return texts[0][1]
+    tail = "".join(t for i, t in texts if i > last_fb)
+    whole = "".join(t for _i, t in texts)
+    for cand in (tail, whole):
+        if cand.strip():
+            try:
+                json.loads(cand)
+            except ValueError:
+                continue
+            return cand
+    return tail or whole
+
+
+def message_cost(r: Any, usage: dict[str, int], *, served: str, requested: str, operation: str, request_id: str | None,
+                 cache_ttl: str = "5m") -> dict[str, Any]:
+    """The cost record of one final message. Top-level ``usage`` covers only the attempt that produced the message; after a server-side
+    fallback ``usage.iterations`` lists every attempt (the declined one as ``message``, the serving fallback as ``fallback_message``)
+    and each bills at its own model's rates, so the attempts are summed. A declined attempt without a ``model`` ran on the requested model."""
+    its = list(getattr(getattr(r, "usage", None), "iterations", None) or [])
+    if len(its) <= 1:
+        return claude_cost(served, usage, operation=operation, request_id=request_id, cache_ttl=cache_ttl)
+    costs = []
+    for k, it in enumerate(its):
+        model = getattr(it, "model", None) or (served if k == len(its) - 1 else requested)
+        costs.append(claude_cost(str(model), AnthropicProvider._usage_dict(it), operation=operation, request_id=request_id, cache_ttl=cache_ttl))
+    return combine_claude_costs(costs)
+
+
 def finish_call(*, route: str, cfg: RouteCfg, out: type[T], text: str | None, stop: str | None, rid: str | None, usage: dict[str, int],
                 served: str, cost: dict[str, Any], schema_hash: str, prompt_version: int, thinking_summary: str = "",
                 stop_details: Any = None) -> LLMResult[T]:
@@ -526,6 +598,8 @@ class AnthropicProvider:
     # ----- request building ---------------------------------------------------------------------------------
     def use_fallbacks(self, cfg: RouteCfg) -> bool:
         """Opus routes always; Sonnet routes only when the account allows server-side fallbacks (flag)."""
+        if self.flags.get(f"anthropic.fallbacks_off.{cfg.model}"):       # the API rejected the parameter for this model once
+            return False
         if cfg.fallbacks:
             return True
         return "sonnet" in cfg.model.lower() and bool(self.flags.get("anthropic.sonnet_fallbacks"))
@@ -539,8 +613,8 @@ class AnthropicProvider:
         cfg = cfg_override or self.routes[route]
         kw: dict[str, Any] = {
             "model": cfg.model,
-            "max_tokens": int(max_tokens_override or cfg.max_tokens),
-            "thinking": ({"type": "adaptive", "display": "summarized"} if cfg.thinking else {"type": "disabled"}),
+            "max_tokens": min(int(max_tokens_override or cfg.max_tokens), MAX_OUTPUT_TOKENS),
+            "thinking": thinking_config(cfg.model, cfg.thinking),
             "output_config": {"effort": cfg.effort, "format": {"type": "json_schema", "schema": schema}},
             "system": list(system),
             "messages": [{"role": "user", "content": list(content)}],
@@ -612,9 +686,10 @@ class AnthropicProvider:
             betas.append(FILES_BETA)
         thinking_parts: list[str] = []
         fired = False
+        with_fallbacks = self.use_fallbacks(cfg)
         try:
             with self.limiter.acquire(ctx=ctx):
-                if self.use_fallbacks(cfg):
+                if with_fallbacks:
                     mgr = self.client.beta.messages.stream(betas=[FALLBACK_BETA, *betas], fallbacks="default", **kw)
                 elif betas:
                     mgr = self.client.beta.messages.stream(betas=betas, **kw)
@@ -641,14 +716,21 @@ class AnthropicProvider:
                 self.limiter.penalize(err.retry_after_s or 5.0)
             if err.kind == "schema_too_complex":
                 self.flags.set(f"anthropic.schema_ok.{route}", False)
+            if with_fallbacks and err.kind in ("bad_request", "permission", "not_found") and "fallback" in (err.message or "").lower():
+                # The optional refusal-fallback parameter (a dated beta) was refused before anything ran (billed="no"): never let it block
+                # the call. Remember it for this model and resend the same request without it.
+                self.flags.set(f"anthropic.fallbacks_off.{cfg.model}", True)
+                return self._call(route, system=system, content=content, out=out, ctx=ctx, prompt_version=prompt_version,
+                                  max_tokens_override=max_tokens_override, on_first_event=on_first_event, cfg_override=cfg_override)
             raise err from None
 
         usage = self._usage_dict(r.usage)
         served = getattr(r, "model", None) or cfg.model
-        cost = claude_cost(served, usage, operation=f"messages.stream:{route}", request_id=rid, cache_ttl=self._cache_ttl(system))
+        cost = message_cost(r, usage, served=served, requested=cfg.model, operation=f"messages.stream:{route}", request_id=rid,
+                            cache_ttl=self._cache_ttl(system))
         self._record(cost)
         self.monitor.observe(route, usage, ttl=self._cache_ttl(system))
-        text = next((b.text for b in r.content if getattr(b, "type", "") == "text"), None)   # thinking blocks come first
+        text = answer_text(r.content)
         result = finish_call(route=route, cfg=cfg, out=out, text=text, stop=getattr(r, "stop_reason", None), rid=rid, usage=usage,
                              served=served, cost=cost, schema_hash=schema_hash, prompt_version=prompt_version,
                              thinking_summary="".join(thinking_parts), stop_details=getattr(r, "stop_details", None))
@@ -862,7 +944,8 @@ def provider_from_key(api_key: str, **kw: Any) -> AnthropicProvider:
 
 __all__ = [
     "FALLBACK_BETA", "ROUTES", "SCHEMA_CACHE", "AnthropicProvider", "BatchItem", "BatchItemResult", "CacheMonitor",
-    "LLMProvider", "LLMResult", "Route", "RouteCfg", "SchemaCache", "build_routes", "check_content_images",
+    "LLMProvider", "LLMResult", "Route", "RouteCfg", "SchemaCache", "answer_text", "build_routes", "check_content_images",
     "count_unions_and_optionals", "file_image_block", "finish_call", "image_block", "make_all_required", "map_sdk_error",
-    "prepare_judge_images", "provider_from_key", "refusal_error", "text_block", "truncated_error", "with_cache_control",
+    "message_cost", "prepare_judge_images", "provider_from_key", "refusal_error", "text_block", "thinking_config", "truncated_error",
+    "with_cache_control",
 ]
