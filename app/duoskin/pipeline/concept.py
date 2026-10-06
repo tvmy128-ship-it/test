@@ -768,6 +768,38 @@ def open_concept_gate(rt: Runtime, project_id: str) -> Gate | None:
     return next((g for g in rt.repo.list_gates(project_id, "open") if g.kind == GateKind.CONCEPT), None)
 
 
+def reopen_gate1(rt: Runtime, project_id: str) -> Gate | None:
+    """"Back to concept" on the part board (APP_SPEC 9.3): Gate 1 opens again on the plans of the plan set that was locked, the locked plan included.
+
+    Nothing is deleted: the drawings live in the concept state of the plan set, and the parts keep their approvals where the plan that is locked next
+    does not change them. The plan that was locked comes back as the plan that was drawn (its palette-locked child is replaced when it is locked
+    again); the plans that were set aside by the approval come back as shown. Before this existed the button moved the project to Gate 1 and opened
+    nothing: the person was left on an empty page (found by clicking the app through, tests/e2e_ui)."""
+    project = rt.repo.get_project(project_id)
+    spec_id = project.approved_spec_id or project.current_spec_id
+    if not spec_id or open_concept_gate(rt, project_id) is not None:
+        return None
+    locked = rt.repo.get_spec(spec_id)
+    psid = locked.plan_set_id
+    if locked.created_by == "palette_lock" and locked.parent_spec_id:
+        PL.save_spec(rt, locked.model_copy(update={"status": "superseded"}))
+        PL.save_spec(rt, rt.repo.get_spec(locked.parent_spec_id).model_copy(update={"status": "shown"}))
+    else:
+        PL.save_spec(rt, locked.model_copy(update={"status": "shown"}))
+    for rec in PL.plan_records(rt, project_id, psid, live_only=False):
+        if rec.plan_index != locked.plan_index and rec.status == "superseded":
+            PL.save_spec(rt, rec.model_copy(update={"status": "shown"}))
+    shown = shown_records(rt, project_id, psid)
+    if not shown:
+        return None
+    env = PL.get_envelope(rt, psid)
+    tiles = [tile_for(rt, project, psid, slot, rec, shown, env) for slot, rec in enumerate(shown)]
+    plan_jobs = [j for j in rt.repo.list_jobs(project_id=project_id, limit=100) if j.kind == JobKind.PLAN and j.state.value != "cancelled"]
+    job_id = max(plan_jobs, key=lambda j: j.created_at).id if plan_jobs else (project.plan_job_id or "")
+    rt.repo.set_project_stage(project_id, Stage.GATE1, bus=rt.bus)
+    return rt.gates.open_gate(Gate(id="", project_id=project_id, job_id=job_id, kind=GateKind.CONCEPT, tiles=tiles, opened_at=utcnow()))   # type: ignore[arg-type]
+
+
 def run_gate(ctx: StepContext, p: GateParams, inputs: list[Any]) -> StepResult:
     """Open Gate 1 once every plan's pictures are ready, or refresh the tiles of the gate that is already open (after a Reimagine, a Change
     or a chosen alternative). The picture checks of the plan set (CHK-G1-07) are recorded when the gate opens."""

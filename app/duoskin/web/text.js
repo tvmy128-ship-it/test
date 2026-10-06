@@ -19,8 +19,17 @@ const STAGE_INDEX = { brief: 0, planning: 1, gate1: 2, parts: 3, gate2: 3, build
 /** @param {string} stage */
 export function stageIndex(stage) { return /** @type {Record<string, number>} */ (STAGE_INDEX)[stage] ?? 0; }
 
-/** What the project is doing, in words. @param {string} stage */
-export function stageSentence(stage) {
+/**
+ * A duo that is picked but not exported yet (the export may be waiting or blocked): the pages must not ask for the pick again.
+ * @param {{stage: string}} project @param {any[]} [openGates] the snapshot's gates (`picked`) or a project's gates (with their tiles)
+ */
+export function duoPicked(project, openGates = []) {
+  return project.stage === "gate3" && openGates.some((g) => g.kind === "final_pick" && (g.picked === true || (Array.isArray(g.tiles) && g.tiles.some((/** @type {any} */ t) => t.state === "approved"))));
+}
+
+/** What the project is doing, in words. @param {string} stage @param {boolean} [picked] see `duoPicked` */
+export function stageSentence(stage, picked = false) {
+  if (picked && stage === "gate3") return "You picked the final duo. The export is next";
   return /** @type {Record<string, string>} */ ({
     brief: "Waiting for you to start the plan",
     planning: "Writing three plans",
@@ -38,7 +47,7 @@ export function stageSentence(stage) {
 /**
  * Where "the next thing to do" for a project lives.
  * @param {{id: string, stage: string}} project
- * @param {{kind: string}[]} [openGates]
+ * @param {any[]} [openGates]
  * @returns {{label: string, href: string, needsYou: boolean}}
  */
 export function nextAction(project, openGates = []) {
@@ -54,7 +63,7 @@ export function nextAction(project, openGates = []) {
     case "gate2": return { label: "Check the parts", href: `#/p/${id}/board`, needsYou };
     case "building": return { label: "Watch the build", href: `#/p/${id}/build`, needsYou };
     case "duo": return { label: "Watch the duo come together", href: `#/p/${id}/build`, needsYou };
-    case "gate3": return { label: "Pick the final duo", href: `#/p/${id}/gate3`, needsYou };
+    case "gate3": return duoPicked(project, openGates) ? { label: "Open the export page", href: `#/p/${id}/export`, needsYou } : { label: "Pick the final duo", href: `#/p/${id}/gate3`, needsYou };
     case "exporting": return { label: "See the export", href: `#/p/${id}/export`, needsYou };
     default: return { label: "Open the upload kit", href: `#/p/${id}/export`, needsYou };
   }

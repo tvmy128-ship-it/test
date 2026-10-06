@@ -65,3 +65,16 @@ def dismiss_toasts(ui) -> None:
 
 def dialog(ui):
     return ui.page.locator("dialog[open]").last
+
+
+def where_things_stand(api: Api, pid: str) -> str:
+    """The stage, the parts that are not built and every step that is not finished: what a timeout message needs to say."""
+    out = [f"stage: {api.project(pid)['project']['stage']}"]
+    out += [f"part {p['id']}: {p['state']}" for p in api.project(pid)["parts"] if p["state"] != "built"]
+    for j in api.get("/api/jobs", project_id=pid, steps="true", limit=50):
+        for s in j["steps"]:
+            if s["state"] not in ("succeeded", "superseded", "cancelled"):
+                out.append(f"step {s['kind']} {s.get('part_id') or ''}: {s['state']} remote={s.get('remote_state')} msg={s.get('message')!r} "
+                           f"error={(s.get('error') or {}).get('user_hint')!r} (job {j['job']['kind']} {j['job']['state']})")
+    out += [f"open gate {g['kind']}: {[(t['tile_id'], t['state']) for t in g['tiles']][:6]}" for g in api.gates(pid)]
+    return "\n".join(out)

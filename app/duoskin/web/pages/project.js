@@ -5,7 +5,7 @@ import { h, money, comboLabel, timeAgo, setChildren } from "../dom.js";
 import { pageHeader, panel, badge, keyValues, note, errorNote } from "../components/ui.js";
 import { confirmDialog, openDialog } from "../components/modal.js";
 import { toast } from "../components/toast.js";
-import { nextAction, stageSentence, structureLabel, gateKindLabel } from "../text.js";
+import { nextAction, stageSentence, duoPicked, structureLabel, gateKindLabel } from "../text.js";
 import { openGatePanels } from "../components/gatepanels.js";
 
 /** @param {import("../router.js").PageContext} ctx */
@@ -23,6 +23,7 @@ export async function render(ctx) {
     ctx.setTitle(p.name);
     const gates = /** @type {any[]} */ (bundle.open_gates || []);
     const na = nextAction(p, gates);
+    const picked = duoPicked(p, gates);
     const startPlan = h("button", { type: "button", class: "btn primary big" }, "Start the plan");
     startPlan.addEventListener("click", async () => {
       startPlan.disabled = true;
@@ -34,7 +35,7 @@ export async function render(ctx) {
     const refresh = async () => { await draw(); };
     const next = panel({ class: "next-card" },
       h("h2", {}, "What now?"),
-      h("p", { class: "next-sentence" }, stageSentence(p.stage)),
+      h("p", { class: "next-sentence" }, stageSentence(p.stage, picked)),
       p.stage === "brief" ? startPlan : h("a", { class: "btn primary big", href: na.href }, na.label),
       p.stage === "brief" ? h("p", { class: "muted" }, "Planning usually costs about $2 to $4.50 (an estimate). You approve one of three plans before anything bigger runs.") : null);
     const gateList = gates.length

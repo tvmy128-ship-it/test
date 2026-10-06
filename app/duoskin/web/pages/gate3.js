@@ -14,6 +14,7 @@ import { openDialog } from "../components/modal.js";
 import { openGatePanels, failedStepsPanel } from "../components/gatepanels.js";
 import { warningList } from "../components/warnings.js";
 import { toast } from "../components/toast.js";
+import { state as store } from "../store.js";
 import { nextAction, roleLabel, checkLabel } from "../text.js";
 
 const SIDES = ["front", "back", "left", "right", "three_quarter"];
@@ -113,10 +114,10 @@ function candidate(gate, t, i, project, parts, similarityOn, firstChoice, refres
   const blocking = textLines(facts.blocking);
   const pick = h("button", { type: "button", class: "btn primary big", disabled: picked || blocking.length > 0, title: blocking.length ? "Something needs fixing before you can pick this duo." : "", "data-action": "pick", onclick: async () => {
     const r = await decide(gate, t, "pick", { what: `candidate ${i + 1}` });
-    if (r.status === "done") toast("Picked. You can export the upload kit now.", { kind: "ok" });
+    if (r.status === "done") toast(store.health?.demo ? "Picked. You can open the export preview now." : "Picked. You can export the upload kit now.", { kind: "ok" });
     await refresh();
   } }, picked ? "Picked ✓" : "Pick this duo");
-  const change = h("button", { type: "button", class: "btn", "data-action": "change", onclick: () => changePart(gate, t, project.id, parts, refresh) }, "Change one part…");
+  const change = h("button", { type: "button", class: "btn", "data-action": "change", onclick: () => changePart(gate, t, project.id, parts, refresh, ctx.navigate) }, "Change one part…");
   const exportBtn = (t.allowed_actions || []).includes("export") ? h("button", { type: "button", class: "btn primary", disabled: !picked, title: picked ? "" : "Pick a duo first", "data-action": "export", onclick: async () => {
     const r = await decide(gate, t, "export");
     if (r.status !== "done") return;
@@ -127,7 +128,7 @@ function candidate(gate, t, i, project, parts, similarityOn, firstChoice, refres
     h("header", { class: "candidate-head" }, h("h2", {}, t.label || `Candidate ${i + 1}`), picked ? badge("Your pick", "ok") : null, ...(t.badges || []).filter((/** @type {string} */ b) => !/Reference-similarity/i.test(b) && !/^rebuilt since/i.test(b)).map((/** @type {string} */ b) => badge(b, /DEMO/.test(b) ? "warn" : "muted"))),
     rebuilt.length ? note(`Rebuilt since you last looked: ${rebuilt.map(humanize).join(", ")}. Picking confirms the new version.`, "warn") : null,
     blocking.length ? h("div", { class: "hard-fails", role: "note" }, h("p", { class: "hard-title" }, "Needs fixing first"), h("ul", {}, blocking.map((x) => h("li", {}, x)))) : null,
-    assets.sheet ? h("section", {}, h("h3", {}, "The whole duo"), h("div", { class: "hero" }, figure(assets.sheet, "sheet"))) : null,
+    assets.sheet ? h("section", {}, h("h3", {}, "The whole duo"), h("div", { class: "hero" }, figure(assets.sheet, "sheet", { label: "Both characters, front and back" }))) : null,
     h("section", {}, h("h3", {}, "From every side"), sideRow("a"), sideRow("b")),
     phone.length ? h("section", {}, h("h3", {}, "On a phone screen"), h("div", { class: "phone-strip" }, phone.map(([r, sha]) => h("figure", { class: "fig" }, casImage(sha, { alt: roleLabel(r), className: "pixelated" }), h("figcaption", {}, roleLabel(r)))))) : null,
     poses.length ? h("section", {}, h("h3", {}, "The face in five poses"), h("div", { class: poses.some(([r]) => r === "face_poses") ? "hero" : "strip" }, poses.map(([r, sha]) => h("figure", { class: r === "face_poses" ? "fig" : "fig small" }, casImage(sha, { alt: r === "face_poses" ? "The face in five poses" : roleLabel(r) }), r === "face_poses" ? null : h("figcaption", {}, roleLabel(r)))))) : null,
@@ -142,8 +143,8 @@ function candidate(gate, t, i, project, parts, similarityOn, firstChoice, refres
     h("footer", { class: "tile-actions" }, h("div", { class: "row" }, pick, change, exportBtn)));
 }
 
-/** @param {any} gate @param {any} tile @param {string} projectId @param {any[]} parts @param {() => Promise<void>} refresh */
-function changePart(gate, tile, projectId, parts, refresh) {
+/** @param {any} gate @param {any} tile @param {string} projectId @param {any[]} parts @param {() => Promise<void>} refresh @param {(path: string) => void} navigate */
+function changePart(gate, tile, projectId, parts, refresh, navigate) {
   /** @type {import("../components/modal.js").DialogHandle} */
   let dlg;
   const targets = parts.length ? parts.map((p) => ({ value: p.id, label: p.label })) : undefined;
@@ -155,7 +156,9 @@ function changePart(gate, tile, projectId, parts, refresh) {
       const r = await decide(gate, tile, "change", { text: label ? `[${label}] ${text}` : text });
       if (r.status === "error") throw new Error(r.message);
       dlg.close();
-      if (r.status === "done") await followChange({ projectId, changeId: r.decision?.change_request_id ?? null, afterGateIds: before, onApplied: () => { void refresh(); } });
+      const outcome = r.status === "done" ? await followChange({ projectId, changeId: r.decision?.change_request_id ?? null, afterGateIds: before }) : null;
+      // an applied change closes this gate (the duo is stale): the parts that are redone wait on the board, not on an empty "nothing to pick" page
+      if (outcome === "applied") { navigate(`/p/${projectId}/board`); return; }
       await refresh();
     },
     onCancel: () => dlg.close(),

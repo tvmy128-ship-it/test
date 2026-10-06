@@ -37,6 +37,7 @@ class Pilot:
         self.retried_in_browser: set[str] = set()
         self.seen: set[str] = set()
         self.shots = 0
+        self.build_page_seen = False
 
     # ---------------------------------------------------------------------------------------------------------- what the app says
     def failed_steps(self) -> list[dict]:
@@ -102,6 +103,12 @@ class Pilot:
                 if step["id"] not in self.seen:
                     self.seen.add(step["id"])
                     self.retry_in_browser(step, tag)
+            if not self.build_page_seen and self.stage() == "building":
+                self.build_page_seen = True                          # what a person sees while the 3D parts are made (here: through the mock Tripo API)
+                ui.goto(f"/p/{self.pid}/build")
+                expect(ui.page.locator("main .panel").first).to_be_visible(timeout=30000)
+                clean(ui, "build page", "main")
+                ui.shot(f"faults_{tag}_build", full=False)
             for gate in self.gates():
                 kind = gate["kind"]
                 tiles = gate["tiles"]
@@ -153,6 +160,13 @@ def test_a_flow_with_faults_still_ends_in_the_export_preview_and_every_failure_w
     ui.shot(f"faults_{tag}_export_preview", full=False)
     states = {p["id"]: p["state"] for p in pilot.api.project(pilot.pid)["parts"]}
     assert {s for k, s in states.items() if k != "duo"} == {"built"}, states
+    if "tripo:" in spec:                                             # the accessories went through the Tripo API (the mock), faults and all
+        models = [st for j in pilot.api.get("/api/jobs", project_id=pilot.pid, steps="true", limit=50) for st in j["steps"] if st["kind"] == "tripo.model"]
+        assert any(st["state"] == "succeeded" for st in models), [(st["part_id"], st["state"]) for st in models]
+    ui.goto(f"/p/{pilot.pid}/build")
+    expect(ui.page.locator(".build-part").first).to_be_visible(timeout=30000)
+    assert not ui.page.locator(".build-part .badge", has_text="Needs a retry").count(), "a step of the finished build still says it needs a retry"
+    clean(ui, "build page at the end", "main")
 
     # no step is charged twice for one call, and the cost bar equals the ledger
     rows = [r for r in pilot.api.get("/api/costs", project_id=pilot.pid, limit=5000)["rows"] if r["state"] in ("committed", "orphan") and r["step_id"]]

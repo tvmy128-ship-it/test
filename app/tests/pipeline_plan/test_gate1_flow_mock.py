@@ -38,6 +38,7 @@ SCENARIOS = {
     "newplan": {"brief": BRIEF},
     "cape": {"brief": BRIEF + " [mock:notbuildable]"},
     "alts": {"brief": BRIEF},
+    "back": {"brief": BRIEF},
 }
 
 
@@ -172,6 +173,31 @@ def test_choosing_the_planned_palette_keeps_every_planned_colour(client, rt, wor
     assert palette and all(e["used"] == e["planned"] for e in palette), "'keep the planned colours' never takes a colour from the picture"
     for jv in client.get("/api/jobs", params={"project_id": pid}).json():
         client.post(f"/api/jobs/{jv['job']['id']}/cancel")
+
+
+def test_back_to_concept_opens_gate_1_again_on_the_plans_that_were_drawn_and_the_locked_plan_comes_back_as_drawn(client, rt, world):
+    """The "Back to concept" button on the part board used to move the project to Gate 1 and open nothing: an empty page and no way forward (found by
+    clicking the app through, tests/e2e_ui). The plans come back with their drawings; the plan that was locked comes back as the plan that was drawn."""
+    from duoskin.pipeline import concept as CO
+
+    pid, gate = world["back"]
+    tile = tile_by_slot(gate, 0)
+    spec_id, drawn = tile["facts"]["spec_id"], dict(tile["assets"])
+    approve(client, gate, tile)
+    wait_for(lambda: client.get(f"/api/projects/{pid}").json()["project"]["stage"] == "parts", timeout=240, message="the part board stage")
+    assert not [g for g in client.get(f"/api/gates?project_id={pid}&state=open").json() if g["kind"] == "concept"]
+    locked_id = client.get(f"/api/projects/{pid}").json()["project"]["approved_spec_id"]
+    assert locked_id != spec_id
+
+    reopened = CO.reopen_gate1(rt, pid)
+    assert reopened is not None and reopened.kind.value == "concept"
+    assert rt.repo.get_project(pid).stage.value == "gate1"
+    g = concept_gate(client, pid)
+    assert [t["tile_id"] for t in g["tiles"]] == ["plan0", "plan1", "plan2"]
+    assert [t["state"] for t in g["tiles"]] == ["ready"] * 3, "every plan is there to choose, with its drawings"
+    assert g["tiles"][0]["facts"]["spec_id"] == spec_id and g["tiles"][0]["assets"] == drawn, "the plan that was locked is the plan that was drawn"
+    assert rt.repo.get_spec(spec_id).status == "shown" and rt.repo.get_spec(locked_id).status == "superseded"
+    assert CO.reopen_gate1(rt, pid) is None, "one Gate 1 at a time"
 
 
 def test_a_tile_that_is_still_being_drawn_cannot_be_approved(client, rt, world):

@@ -316,3 +316,29 @@ def test_slow_tripo_step_reads_as_normal_and_failures_have_a_hint(ui, live):
     expect(ui.page.get_by_text("1 of 2 steps done")).to_be_visible()
     ui.shot("build_progress")
     ui.no_errors()
+
+
+def test_a_part_with_many_finished_steps_folds_the_old_ones_and_keeps_what_is_happening_in_view(ui, live):
+    """A part that was drawn, checked and redrawn has dozens of finished steps (the real build page was 8000 px long): the older ones fold away."""
+    p = seed.project(live.rt, "Moon Tea", "gg", Stage.BUILDING)
+    seed.board_gate(live.rt, p)
+    j = seed.job(live.rt, p.id, JobKind.BUILD)
+    now = utcnow()
+    done = [Step(id=f"stp_done{i}", job_id=j.id, project_id=p.id, part_id="a.hair", kind="mv.check" if i % 2 else "image.draft", state=StepState.SUCCEEDED, progress=1.0,
+                 created_at=now + timedelta(seconds=i), finished_at=now) for i in range(9)]
+    live_step = Step(id="stp_now", job_id=j.id, project_id=p.id, part_id="a.hair", kind="tripo.model", pool="api", state=StepState.WAITING_REMOTE, remote_state="polling",
+                     paid=True, progress=0.4, created_at=now + timedelta(seconds=20), not_before=now + timedelta(hours=1))
+    short = Step(id="stp_short", job_id=j.id, project_id=p.id, part_id="a.shirt", kind="clothing.compose", state=StepState.SUCCEEDED, progress=1.0, created_at=now, finished_at=now)
+    live.rt.repo.insert_steps([*done, live_step, short])
+    ui.goto(f"/p/{p.id}/build")
+    part = ui.page.locator(".build-part", has_text="A · Hair")
+    expect(part.locator(".step-fold summary")).to_have_text("7 finished steps")             # 9 finished, the latest 2 stay in view
+    expect(part.locator(".step-fold .step")).to_have_count(7)
+    expect(part.locator(".step-fold .step").first).not_to_be_visible()                      # folded
+    expect(part.locator(":scope > .timeline > li.step")).to_have_count(3)                            # the 2 latest finished ones and the one in progress
+    expect(part).to_contain_text("Making the 3D model")
+    part.locator(".step-fold summary").click()
+    expect(part.locator(".step-fold .step").first).to_be_visible()
+    ui.wait_until(lambda: ui.page.locator(".build-part", has_text="A · Hair").locator(".step-fold[open]").count() == 1, 5, "the fold stays open")
+    expect(ui.page.locator(".build-part", has_text="A · Shirt").locator(".step-fold")).to_have_count(0)     # a short list is not folded
+    ui.no_errors()

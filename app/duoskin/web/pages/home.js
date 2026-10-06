@@ -6,7 +6,7 @@ import { state, subscribe, refreshSnapshot } from "../store.js";
 import { pageHeader, panel, badge, emptyState, note } from "../components/ui.js";
 import { confirmDialog } from "../components/modal.js";
 import { toast } from "../components/toast.js";
-import { nextAction, stageSentence, stageIndex, STAGES } from "../text.js";
+import { nextAction, stageSentence, duoPicked, stageIndex, STAGES } from "../text.js";
 
 /** @param {import("../router.js").PageContext} ctx */
 export async function render(ctx) {
@@ -24,7 +24,8 @@ export async function render(ctx) {
 
   /** @param {any} p */
   const card = (p) => {
-    const na = nextAction(p, state.snapshot?.open_gates.filter((g) => g.project_id === p.id) ?? []);
+    const gates = state.snapshot?.open_gates.filter((g) => g.project_id === p.id) ?? [];
+    const na = nextAction(p, gates);
     const waiting = p.waiting_on_user > 0;
     const idx = stageIndex(p.stage);
     return h("article", { class: "project-card" + (waiting ? " needs-you" : ""), dataset: { projectId: p.id } },
@@ -33,7 +34,7 @@ export async function render(ctx) {
         waiting ? badge(`${p.waiting_on_user} waiting on you`, "info") : null,
         p.paused ? badge("Paused", "warn") : null),
       h("p", { class: "pc-meta" }, comboLabel(p.combo), " · ", STAGES[idx].label, p.stage === "exported" ? " (finished)" : ""),
-      h("p", { class: "pc-stage" }, stageSentence(p.stage)),
+      h("p", { class: "pc-stage" }, stageSentence(p.stage, duoPicked(p, gates))),
       h("p", { class: "pc-cost muted" }, `Spent: ${money(p.spent_usd)} · Updated ${timeAgo(p.updated_at)}`),
       h("div", { class: "pc-actions" },
         h("a", { class: "btn " + (waiting || p.stage === "brief" ? "primary" : ""), href: na.href }, na.label),

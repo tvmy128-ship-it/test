@@ -52,6 +52,14 @@ def test_the_planner_answers_three_clean_plans_and_is_deterministic(inv):
     PlanSet.model_validate(out)
 
 
+@pytest.mark.parametrize("seed", range(12))
+def test_the_three_plans_have_three_different_themes_and_the_story_follows_the_theme(inv, seed):
+    out = plan(seed=seed)
+    themes = [s["world"]["theme"] for s in out["specs"]]
+    assert len(set(themes)) == 3, f"the plans on the screen would carry one title: {themes}"
+    assert all(s["world"]["story"].startswith(s["world"]["theme"]) for s in out["specs"])
+
+
 @pytest.mark.parametrize("brief,combo,structure", [("twin sisters", "gg", "mirror"), ("matching team jackets", "bb", "same_club"),
                                                    ("a duo in changing seasons", "bg", "seasonal_twins"), ("a girl and her plush mascot", "gb", "object_mascot")])
 def test_a_brief_that_names_a_structure_gets_it_three_times_with_one_wildcard(inv, brief, combo, structure):

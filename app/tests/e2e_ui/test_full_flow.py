@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 
 import pytest
-from e2e_helpers import Api, clean, dialog, dismiss_toasts, stage_is
+from e2e_helpers import Api, clean, dialog, dismiss_toasts, stage_is, where_things_stand
 from playwright.sync_api import expect
 
 MESHES = Path(__file__).resolve().parents[2] / "duoskin" / "providers" / "fixtures" / "meshes"
@@ -260,8 +260,9 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
         return "fits" if gate_now is None and any(s["kind"] == "build.finish" and s["state"] == "succeeded" for s in mine) else ""
 
     rejected: list[str] = []
+    reasons: dict[str, str] = {}
     fitted = ""
-    for name in ("plush_pet.glb", "icosphere_2k.glb", "rounded_box_2k.glb", "one_sided_prop.glb"):
+    for name in ("plush_pet.glb", "icosphere_2k.glb", "rounded_box_2k.glb", "one_sided_prop.glb", "hair_with_grey_head.glb"):
         ui.page.locator(".gate-panel.manual input[type=file]").set_input_files(str(MESHES / name))
         wizard = ui.page.locator(".import-wizard")
         expect(wizard).to_contain_text(f"Import {name}")
@@ -275,16 +276,18 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
         verdict = ui.wait_until(lambda seen=before_ids, og=old_gate: checked(seen, og), 240, f"the checks of {name}")
         if verdict == "fits":
             fitted = name
+            steps_when_it_fitted = {st["id"] for st in steps_of_part()}
             break
         rejected.append(name)
         ui.goto(f"/p/{pid}/build")
         why = ui.page.locator(".gate-panel.manual p.muted[role=status]")
         expect(why).not_to_contain_text("Waiting for your file. Drop it here", timeout=20000)         # the reason is shown ...
+        reasons[name] = f"{why.inner_text()} [{((api.gate(pid, 'manual_import') or {'tiles': [{}]})['tiles'][0].get('facts') or {}).get('reason')}]"
         assert not re.search(r"CHK-|IoU|\d+ rotations|[A-Z]_[A-Z]", why.inner_text()), why.inner_text()   # ... in words, not as a check code or a measurement
         clean(ui, "manual import, wrong file", "main")
         if len(rejected) == 1:
             ui.shot("20_build_wrong_model_back_to_the_drop_box")
-    assert fitted, f"none of the sample models fits the approved pictures of {part_id} (rejected: {rejected})"
+    assert fitted, f"none of the sample models fits the approved pictures of {part_id} ({manual_tile['label']}): {reasons}"
     ui.goto(f"/p/{pid}/build")
     ui.shot("20_build_after_import")
 
@@ -310,9 +313,11 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     expect(ui.page.locator("main .panel").first).to_be_visible(timeout=30000)                          # the page has its content, not the "Loading…" hint
     ui.shot("21_build_progress")
     clean(ui, "build progress")
-    ui.wait_until(lambda: api.gate(pid, "final_pick") is not None, 1500, "Gate 3 (the final pick)")
+    ui.wait_until(lambda: api.gate(pid, "final_pick") is not None, 420, "Gate 3 (the final pick)", explain=lambda: where_things_stand(api, pid))
     states = {p["id"]: p["state"] for p in api.project(pid)["parts"]}
     assert {s for k, s in states.items() if k != "duo"} == {"built"}, states
+    after_the_import = sorted({st["kind"] for st in steps_of_part() if st["id"] not in steps_when_it_fitted})
+    assert not {"tripo.model", "manual.pack"} & set(after_the_import), f"the model that was made by hand was thrown away and asked for again: {after_the_import}"
 
     # ------------------------------------------------------------------------------------------------- 5. The duo and Gate 3
     ui.page.goto(f"{live.url}/#/p/{pid}/gate3")
@@ -322,22 +327,57 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     expect(cand.locator("img").first).to_be_visible()
     expect(cand.locator(".sides")).to_have_count(2)                                                    # both characters from every side
     expect(cand).to_contain_text("The whole duo")
+    expect(cand.locator(".hero figcaption").first).to_have_text("Both characters, front and back")      # not "Concept sheet": this is the finished duo
     expect(cand).to_contain_text("On a phone screen")
     expect(cand).to_contain_text("The face in five poses")
     expect(cand).to_contain_text("DEMO")
     assert not ui.page.locator(".heads-up").count(), "no heads-up at Gate 3 before the first choice"
     clean(ui, "gate 3")
     ui.shot("22_gate3")
+
+    # ---- "Change one part...": A's shirt becomes teal. Only that part is made again, every other part stays approved and built, and the duo comes
+    # back to Gate 3 by itself
+    def stamp_of(part_id: str):
+        return next((p.get("build_stamp") or {}).get("build_hash") for p in api.project(pid)["parts"] if p["id"] == part_id)
+
+    stamps = {p["id"]: (p.get("build_stamp") or {}).get("build_hash") for p in api.project(pid)["parts"] if p["id"] != "duo"}
+    assert all(stamps.values()), stamps
+    cand.get_by_role("button", name="Change one part…").click()
+    dialog(ui).get_by_label("A · Shirt").check()
+    dialog(ui).get_by_label("What should be different?").fill("make the shirt teal")
+    ui.shot("22b_gate3_change_box", full=False)
+    dialog(ui).get_by_role("button", name="Show me the changes").click()
+    expect(dialog(ui)).to_contain_text("Confirm your change", timeout=180000)
+    clean(ui, "gate 3 change confirm", "dialog[open]")
+    ui.shot("22c_gate3_change_confirm", full=False)
+    dialog(ui).get_by_role("button", name="Confirm the change").click()
+    ui.page.wait_for_url(re.compile(r"#/p/prj_[^/]+/board$"), timeout=60000)             # an applied change leads to the board, not to an empty page
+    expect(ui.page.locator(".page-loading")).to_have_count(0, timeout=30000)
+    ui.shot("22d_gate3_change_board", full=False)
+    # the program redid the shirt for free and every approval is still there: nothing is left for the person to do, so the build and the duo run on
+    # their own (a part board that stays open with every tile approved is a dead end) and Gate 3 comes back
+    ui.wait_until(lambda: api.gate(pid, "final_pick") is not None, 600, "the duo to come back to Gate 3", explain=lambda: where_things_stand(api, pid))
+    assert {p["state"] for p in api.project(pid)["parts"] if p["id"] != "duo"} == {"built"}
+    assert all(stamp_of(k) == v for k, v in stamps.items() if k != "a.shirt"), "the other parts were not rebuilt"
+    ui.page.goto(f"{live.url}/#/p/{pid}/gate3")
+    expect(ui.page.get_by_role("heading", name="Pick the final duo")).to_be_visible()
+    cand = ui.page.locator(".candidate")
+    expect(cand).to_have_count(1)
+    expect(cand.locator("img").first).to_be_visible()
+    clean(ui, "gate 3 after the change")
+    ui.shot("22e_gate3_after_change")
     cand.get_by_role("button", name="Pick this duo").click()
     approve_anyway()
     expect(cand.get_by_role("button", name=re.compile("Picked"))).to_be_visible(timeout=60000)
+    expect(ui.page.locator(".toast", has_text="Picked.")).to_contain_text("export preview")          # demo mode never promises an upload
     assert ui.page.locator(".heads-up li").count() <= 2, "at most two heads-ups after the pick"
     clean(ui, "gate 3 after the pick")
     ui.shot("23_gate3_picked")
 
     # ------------------------------------------------------------------------------------------------- 6. Export: demo mode shows a preview
-    ui.page.goto(f"{live.url}/#/p/{pid}/export")
-    ui.page.get_by_role("button", name="Make the upload kit").click()
+    dismiss_toasts(ui)
+    cand.get_by_role("button", name="Export the upload kit").click()                                 # the button on Gate 3 packs the kit and opens the page
+    ui.page.wait_for_url(re.compile(r"#/p/prj_[^/]+/export$"), timeout=60000)
     expect(ui.page.get_by_role("heading", name="Export preview: nothing was written")).to_be_visible(timeout=300000)
     expect(ui.page.locator("main")).to_contain_text("practice")
     expect(ui.page.locator("main")).to_contain_text("What the kit would contain")
@@ -370,4 +410,23 @@ def test_the_whole_product_works_in_demo_mode_from_brief_to_export_preview(start
     rows = [r for r in api.get("/api/costs", project_id=pid, limit=5000)["rows"] if r["state"] in ("committed", "orphan")]
     keys = [(r["step_id"], r["attempt"], r["operation"], r.get("request_id")) for r in rows if r["step_id"]]
     assert len(keys) == len(set(keys)), "no step is charged twice for the same call"
+
+    # ------------------------------------------------------------------------------------------------- 8. every page opens from the top bar
+    ui.page.goto(f"{live.url}/#/p/{pid}")
+    expect(ui.page.locator("main h1")).to_have_text("Rainy Picnic")
+    expect(ui.page.locator(".next-card")).to_contain_text("You picked the final duo")                   # not "waiting for you to pick" again
+    expect(ui.page.locator(".next-card").get_by_role("link", name="Open the export page")).to_be_visible()
+    clean(ui, "the duo's page")
+    ui.shot("26_project_page")
+    for label, heading in (("Jobs", "Jobs"), ("Library", "Library"), ("Calibration", "Calibration"), ("Learning", "Learning"), ("Costs", "Costs"),
+                           ("Set up", "Set up DuoSkin Studio"), ("Settings", "Settings"), ("Your duos", "Your duos")):
+        ui.page.locator("nav.mainnav").get_by_role("link", name=label, exact=True).click()
+        expect(ui.page.locator("main h1")).to_have_text(heading, timeout=20000)
+        ui.page.wait_for_timeout(500)
+        assert not ui.page.locator(".page-loading").count(), f"{label}: still loading"
+        clean(ui, f"the {label} page", "main")
+        ui.shot(f"27_page_{label.lower().replace(' ', '_')}", full=False)
+    expect(ui.page.locator(".project-card").first).to_contain_text("Rainy Picnic")        # Home lists the duo that was made ...
+    expect(ui.page.locator(".project-card").first).to_contain_text("You picked the final duo")   # ... and does not ask for the pick again
+    expect(ui.page.locator(".project-card").first.get_by_role("link", name="Open the export page")).to_be_visible()
     ui.no_errors()

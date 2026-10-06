@@ -39,7 +39,9 @@ def state(rt: Runtime = RT) -> dict[str, Any]:
     jobs = [job_view(rt, j.id) for j in rt.repo.list_jobs(limit=60)]
     active = [j for j in jobs if j.job.state not in TERMINAL_JOB_STATES]
     recent = [j for j in jobs if j.job.state in TERMINAL_JOB_STATES][:20]
+    # "picked": the final duo is chosen and only the export is left (the pages must not ask for the pick again)
     gates = [{"id": g.id, "project_id": g.project_id, "job_id": g.job_id, "kind": g.kind.value, "tiles": len(g.tiles),
+              "picked": g.kind.value == "final_pick" and any(t.state.value == "approved" for t in g.tiles),
               "step_id": g.step_id, "opened_at": g.opened_at} for g in rt.repo.list_gates(state="open")]
     doctor = rt.doctor_report
     return {

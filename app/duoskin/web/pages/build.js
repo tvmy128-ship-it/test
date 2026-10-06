@@ -14,6 +14,8 @@ import { state as store } from "../store.js";
 import { stepLabel, stepStateLabel, partKindLabel, stateLabel, checkLabel } from "../text.js";
 
 const ACCEPT = [".glb", ".gltf", ".fbx", ".zip", ".obj", ".blend"];
+const FOLD_AFTER = 5;       // more finished steps than this in one part: the older ones fold away
+const KEEP_VISIBLE = 2;     // ... except the latest few, which stay in view
 const FREE_BANNER = "This file came from Tripo's FREE plan, so the model is public (CC BY 4.0) and carries no commercial rights. It can be used to try things out, but it can never be marked ready to sell.";
 
 /** @param {any} s */
@@ -63,6 +65,31 @@ export async function render(ctx) {
 
     const byPart = new Map();
     for (const s of steps) { const k = s.part_id || "_shared"; if (!byPart.has(k)) byPart.set(k, []); byPart.get(k).push(s); }
+    /** One line of a part's timeline. @param {any} s */
+    const stepRow = (s) => h("li", { class: `step ${s.state}` },
+      h("span", { class: "step-main" }, h("strong", {}, stepLabel(s.kind))),
+      badge(stepStateLabel(s.state), s.state === "succeeded" ? "ok" : s.state === "failed" ? "bad" : "busy"),
+      ["running", "waiting_remote"].includes(s.state) ? progress(s.progress || 0, stepLabel(s.kind)) : null,
+      stepNote(s) ? h("span", { class: "step-msg muted" }, stepNote(s)) : null,
+      s.state === "failed" ? h("span", { class: "step-error" }, s.error?.user_hint || "This step did not work.", " ", h("button", { type: "button", class: "btn small", onclick: async () => { try { await post(`/api/steps/${s.id}/retry`); await draw(); } catch (e) { toast(friendly(e), { kind: "bad" }); } } }, "Try again")) : null);
+    /** A part that has been drawn, checked and redrawn several times has dozens of finished steps: the earlier ones fold away, what is happening now stays in view. @param {string} pid @param {any[]} active */
+    const timelineRows = (pid, active) => {
+      const finishedSteps = active.filter((/** @type {any} */ s) => s.state === "succeeded");
+      const folded = new Set(finishedSteps.length > FOLD_AFTER ? finishedSteps.slice(0, -KEEP_VISIBLE) : []);
+      /** @type {any[]} */ const rows = [];
+      /** @type {HTMLElement | null} */ let list = null;
+      for (const s of active) {
+        if (!folded.has(s)) { rows.push(stepRow(s)); continue; }
+        if (!list) {
+          list = h("ol", { class: "timeline" });
+          const details = h("details", { class: "step-fold", open: keepOpen.has(`${pid}#fold`) }, h("summary", {}, `${folded.size} finished steps`), list);
+          details.addEventListener("toggle", () => { if (details.open) keepOpen.add(`${pid}#fold`); else keepOpen.delete(`${pid}#fold`); });
+          rows.push(h("li", { class: "step-fold-row" }, details));
+        }
+        list.append(stepRow(s));
+      }
+      return rows;
+    };
     const partCards = [...byPart.entries()].map(([pid, list]) => {
       const part = parts.find((p) => p.id === pid);
       const active = list.filter((/** @type {any} */ s) => !["superseded"].includes(s.state));
@@ -71,12 +98,7 @@ export async function render(ctx) {
       const d = h("details", { class: "build-part", open: keepOpen.has(pid) || !finished, dataset: { part: pid } },
         h("summary", {}, h("strong", {}, part?.label || (pid === "_shared" ? "Shared steps" : humanize(pid))), " ",
           badge(failed ? "Needs a retry" : finished ? "Done" : part ? stateLabel(part.state) : "Working", failed ? "bad" : finished ? "ok" : "busy")),
-        h("ol", { class: "timeline" }, active.map((/** @type {any} */ s) => h("li", { class: `step ${s.state}` },
-          h("span", { class: "step-main" }, h("strong", {}, stepLabel(s.kind))),
-          badge(stepStateLabel(s.state), s.state === "succeeded" ? "ok" : s.state === "failed" ? "bad" : "busy"),
-          ["running", "waiting_remote"].includes(s.state) ? progress(s.progress || 0, stepLabel(s.kind)) : null,
-          stepNote(s) ? h("span", { class: "step-msg muted" }, stepNote(s)) : null,
-          s.state === "failed" ? h("span", { class: "step-error" }, s.error?.user_hint || "This step did not work.", " ", h("button", { type: "button", class: "btn small", onclick: async () => { try { await post(`/api/steps/${s.id}/retry`); await draw(); } catch (e) { toast(friendly(e), { kind: "bad" }); } } }, "Try again")) : null))),
+        h("ol", { class: "timeline" }, timelineRows(pid, active)),
         part && ["hair", "accessory"].includes(part.kind) ? validationBlock(id, part) : null);
       d.addEventListener("toggle", () => { if (d.open) keepOpen.add(pid); else keepOpen.delete(pid); });
       return d;

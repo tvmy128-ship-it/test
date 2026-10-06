@@ -237,7 +237,11 @@ def mesh_chain(rt: Runtime, job_id: str, project_id: str, part: Part, *, source:
 
 
 def tripo_or_manual_chain(rt: Runtime, job_id: str, project_id: str, part: Part, spec: dict[str, Any], mode: str, *, priority: int = 100) -> list[Step]:
-    """API mode: ``tripo.model`` (its poll spawns the mesh chain). Manual mode (or no Tripo key): the pack and the MANUAL_IMPORT gate."""
+    """API mode: ``tripo.model`` (its poll spawns the mesh chain). Manual mode (or no Tripo key): the pack and the MANUAL_IMPORT gate.
+    A part that already has its model (made by hand on the part board before the tile was approved: it passed the 3D checks and waited for the
+    person's OK) needs neither: only the stamp is left. Build assets are cleared whenever the part is reimagined or invalidated, so they are current."""
+    if part.build_assets.get("gltf"):
+        return [_finish(rt, job_id, project_id, part, None, priority)]
     if mode == "manual" or not tripo_ok(rt):
         from duoskin.pipeline import manual_mesh
 
@@ -592,8 +596,9 @@ def maybe_start_duo(rt: Runtime, project_id: str) -> bool:
         if not ps or any(x.state != PartState.BUILT for x in ps):
             return False
         key = f"duo_start:{project_id}:" + ",".join(sorted(x.build_stamp.build_hash[:8] for x in ps if x.build_stamp))
-        if rt.repo.kv_get(key):
-            return False
+        duo_part = rt.repo.find_part(project_id, "duo")
+        if rt.repo.kv_get(key) and not (duo_part is not None and duo_part.state == PartState.STALE):      # a change that rebuilt a part to the very same bytes
+            return False                                                                                   # still leaves the duo stale: it is made again
         rt.repo.kv_set(key, True)
     duo.start_duo(rt, project_id)
     return True

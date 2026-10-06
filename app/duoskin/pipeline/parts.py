@@ -403,11 +403,36 @@ def on_part_settled(rt: Runtime, project_id: str, part_id: str, *, ctx: Any = No
         maybe_open_gate2(rt, project_id, ctx=ctx)
 
 
+def start_build_for_kept_approvals(rt: Runtime, project_id: str) -> bool:
+    """Every part is approved (or built) and at least one still has to be built: close the part board and start the BUILD.
+
+    A person who approves the last tile does this through ``_after_approval``. A part that KEPT its approval through a recompute (a change that the
+    program redoes for free, confirmed at Gate 3 or on the board) has no decision to do it: the board stayed open with every tile approved and the
+    project waited for ever (found by clicking the app through, tests/e2e_ui). Only while the project is at the parts or the board stage."""
+    with rt.db.tx():
+        parts = [p for p in rt.repo.list_parts(project_id) if p.kind != PartKind.DUO]
+        if not parts or not all(p.state in (PartState.APPROVED, PartState.BUILT) for p in parts) or not any(p.state == PartState.APPROVED for p in parts):
+            return False
+        if rt.repo.get_project(project_id).stage not in (Stage.PARTS, Stage.GATE2):
+            return False
+        for g in rt.repo.list_gates(project_id, "open"):
+            if g.kind == GateKind.PART_BOARD:
+                rt.gates.close_gate(g.id)
+                if g.step_id:
+                    rt.gates.complete_step(g.step_id, result={"gate_id": g.id, "kept_approvals": True})
+        from duoskin.pipeline import build
+
+        build.start_build(rt, project_id)
+        return True
+
+
 def maybe_open_gate2(rt: Runtime, project_id: str, *, ctx: Any = None) -> bool:
     """Open Gate 2 (or add the settled parts to the open one) once every character part is settled. Claimed atomically."""
     with rt.db.tx():
         parts = [p for p in rt.repo.list_parts(project_id) if p.kind != PartKind.DUO]
         if not parts or any(p.state not in SETTLED for p in parts):
+            return False
+        if start_build_for_kept_approvals(rt, project_id):
             return False
         project = rt.repo.get_project(project_id)
         if project.stage in (Stage.BUILDING, Stage.DUO, Stage.GATE3, Stage.EXPORTING, Stage.EXPORTED) and \
@@ -483,6 +508,8 @@ def run_gate2_open(ctx: StepContext, p: OpenParams, inputs: list[Any]) -> StepRe
     rt = ctx.rt
     project_id = p.project_id
     rt.repo.kv_set(f"gate2_pending:{project_id}", False)
+    if start_build_for_kept_approvals(rt, project_id):
+        return StepResult(message="every part kept its approval: the build starts")
     parts = [x for x in rt.repo.list_parts(project_id) if x.kind != PartKind.DUO]
     order = {k: i for i, k in enumerate(BOARD_PARTS_ORDER)}
     parts.sort(key=lambda x: (x.character, order.get({"accessory": "acc", "print": "print"}.get(x.kind.value, x.kind.value), 9), x.id))
@@ -618,15 +645,10 @@ def apply_part_board(ac: ApplyContext) -> ApplyResult | None:
         partchange.begin_change(rt, gate, tile, decision)
         return res
     if a == GateAction.BACK_TO_CONCEPT:
-        rt.repo.set_project_stage(project_id, Stage.GATE1, bus=rt.bus)
-        try:
-            from duoskin.pipeline import concept  # type: ignore[attr-defined]
+        from duoskin.pipeline import concept
 
-            reopen = getattr(concept, "reopen_gate1", None)
-            if callable(reopen):
-                reopen(rt, project_id)
-        except ImportError:
-            pass
+        rt.repo.set_project_stage(project_id, Stage.GATE1, bus=rt.bus)
+        concept.reopen_gate1(rt, project_id)          # the plans of the locked plan set, to choose from again (nothing is deleted)
         return ApplyResult(close_gate=True)
     raise GateError(f"'{a.value}' is not handled on the part board", 422, "action_not_allowed")
 

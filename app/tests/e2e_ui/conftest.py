@@ -167,18 +167,28 @@ class UI:
         if full:
             self.settle_images()
         path = SCREENSHOTS / f"{self.prefix}{name}.png"
-        _save_small(self.page.screenshot(full_page=full), path)
+        released = 0
+        if full:      # a full-page picture puts a sticky bar where the first screenful ends, on top of the content: show the page as it flows
+            released = self.page.evaluate("""() => [...document.querySelectorAll('main *')].filter((e) => getComputedStyle(e).position === 'sticky')
+              .map((e) => { e.dataset.wasSticky = '1'; e.style.position = 'static'; return e; }).length""")
+        try:
+            png = self.page.screenshot(full_page=full)
+        finally:
+            if released:
+                self.page.evaluate("document.querySelectorAll('[data-was-sticky]').forEach((e) => { e.style.position = ''; delete e.dataset.wasSticky; })")
+        _save_small(png, path)
         return path
 
-    def wait_until(self, predicate, timeout: float = 30.0, message: str = "condition"):
-        """Poll ``predicate`` while letting Playwright run its handlers (``time.sleep`` would starve them)."""
+    def wait_until(self, predicate, timeout: float = 30.0, message: str = "condition", explain=None):
+        """Poll ``predicate`` while letting Playwright run its handlers (``time.sleep`` would starve them). ``explain()`` says where things stand
+        when the time runs out (a timeout with no state is hard to read)."""
         deadline = time.monotonic() + timeout
         while True:
             value = predicate()
             if value:
                 return value
             if time.monotonic() >= deadline:
-                raise AssertionError(f"timed out after {timeout:g}s waiting for {message}")
+                raise AssertionError(f"timed out after {timeout:g}s waiting for {message}" + (f"\n{explain()}" if explain else ""))
             self.page.wait_for_timeout(100)
 
     def text(self, selector: str = "main") -> str:

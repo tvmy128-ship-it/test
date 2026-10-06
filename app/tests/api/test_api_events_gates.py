@@ -164,6 +164,17 @@ def test_get_gate_and_list(client, rt, project):
     assert client.get("/api/state").json()["open_gates"][0]["id"] == gate.id
 
 
+def test_the_snapshot_says_when_the_final_duo_is_picked_so_no_page_asks_for_the_pick_again(client, rt, project):
+    tiles = [GateTile(tile_id="cand0", label="candidate", state=TileState.READY, allowed_actions=allowed_actions_for(GateKind.FINAL_PICK, None))]
+    gate = rt.gates.open_gate(Gate(id="", project_id=project["id"], job_id="j", kind=GateKind.FINAL_PICK, tiles=tiles, opened_at=utcnow()))
+    assert [g["picked"] for g in client.get("/api/state").json()["open_gates"]] == [False]
+    rt.repo.save_gate(rt.repo.get_gate(gate.id).model_copy(update={"tiles": [tiles[0].model_copy(update={"state": TileState.APPROVED})]}))
+    assert [g["picked"] for g in client.get("/api/state").json()["open_gates"]] == [True]
+    other = make_board(rt, project["id"])
+    rt.repo.save_gate(rt.repo.get_gate(other.id).model_copy(update={"tiles": [t.model_copy(update={"state": TileState.APPROVED}) for t in other.tiles]}))
+    assert {g["kind"]: g["picked"] for g in client.get("/api/state").json()["open_gates"]}["part_board"] is False, "only the final pick can be 'picked'"
+
+
 def test_approve_through_the_api_stamps_the_part(client, rt, project):
     gate = make_board(rt, project["id"])
     r = client.post(f"/api/gates/{gate.id}/decisions", json=decision())
@@ -208,7 +219,7 @@ def test_warnings_are_withheld_released_after_the_first_choice_and_confirmed(cli
     assert r["provisional"] is True and [w["id"] for w in r["released_warnings"]] == ["w2", "w1"]    # at most 2, by catch rate
     dec_id = r["decision"]["id"]
     shown = client.get(f"/api/gates/{gate.id}").json()["tiles"][0]["facts"]["warnings"]
-    assert {w["id"] for w in shown} == {"w2", "w1"} and "w3" not in json.dumps(client.get(f"/api/gates/{gate.id}").json())
+    assert {w["id"] for w in shown} == {"w2", "w1"} and "Third" not in json.dumps(client.get(f"/api/gates/{gate.id}").json())     # (the text, not the id: a random gate id can contain "w3")
     assert client.get(f"/api/projects/{project['id']}/parts/a.shirt").json()["part"]["state"] == "ready"     # nothing started yet
     bad = client.post(f"/api/gates/{gate.id}/decisions/{dec_id}/confirm", json={"override_warnings": ["w3"]})
     assert bad.status_code == 422

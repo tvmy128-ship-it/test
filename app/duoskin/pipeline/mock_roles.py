@@ -266,9 +266,13 @@ def planner_builder(call: Any) -> dict[str, Any]:
     specs = [R._spec(inv, (i + plan_offset) % 3, structures[i], families[i], i == wildcard, combo, brief, brief_colors if i != wildcard else [], rng)
              for i in range(count)]
     used_themes = {a.get("theme") for a in avoid}
-    themes = [t for t in R.THEMES if t not in used_themes] or list(R.THEMES)
-    for i, spec in enumerate(specs):
-        spec["world"]["theme"] = _words(themes[(i + rng.randrange(len(themes))) % len(themes)], 8)
+    fresh = [t for t in R.THEMES if t not in used_themes]
+    # one theme per plan, all different (three plans with the same title read as one idea shown three times); the story follows the theme
+    themes = rng.sample(fresh, min(len(specs), len(fresh)))
+    themes += rng.sample([t for t in R.THEMES if t not in themes], len(specs) - len(themes))
+    for spec, theme in zip(specs, themes, strict=True):
+        spec["world"]["theme"] = _words(theme, 8)
+        spec["world"]["story"] = f"{_words(theme, 6)}; two friends in the same world"
     specs = _vary_objects(specs, rng, _tag(text, "recent_cards") + " " + _tag(text, "avoid"))
     for i, spec in enumerate(specs):
         _lint_ready(spec, i + plan_offset, inv)
