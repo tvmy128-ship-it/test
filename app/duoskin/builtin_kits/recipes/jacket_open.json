@@ -1,0 +1,18 @@
+{
+ "_notes": "Generated recipe (bible §6.2). See imaging/recipes.py for the schema.",
+ "recipe_id": "jacket_open",
+ "extends": "jacket_zip",
+ "template": "shirt",
+ "family": "jacket",
+ "title": "Open jacket",
+ "version": 1,
+ "cut": {
+  "front": [
+   "open",
+   "layered"
+  ]
+ },
+ "defaults": {
+  "front": "open"
+ }
+}

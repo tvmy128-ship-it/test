@@ -1,0 +1,17 @@
+{
+ "attach_frame": "HairAttachment",
+ "clump_k": 7,
+ "default_fringe": "none",
+ "id": "hair_spiky_05",
+ "length_class": "short",
+ "license": "n/a",
+ "origin": "code_generated",
+ "parting": "none",
+ "prompt_phrase": "tall swept-up spiky style",
+ "silhouette_class": "spiky",
+ "supported_adjustments": [
+  "fringe_length"
+ ],
+ "symmetric": true,
+ "tris": 140
+}

@@ -1,0 +1,372 @@
+{
+ "_notes": "Generated recipe (bible §6.2). See imaging/recipes.py for the schema.",
+ "recipe_id": "shorts",
+ "template": "pants",
+ "family": "shorts",
+ "title": "Shorts",
+ "version": 1,
+ "fold_set": "shorts_light",
+ "cut": {
+  "leg": [
+   "mini",
+   "above_knee",
+   "knee"
+  ],
+  "waist": [
+   "low",
+   "mid",
+   "high"
+  ]
+ },
+ "defaults": {
+  "leg": "above_knee",
+  "waist": "mid"
+ },
+ "params": {
+  "high_start": 150
+ },
+ "param_limits": {
+  "high_start": [
+   140,
+   166
+  ]
+ },
+ "vars": {
+  "waist_top": {
+   "attr": "waist",
+   "map": {
+    "low": 170,
+    "mid": 170,
+    "high": "$high_start"
+   },
+   "default": 170
+  },
+  "leg_hem": {
+   "attr": "leg",
+   "map": {
+    "mini": 396,
+    "above_knee": 404,
+    "knee": 412
+   },
+   "default": 404
+  }
+ },
+ "layers": [
+  {
+   "id": "torso_body",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "base",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      "$waist_top",
+      554,
+      201
+     ]
+    }
+   ],
+   "label": 1
+  },
+  {
+   "id": "torso_down",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "base",
+   "shapes": [
+    {
+     "rect": [
+      231,
+      204,
+      358,
+      267
+     ]
+    }
+   ],
+   "label": 1
+  },
+  {
+   "id": "legs",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "base",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      355,
+      570,
+      "$leg_hem"
+     ]
+    },
+    {
+     "rect": [
+      217,
+      289,
+      280,
+      352
+     ]
+    },
+    {
+     "rect": [
+      308,
+      289,
+      371,
+      352
+     ]
+    }
+   ],
+   "label": 1
+  },
+  {
+   "id": "waistband",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      "$waist_top",
+      554,
+      "$waist_top+7"
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "hem_cuff",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      "$leg_hem-3",
+      570,
+      "$leg_hem"
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "drawstring_knot",
+   "stage": "details",
+   "op": "paint",
+   "coverage": "within",
+   "colour": {
+    "role": "trim",
+    "dL": 8
+   },
+   "shapes": [
+    {
+     "ellipse": [
+      294.5,
+      "$waist_top+11",
+      5,
+      3
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "waist_line",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "rect": [
+      165,
+      "$waist_top+8",
+      554,
+      "$waist_top+8"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "drawstring_tails",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "line": [
+      [
+       292,
+       "$waist_top+13"
+      ],
+      [
+       289,
+       198
+      ]
+     ],
+     "w": 1
+    },
+    {
+     "line": [
+      [
+       297,
+       "$waist_top+13"
+      ],
+      [
+       300,
+       198
+      ]
+     ],
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "side_seam",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "line": [
+      [
+       32,
+       380
+      ],
+      [
+       32,
+       "$leg_hem-6"
+      ]
+     ],
+     "w": 1,
+     "dash": [
+      4,
+      2
+     ]
+    }
+   ],
+   "regions": [
+    "rlimb_r",
+    "llimb_l"
+   ],
+   "frame": "local_x"
+  },
+  {
+   "id": "hem_stitch",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "x",
+      "from": 0,
+      "to": 256,
+      "step": 4,
+      "w": 2,
+      "span": [
+       "$leg_hem-5",
+       "$leg_hem-5"
+      ]
+     }
+    }
+   ],
+   "regions": [
+    "?limb_[fblr]"
+   ],
+   "frame": "strip"
+  },
+  {
+   "id": "pocket_edge",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "line": [
+      [
+       236,
+       182
+      ],
+      [
+       244,
+       188
+      ],
+      [
+       248,
+       198
+      ]
+     ],
+     "w": 1
+    },
+    {
+     "line": [
+      [
+       353,
+       182
+      ],
+      [
+       345,
+       188
+      ],
+      [
+       341,
+       198
+      ]
+     ],
+     "w": 1
+    }
+   ]
+  }
+ ],
+ "print_slots": [
+  {
+   "region": "rlimb_f",
+   "role": "small",
+   "box": [
+    224,
+    380,
+    273,
+    390
+   ]
+  },
+  {
+   "region": "llimb_f",
+   "role": "small",
+   "box": [
+    315,
+    380,
+    364,
+    390
+   ]
+  },
+  {
+   "region": "rlimb_r",
+   "role": "shoe",
+   "box": [
+    156,
+    469,
+    209,
+    477
+   ]
+  },
+  {
+   "region": "llimb_l",
+   "role": "shoe",
+   "box": [
+    379,
+    469,
+    432,
+    477
+   ]
+  }
+ ]
+}

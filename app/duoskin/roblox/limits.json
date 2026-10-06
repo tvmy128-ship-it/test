@@ -1,0 +1,143 @@
+{
+  "_notes": [
+    "Roblox rigid-accessory limits used by the mesh gate (FAILURE_MODES 4.2 and 4.3, APP_SPEC 10.9).",
+    "Frame: studs, Y up. 'offset_file' is the box-centre offset from the attachment in the FILE frame we export (front = +Z).",
+    "'offset_roblox' is the same offset in Roblox's own frame (front = -Z); only the Z component differs (negated).",
+    "Sizes are W x H x D = X x Y x Z. The live AccessoryRules hold one Size and Offset per attachment: confirm with T7 (GetValidationRules; kit file studio/validation_rules.luau).",
+    "VERIFIED against creator-docs commit 0b817b5c (2026-09-26): the boxes, attachment names, the 4000-triangle and 2048-pixel limits (content/en-us/avatar/rigid-accessories/specifications.md), alpha 255 and the single mesh/material/UV set.",
+    "UNVERIFIED (the docs name the check but give no number; the figure is an earlier research value that Roblox's server flags may override): surface_area_max_stud2, coplanar_max_frac, centre_offset_max_stud, scale_min, components_max. See status_overrides.",
+    "Texts shown to the user must call these UNVERIFIED (limits.describe does this) and must never present them as Roblox's published limits."
+  ],
+  "version": "2026-10-05.2",
+  "docs_commit": "0b817b5cd955a63936bebf7b90746e34488af079 (Roblox creator-docs, 2026-09-26)",
+  "docs_sources": {
+    "boxes_and_attachments": "content/en-us/avatar/rigid-accessories/specifications.md (Body scale > Classic; Attachment points)",
+    "rigid_accessory_tris_roblox_max": "content/en-us/avatar/rigid-accessories/specifications.md (Geometry and budgets: 4k triangles)",
+    "texture_px_fail": "content/en-us/avatar/rigid-accessories/specifications.md (Textures: 2048x2048 for Marketplace assets)",
+    "texture_alpha": "content/en-us/marketplace/validation-system.md ('Texture is not fully opaque': alpha below 255 fails)",
+    "sparse_thin_island_checks": "content/en-us/marketplace/validation-system.md (sparse geometry, centred at origin, islands: named, no numbers)",
+    "live_values": "content/en-us/reference/engine/classes/AvatarCreationService.yaml (GetValidationRules)"
+  },
+  "status_overrides": {
+    "mesh.surface_area_max": "UNV",
+    "mesh.surface_area_warn": "UNV",
+    "mesh.coplanar_max_frac": "UNV",
+    "mesh.center_offset_max": "UNV",
+    "mesh.scale_min": "UNV",
+    "mesh.components_max": "UNV"
+  },
+  "scale_type": "Classic",
+  "budgets": {
+    "rigid_accessory_tris_roblox_max": 4000,
+    "export_tris_max": 3800,
+    "accessory_tris_target": 3800,
+    "hair_tris_target": 3600,
+    "texture_px_default": 1024,
+    "texture_px_small_prop": 512,
+    "texture_px_warn": 1024,
+    "texture_px_fail": 2048,
+    "surface_area_max_stud2": 70.0,
+    "surface_area_warn_stud2": 60.0,
+    "coplanar_max_frac": 0.15,
+    "centre_offset_max_stud": 1.0,
+    "scale_min": 0.01,
+    "components_max": 10,
+    "shells_warn": 8
+  },
+  "extra_thresholds": {
+    "mesh.surface_area_warn": [60.0, "DES", ["MESH-07"]],
+    "mesh.thin_part_iou_min": [0.6, "DES", ["ACC-07"]],
+    "mesh.spike_vertex_frac": [0.01, "DES", ["MESH-10"]],
+    "mesh.spike_bbox_shrink_max": [0.10, "DES", ["MESH-10"]],
+    "mesh.island_diag_frac_min": [0.005, "DES", ["MESH-09"]],
+    "mesh.sliver_area_frac_max": [0.02, "DES", ["MESH-09"]],
+    "mesh.decimate_de_max": [5.0, "DES", ["MESH-15"]],
+    "mesh.lighting_ramp_max": [0.15, "DES", ["ACC-16"]],
+    "mesh.shading_band_diff_max": [1, "DES", ["ACC-14"]],
+    "mesh.vertex_weld_stud": [1e-5, "DES", ["MESH-17"]],
+    "mesh.flat_texture_std_min": [2.0, "DES", ["MESH-04"]],
+    "mesh.max_upload_mb": [50, "DES", ["SYS-04"]],
+    "mesh.fixture_iou_min": [0.95, "DES", ["MESH-13"]],
+    "hair.depth_ratio_min": [0.30, "DES", ["HAIR-05"]],
+    "hair.skin_in_zone_max": [0.01, "DES", ["HAIR-06"]],
+    "hair.recolour_band_de_max": [5.0, "DES", ["HAIR-10"]],
+    "hair.head_box_studs": [1.2, "DER", ["HAIR-12"]],
+    "slab.bevel_stud": [0.02, "DES", ["ACC-18"]]
+  },
+  "types": {
+    "Hat": {
+      "category": "Hat",
+      "attachments": {
+        "HatAttachment": {"size": [3, 4, 3], "offset_file": [0, 0, 0], "offset_roblox": [0, 0, 0]}
+      },
+      "default_anchor": "bottom"
+    },
+    "Hair": {
+      "category": "Hair",
+      "attachments": {
+        "HairAttachment": {"size": [3, 5, 3.5], "offset_file": [0, -0.5, -0.25], "offset_roblox": [0, -0.5, 0.25]}
+      },
+      "default_anchor": "keep"
+    },
+    "Face": {
+      "category": "Face",
+      "attachments": {
+        "FaceFrontAttachment": {"size": [3, 2, 2], "offset_file": [0, 0, 0], "offset_roblox": [0, 0, 0]},
+        "FaceCenterAttachment": {"size": [3, 2, 2], "offset_file": [0, 0, 0], "offset_roblox": [0, 0, 0]}
+      },
+      "default_anchor": "back"
+    },
+    "Neck": {
+      "category": "Neck",
+      "attachments": {
+        "NeckAttachment": {"size": [3, 3, 2], "offset_file": [0, 0, 0], "offset_roblox": [0, 0, 0]}
+      },
+      "default_anchor": "centre"
+    },
+    "Shoulder": {
+      "category": "Shoulder",
+      "attachments": {
+        "RightCollarAttachment": {"size": [3, 3, 3], "offset_file": [0, 0, 0], "offset_roblox": [0, 0, 0]},
+        "LeftCollarAttachment": {"size": [3, 3, 3], "offset_file": [0, 0, 0], "offset_roblox": [0, 0, 0]},
+        "RightShoulderAttachment": {"size": [3, 3, 3], "offset_file": [0, 0, 0], "offset_roblox": [0, 0, 0]},
+        "LeftShoulderAttachment": {"size": [3, 3, 3], "offset_file": [0, 0, 0], "offset_roblox": [0, 0, 0]},
+        "NeckAttachment": {"size": [7, 3, 3], "offset_file": [0, 0, 0], "offset_roblox": [0, 0, 0]}
+      },
+      "default_anchor": "bottom"
+    },
+    "Front": {
+      "category": "Front",
+      "attachments": {
+        "BodyFrontAttachment": {"size": [3, 3, 3], "offset_file": [0, 0, 0], "offset_roblox": [0, 0, 0]}
+      },
+      "default_anchor": "back"
+    },
+    "Back": {
+      "category": "Back",
+      "attachments": {
+        "BodyBackAttachment": {"size": [10, 7, 4.5], "offset_file": [0, 0, -0.75], "offset_roblox": [0, 0, 0.75]}
+      },
+      "default_anchor": "front"
+    },
+    "Waist": {
+      "category": "Waist",
+      "attachments": {
+        "WaistFrontAttachment": {"size": [4, 3.5, 7], "offset_file": [0, -0.25, 0], "offset_roblox": [0, -0.25, 0]},
+        "WaistCenterAttachment": {"size": [4, 3.5, 7], "offset_file": [0, -0.25, 0], "offset_roblox": [0, -0.25, 0]},
+        "WaistBackAttachment": {"size": [4, 3.5, 7], "offset_file": [0, -0.25, 0], "offset_roblox": [0, -0.25, 0]}
+      },
+      "default_anchor": "centre"
+    }
+  },
+  "default_attachment": {
+    "Hat": "HatAttachment",
+    "Hair": "HairAttachment",
+    "Face": "FaceFrontAttachment",
+    "Neck": "NeckAttachment",
+    "Shoulder": "RightCollarAttachment",
+    "Front": "BodyFrontAttachment",
+    "Back": "BodyBackAttachment",
+    "Waist": "WaistFrontAttachment"
+  },
+  "no_wrist_attachment": true
+}

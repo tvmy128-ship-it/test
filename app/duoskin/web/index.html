@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="duoskin-token" content="__DUOSKIN_TOKEN__">
+<meta name="color-scheme" content="light dark">
+<title>DuoSkin Studio</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/web/shell.css">
+<link rel="stylesheet" href="/web/css/components.css">
+<link rel="stylesheet" href="/web/css/pages.css">
+<script type="importmap">{"imports":{"three":"/vendor/three/build/three.module.js","three/addons/":"/vendor/three/addons/"}}</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to the main content</a>
+<div class="shell-top">
+  <div id="demo-banner" class="demo-banner" role="status" hidden>
+    <strong>DEMO</strong>
+    <span>Nothing here can be exported. Every service is a practice stand-in, so nothing is charged.</span>
+    <a href="#/settings/providers">Turn demo mode off</a>
+  </div>
+  <div id="notice-banner" class="notice-banner" role="status" hidden></div>
+  <header class="topbar">
+    <a class="brand" href="#/" aria-label="DuoSkin Studio, home"><span class="brand-mark" aria-hidden="true">DS</span><span class="brand-name">DuoSkin Studio</span></a>
+    <nav class="mainnav" aria-label="Main">
+      <a href="#/" data-nav="/">Your duos</a>
+      <a href="#/jobs" data-nav="/jobs">Jobs</a>
+      <a href="#/library" data-nav="/library">Library</a>
+      <a href="#/calibration" data-nav="/calibration">Calibration</a>
+      <a href="#/learning" data-nav="/learning">Learning</a>
+      <a href="#/costs" data-nav="/costs">Costs</a>
+      <a href="#/setup" data-nav="/setup">Set up</a>
+      <a href="#/settings" data-nav="/settings">Settings</a>
+    </nav>
+    <span class="spacer"></span>
+    <span id="conn" class="pill" hidden></span>
+    <button id="quit" type="button" class="btn quiet">Quit</button>
+  </header>
+  <div class="subbar">
+    <div id="stagebar" class="stagebar-host"></div>
+    <div id="costbar" class="costbar" role="region" aria-label="Costs"></div>
+  </div>
+</div>
+<main id="main" tabindex="-1"></main>
+<div id="announce" class="sr" aria-live="polite"></div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<noscript><p class="panel">DuoSkin Studio needs JavaScript. Please turn it on in your browser.</p></noscript>
+<script type="module" src="/web/app.js"></script>
+</body>
+</html>

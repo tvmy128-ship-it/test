@@ -1,0 +1,362 @@
+{
+ "combo": "bg",
+ "lead": "b",
+ "is_wildcard": false,
+ "world": {
+  "theme": "one garden, two seasons",
+  "pair_structure": "seasonal_twins",
+  "structure_note": "",
+  "story": "Twins who tend the same garden, one in the spring and one in the autumn.",
+  "palette_family": "muted_vintage",
+  "material_family": "corduroy",
+  "detail_level": "minimal"
+ },
+ "shared_anchors": [
+  {
+   "kind": "motif",
+   "description": "small sprouting seed shape",
+   "on_a": "seed print on the vest chest",
+   "on_b": "seed print on the jacket back",
+   "visible_from": "front"
+  },
+  {
+   "kind": "face_detail",
+   "description": "matching blush on both cheeks",
+   "on_a": "soft round blush",
+   "on_b": "soft round blush",
+   "visible_from": "front"
+  }
+ ],
+ "contrasts": [
+  {
+   "axis": "colour_temperature",
+   "a_value": "buttercup and mint",
+   "b_value": "rust and olive"
+  },
+  {
+   "axis": "top_type",
+   "a_value": "sleeveless vest",
+   "b_value": "open jacket"
+  },
+  {
+   "axis": "bottom_type",
+   "a_value": "casual shorts",
+   "b_value": "straight jeans"
+  },
+  {
+   "axis": "hair_shape",
+   "a_value": "tousled short cut",
+   "b_value": "long loose waves"
+  },
+  {
+   "axis": "accessory_kind",
+   "a_value": "knit hat",
+   "b_value": "plush pet"
+  },
+  {
+   "axis": "expression",
+   "a_value": "cheerful",
+   "b_value": "sleepy"
+  }
+ ],
+ "palette": [
+  {
+   "id": "p1",
+   "name": "buttercup",
+   "hex": "#F2D13B",
+   "role": "a_main"
+  },
+  {
+   "id": "p2",
+   "name": "mint",
+   "hex": "#8FD6B6",
+   "role": "a_second"
+  },
+  {
+   "id": "p3",
+   "name": "rust",
+   "hex": "#A8431F",
+   "role": "b_main"
+  },
+  {
+   "id": "p4",
+   "name": "olive",
+   "hex": "#6B6B2A",
+   "role": "b_second"
+  },
+  {
+   "id": "p5",
+   "name": "cream",
+   "hex": "#F4E9D2",
+   "role": "shared"
+  },
+  {
+   "id": "p6",
+   "name": "espresso",
+   "hex": "#2A1B16",
+   "role": "line"
+  },
+  {
+   "id": "p7",
+   "name": "snow",
+   "hex": "#F5F7F8",
+   "role": "neutral_light"
+  },
+  {
+   "id": "p8",
+   "name": "honey",
+   "hex": "#C8963E",
+   "role": "hair_a"
+  },
+  {
+   "id": "p9",
+   "name": "mahogany",
+   "hex": "#5A2A22",
+   "role": "hair_b"
+  },
+  {
+   "id": "p10",
+   "name": "stone",
+   "hex": "#8A8478",
+   "role": "modesty"
+  },
+  {
+   "id": "p11",
+   "name": "dark teal",
+   "hex": "#17575B",
+   "role": "neutral_dark"
+  },
+  {
+   "id": "p12",
+   "name": "peach",
+   "hex": "#F7B48D",
+   "role": "accent"
+  }
+ ],
+ "a": {
+  "presentation": "boy",
+  "role_in_duo": "spring gardener who sows",
+  "dna": {
+   "shape_language": "round_soft",
+   "colour_plan": "mono_accent",
+   "focal_location": "chest",
+   "motif_object": "sprouting seed",
+   "accessory_style": "soft knit hat",
+   "energy": "sunny"
+  },
+  "body": {
+   "skin_tone": "tone_1",
+   "modesty_ref": "p10"
+  },
+  "face": {
+   "eye_shape": "round",
+   "iris_style": "oval_solid",
+   "highlight_style": "dual_dot",
+   "lash_style": "clean_line",
+   "brow_style": "short_round",
+   "mouth_style": "smile_line",
+   "nose_style": "dot",
+   "cheek_mark": "blush_soft",
+   "default_expression": "cheerful",
+   "iris_ref": "p11",
+   "iris_dark_ref": "p9",
+   "pupil_ref": "p6",
+   "sclera_ref": "p7",
+   "lash_ref": "p6",
+   "brow_ref": "p8",
+   "mouth_line_ref": "p6",
+   "mouth_inner_ref": "p12",
+   "tongue_ref": "p12",
+   "teeth_ref": "none",
+   "blush_ref": "p12"
+  },
+  "hair": {
+   "kit_style_id": "hair_short_crop_01",
+   "fringe_id": "kit_default",
+   "back_id": "kit_default",
+   "parting": "left",
+   "description": "tousled short cut",
+   "colour_ref": "p8",
+   "shadow_ref": "p6",
+   "highlight_ref": "none"
+  },
+  "top": {
+   "recipe_id": "vest",
+   "sleeve": "none",
+   "hem": "hip_untucked",
+   "neckline": "v_neck",
+   "front": "closed",
+   "block_layout": "solid",
+   "inner_recipe_id": "none",
+   "fabric_id": "corduroy_fine",
+   "base_ref": "p1",
+   "second_ref": "p2",
+   "trim_ref": "none",
+   "prints": [
+    {
+     "motif": "one sprouting seed",
+     "region": "torso_f",
+     "scale": "small",
+     "colour_refs": [
+      "p2",
+      "p6"
+     ]
+    }
+   ],
+   "arm_extras": []
+  },
+  "bottom": {
+   "recipe_id": "shorts",
+   "leg": "above_knee",
+   "waist": "mid",
+   "fabric_id": "twill_fine",
+   "base_ref": "p2",
+   "second_ref": "none",
+   "trim_ref": "none",
+   "prints": [],
+   "legwear": "socks_ankle",
+   "legwear_ref": "p5",
+   "shoes": {
+    "style_id": "sneaker_low",
+    "base_ref": "p5",
+    "sole_ref": "p6",
+    "accent_ref": "p1",
+    "motif": ""
+   }
+  },
+  "accessories": [
+   {
+    "kind": "small_hat",
+    "description": "soft knit hat with a small brim",
+    "category": "hat",
+    "attachment": "hat",
+    "size_class": "medium",
+    "build": "tripo",
+    "material": "knit",
+    "linked_to_partner": false,
+    "colour_refs": [
+     "p1",
+     "p5"
+    ]
+   }
+  ],
+  "makeup": {
+   "kind": "none",
+   "description": "",
+   "colour_refs": []
+  }
+ },
+ "b": {
+  "presentation": "girl",
+  "role_in_duo": "autumn gardener who gathers",
+  "dna": {
+   "shape_language": "flowing_curved",
+   "colour_plan": "ratio_70_20_10",
+   "focal_location": "back_print",
+   "motif_object": "falling leaf",
+   "accessory_style": "cosy plush friend",
+   "energy": "dreamy"
+  },
+  "body": {
+   "skin_tone": "tone_4",
+   "modesty_ref": "p10"
+  },
+  "face": {
+   "eye_shape": "sleepy",
+   "iris_style": "oval_top_band",
+   "highlight_style": "crescent_rim",
+   "lash_style": "wing",
+   "brow_style": "soft_worried",
+   "mouth_style": "cat_w",
+   "nose_style": "none",
+   "cheek_mark": "blush_soft",
+   "default_expression": "sleepy",
+   "iris_ref": "p4",
+   "iris_dark_ref": "p9",
+   "pupil_ref": "p6",
+   "sclera_ref": "p7",
+   "lash_ref": "p6",
+   "brow_ref": "p9",
+   "mouth_line_ref": "p6",
+   "mouth_inner_ref": "p12",
+   "tongue_ref": "p12",
+   "teeth_ref": "none",
+   "blush_ref": "p12"
+  },
+  "hair": {
+   "kit_style_id": "hair_wavy_06",
+   "fringe_id": "none",
+   "back_id": "kit_default",
+   "parting": "centre",
+   "description": "long loose waves past the shoulders",
+   "colour_ref": "p9",
+   "shadow_ref": "p6",
+   "highlight_ref": "none"
+  },
+  "top": {
+   "recipe_id": "jacket_open",
+   "sleeve": "long",
+   "hem": "hip_untucked",
+   "neckline": "collar",
+   "front": "open",
+   "block_layout": "solid",
+   "inner_recipe_id": "tee",
+   "fabric_id": "corduroy_fine",
+   "base_ref": "p3",
+   "second_ref": "p4",
+   "trim_ref": "p5",
+   "prints": [
+    {
+     "motif": "one falling leaf",
+     "region": "torso_b",
+     "scale": "medium",
+     "colour_refs": [
+      "p3",
+      "p6"
+     ]
+    }
+   ],
+   "arm_extras": []
+  },
+  "bottom": {
+   "recipe_id": "jeans_straight",
+   "leg": "full",
+   "waist": "mid",
+   "fabric_id": "denim_classic",
+   "base_ref": "p9",
+   "second_ref": "none",
+   "trim_ref": "p5",
+   "prints": [],
+   "legwear": "bare",
+   "legwear_ref": "none",
+   "shoes": {
+    "style_id": "loafer",
+    "base_ref": "p6",
+    "sole_ref": "p5",
+    "accent_ref": "p3",
+    "motif": ""
+   }
+  },
+  "accessories": [
+   {
+    "kind": "plush_pet",
+    "description": "small round fox plush with a fluffy tail",
+    "category": "shoulder",
+    "attachment": "left_collar",
+    "size_class": "small",
+    "build": "tripo",
+    "material": "plush",
+    "linked_to_partner": false,
+    "colour_refs": [
+     "p3",
+     "p5"
+    ]
+   }
+  ],
+  "makeup": {
+   "kind": "none",
+   "description": "",
+   "colour_refs": []
+  }
+ }
+}

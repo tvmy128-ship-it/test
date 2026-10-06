@@ -1,0 +1,31 @@
+# Windows scripts must have CRLF (cmd.exe mis-parses labels in LF files); README.txt is read in Notepad.
+*.bat text eol=crlf
+*.txt text eol=crlf
+# Everything the app reads or hashes keeps LF on every checkout, also when Git for Windows has autocrlf=true.
+*.py text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.sql text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.svg text eol=lf
+*.gltf text eol=lf
+*.lock text eol=lf
+requirements/*.txt text eol=lf
+# Binary files are never converted (a CRLF "fix" would corrupt them and change their sha256).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.glb binary
+*.fbx binary
+*.onnx binary
+*.whl binary
+*.zip binary
+*.pdf binary
+*.woff2 binary

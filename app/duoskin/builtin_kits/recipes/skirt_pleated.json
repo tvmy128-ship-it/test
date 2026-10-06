@@ -1,0 +1,353 @@
+{
+ "_notes": "Generated recipe (bible §6.2). See imaging/recipes.py for the schema.",
+ "recipe_id": "skirt_pleated",
+ "template": "pants",
+ "family": "skirt",
+ "title": "Pleated skirt",
+ "version": 1,
+ "fold_set": "skirt_pleats",
+ "cut": {
+  "leg": [
+   "mini",
+   "above_knee",
+   "knee",
+   "midi"
+  ],
+  "waist": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "fold_style": [
+   "pleated",
+   "plain"
+  ]
+ },
+ "defaults": {
+  "leg": "above_knee",
+  "waist": "mid",
+  "fold_style": "pleated"
+ },
+ "params": {
+  "high_start": 150
+ },
+ "param_limits": {
+  "high_start": [
+   140,
+   166
+  ]
+ },
+ "vars": {
+  "waist_top": {
+   "attr": "waist",
+   "map": {
+    "low": 170,
+    "mid": 170,
+    "high": "$high_start"
+   },
+   "default": 170
+  },
+  "leg_hem": {
+   "attr": "leg",
+   "map": {
+    "mini": 398,
+    "above_knee": 410,
+    "knee": 414,
+    "midi": 440,
+    "full": 440
+   },
+   "default": 410
+  }
+ },
+ "layers": [
+  {
+   "id": "torso_body",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "base",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      "$waist_top",
+      554,
+      201
+     ]
+    }
+   ],
+   "label": 1
+  },
+  {
+   "id": "torso_down",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "base",
+   "shapes": [
+    {
+     "rect": [
+      231,
+      204,
+      358,
+      267
+     ]
+    }
+   ],
+   "label": 1
+  },
+  {
+   "id": "legs",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "base",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      355,
+      570,
+      "$leg_hem"
+     ]
+    },
+    {
+     "rect": [
+      217,
+      289,
+      280,
+      352
+     ]
+    },
+    {
+     "rect": [
+      308,
+      289,
+      371,
+      352
+     ]
+    }
+   ],
+   "label": 1
+  },
+  {
+   "id": "waistband",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      "$waist_top",
+      554,
+      "$waist_top+7"
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "inner_faces",
+   "stage": "blocks",
+   "op": "shade",
+   "dL": -5,
+   "shapes": [
+    {
+     "rect": [
+      19,
+      355,
+      82,
+      "$leg_hem"
+     ]
+    },
+    {
+     "rect": [
+      506,
+      355,
+      569,
+      "$leg_hem"
+     ]
+    }
+   ],
+   "regions": [
+    "rlimb_l",
+    "llimb_r"
+   ]
+  },
+  {
+   "id": "skirt_hem",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      "$leg_hem-2",
+      570,
+      "$leg_hem"
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "waist_line",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "rect": [
+      165,
+      "$waist_top+8",
+      554,
+      "$waist_top+8"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "pleats_torso",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "x",
+      "from": 4,
+      "to": 120,
+      "step": 9,
+      "w": 1,
+      "span": [
+       178,
+       198
+      ]
+     }
+    }
+   ],
+   "regions": [
+    "torso_f",
+    "torso_b"
+   ],
+   "when": {
+    "fold_style": "pleated"
+   },
+   "frame": "local_x"
+  },
+  {
+   "id": "pleats_legs",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "x",
+      "from": 4,
+      "to": 60,
+      "step": 9,
+      "w": 1,
+      "span": [
+       380,
+       "$leg_hem-4"
+      ]
+     }
+    }
+   ],
+   "regions": [
+    "rlimb_f",
+    "rlimb_b",
+    "rlimb_r",
+    "llimb_f",
+    "llimb_b",
+    "llimb_l"
+   ],
+   "when": {
+    "fold_style": "pleated"
+   },
+   "frame": "local_x"
+  },
+  {
+   "id": "hem_stitch",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "x",
+      "from": 0,
+      "to": 256,
+      "step": 4,
+      "w": 2,
+      "span": [
+       "$leg_hem-4",
+       "$leg_hem-4"
+      ]
+     }
+    }
+   ],
+   "regions": [
+    "?limb_[fblr]"
+   ],
+   "frame": "strip"
+  }
+ ],
+ "print_slots": [
+  {
+   "region": "torso_f",
+   "role": "small",
+   "box": [
+    243,
+    180,
+    346,
+    196
+   ]
+  },
+  {
+   "region": "rlimb_f",
+   "role": "small",
+   "box": [
+    224,
+    380,
+    273,
+    392
+   ]
+  },
+  {
+   "region": "llimb_f",
+   "role": "small",
+   "box": [
+    315,
+    380,
+    364,
+    392
+   ]
+  },
+  {
+   "region": "rlimb_r",
+   "role": "shoe",
+   "box": [
+    156,
+    469,
+    209,
+    477
+   ]
+  },
+  {
+   "region": "llimb_l",
+   "role": "shoe",
+   "box": [
+    379,
+    469,
+    432,
+    477
+   ]
+  }
+ ]
+}

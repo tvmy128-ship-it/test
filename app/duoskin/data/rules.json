@@ -1,0 +1,570 @@
+{
+ "version": 1,
+ "rules": [
+  {
+   "id": "ip_no_brand",
+   "group": "Always-on",
+   "statement": "No logo, brand mark, trademark-like symbol, mascot of a company, or platform icon is visible anywhere.",
+   "hard": true,
+   "used_by": "every asset, concept, duo, and the face-on-head pose sheet (C4), the I4 hair front and its T1 views, and the Gate 2 per-character composite (face on head + hair front)"
+  },
+  {
+   "id": "ip_no_known_character",
+   "group": "Always-on",
+   "statement": "Nothing depicts or closely imitates a well-known character from games, anime, films, cartoons or toys.",
+   "hard": true,
+   "used_by": "concept, prints, badges, accessories, duo, and the face-on-head pose sheet (C4), the I4 hair front and its T1 views, and the Gate 2 per-character composite (a signature hairstyle plus face is the likeliest anime look-alike, so it is caught before BUILD, not first at export)"
+  },
+  {
+   "id": "ip_no_text",
+   "group": "Always-on",
+   "statement": "No letters, numbers, words or letter-like marks (in any script) are visible.",
+   "hard": true,
+   "used_by": "every asset, including the face pose sheet, hair front and Gate 2 composite"
+  },
+  {
+   "id": "ip_age_appropriate",
+   "group": "Always-on",
+   "statement": "Torso and hips are covered by clothing or by a plain base layer, as everyday casual wear; nothing is suggestive, revealing, violent, or crude, and no hate or drug symbols appear.",
+   "hard": true,
+   "used_by": "concept, garments on the render, duo"
+  },
+  {
+   "id": "cn_blocky_body",
+   "group": "Concept (I1)",
+   "statement": "The figures keep the blocky body from the guide: a cube head, a box torso, and straight box arms and legs.",
+   "hard": true,
+   "used_by": "I1"
+  },
+  {
+   "id": "cn_front_face",
+   "group": "Concept (I1)",
+   "statement": "The left figure shows a flat 2D anime-style face (eyes and mouth) on the front of the cube head.",
+   "hard": true,
+   "used_by": "I1"
+  },
+  {
+   "id": "cn_back_view",
+   "group": "Concept (I1)",
+   "statement": "The right figure is seen from behind: no eyes or mouth are visible, and the back of the hair and clothing is shown.",
+   "hard": true,
+   "used_by": "I1"
+  },
+  {
+   "id": "cn_views_match",
+   "group": "Concept (I1)",
+   "statement": "Both figures wear the same outfit, hair colour, hairstyle and accessories.",
+   "hard": true,
+   "used_by": "I1"
+  },
+  {
+   "id": "cn_flat_clothing",
+   "group": "Concept (I1)",
+   "statement": "Clothing is flat artwork on the boxes; nothing (skirt, cape, sleeve, ruffle) sticks out past the body boxes.",
+   "hard": true,
+   "used_by": "I1"
+  },
+  {
+   "id": "cn_hair_in_box",
+   "group": "Concept (I1)",
+   "statement": "The hair stays within about one head-height below the head and within one head-width to each side.",
+   "hard": false,
+   "used_by": "I1"
+  },
+  {
+   "id": "cn_accessories_listed",
+   "group": "Concept (I1)",
+   "statement": "The only accessories visible are: {accessory list}.",
+   "hard": false,
+   "used_by": "I1",
+   "slots": [
+    "accessory list"
+   ]
+  },
+  {
+   "id": "cn_restraint",
+   "group": "Concept (I1)",
+   "statement": "The design reads clearly at a glance; there are no scattered small decorations.",
+   "hard": false,
+   "used_by": "I1"
+  },
+  {
+   "id": "dj_same_world",
+   "group": "Duo (sheet, render)",
+   "statement": "The two characters look like they belong to the same world (matching drawing style and related colours or motifs).",
+   "hard": false,
+   "used_by": "assembled concept, duo renders"
+  },
+  {
+   "id": "dj_not_clones",
+   "group": "Duo (sheet, render)",
+   "statement": "The two characters are easy to tell apart at a glance by hair shape and outfit.",
+   "hard": true,
+   "used_by": "same",
+   "hard_note": "clone band is code; this is the backstop"
+  },
+  {
+   "id": "dj_anchor_visible",
+   "group": "Duo (sheet, render)",
+   "statement": "{anchor} is visible on both characters in the front views.",
+   "hard": false,
+   "used_by": "same",
+   "slots": [
+    "anchor"
+   ]
+  },
+  {
+   "id": "dj_no_leak",
+   "group": "Duo (sheet, render)",
+   "statement": "Character B does not wear {A signature item} and character A does not wear {B signature item}.",
+   "hard": true,
+   "used_by": "assembled concept",
+   "slots": [
+    "A signature item",
+    "B signature item"
+   ],
+   "note": "Code builds the item lists from the spec: only items one character has and the other does not, minus the shared anchors and whatever the structure profile shares on purpose (for `same_club`, the shared main colour and the shared anchors). With an empty list the rule is skipped"
+  },
+  {
+   "id": "pr_single_graphic",
+   "group": "Print / motif (I2, R2)",
+   "statement": "Exactly one graphic is shown, whole and centred, with empty space around it.",
+   "hard": true,
+   "used_by": "I2, R2"
+  },
+  {
+   "id": "pr_motif_matches",
+   "group": "Print / motif (I2, R2)",
+   "statement": "The graphic depicts {motif}.",
+   "hard": true,
+   "used_by": "I2, R2",
+   "slots": [
+    "motif"
+   ]
+  },
+  {
+   "id": "pr_flat_front",
+   "group": "Print / motif (I2, R2)",
+   "statement": "The graphic is flat, straight-on artwork, not drawn on clothing or in perspective.",
+   "hard": true,
+   "used_by": "I2, R2"
+  },
+  {
+   "id": "pr_readable_small",
+   "group": "Print / motif (I2, R2)",
+   "statement": "At this small size (the 100-px version), the motif is still recognisable.",
+   "hard": false,
+   "used_by": "I2, R2"
+  },
+  {
+   "id": "pr_matches_concept",
+   "group": "Print / motif (I2, R2)",
+   "statement": "The graphic matches the print in the reference crop in motif and colours.",
+   "hard": false,
+   "used_by": "I2, R2 (when a concept crop exists)"
+  },
+  {
+   "id": "fp_single_feature",
+   "group": "Face parts (R1, I3)",
+   "statement": "Only one {part} is shown, with no other facial features, skin or head.",
+   "hard": true,
+   "used_by": "R1, I3",
+   "slots": [
+    "part"
+   ]
+  },
+  {
+   "id": "fp_front_view",
+   "group": "Face parts (R1, I3)",
+   "statement": "The {part} is drawn straight-on (front view), not tilted or in three-quarter view.",
+   "hard": true,
+   "used_by": "R1, I3",
+   "slots": [
+    "part"
+   ]
+  },
+  {
+   "id": "fp_orientation",
+   "group": "Face parts (R1, I3)",
+   "statement": "The {part}'s outer end is at the right side of the image and its inner end toward the centre-left.",
+   "hard": true,
+   "used_by": "lash, brow",
+   "slots": [
+    "part"
+   ]
+  },
+  {
+   "id": "fp_one_line_colour",
+   "group": "Face parts (R1, I3)",
+   "statement": "All lines of the {part} are one single flat colour.",
+   "hard": true,
+   "used_by": "lash, brow, mouth_closed, closed_lid",
+   "slots": [
+    "part"
+   ]
+  },
+  {
+   "id": "fp_no_highlight",
+   "group": "Face parts (R1, I3)",
+   "statement": "The iris has no white highlight dots or shine marks.",
+   "hard": true,
+   "used_by": "iris"
+  },
+  {
+   "id": "fp_thick_shapes",
+   "group": "Face parts (R1, I3)",
+   "statement": "Lines are thick and chunky, with no hair-thin strokes.",
+   "hard": false,
+   "used_by": "lash, brow, mouth"
+  },
+  {
+   "id": "fp_style_match",
+   "group": "Face parts (R1, I3)",
+   "statement": "The line weight and shapes match the style sheet's face parts.",
+   "hard": false,
+   "used_by": "all face parts"
+  },
+  {
+   "id": "fp_shape_word",
+   "group": "Face parts (R1, I3)",
+   "statement": "The {part} matches this description: {grammar phrase}.",
+   "hard": true,
+   "used_by": "all face parts",
+   "slots": [
+    "grammar phrase",
+    "part"
+   ]
+  },
+  {
+   "id": "fh_eyes_covered",
+   "group": "Face on head (renders, C-step)",
+   "statement": "In the blink render, no iris or eye-white is visible; only the eyelid shows.",
+   "hard": true,
+   "used_by": "head renders"
+  },
+  {
+   "id": "fh_symmetric",
+   "group": "Face on head (renders, C-step)",
+   "statement": "Ignoring the white highlight dots and the mouth, the two eyes and brows are mirror images in shape and position.",
+   "hard": true,
+   "used_by": "head renders",
+   "note": "catchlights are deliberately not mirrored, D26/FACE-04, and some mouths are asymmetric"
+  },
+  {
+   "id": "fh_lines_visible",
+   "group": "Face on head (renders, C-step)",
+   "statement": "On every skin tone shown, the lash lines, brows and mouth are clearly visible.",
+   "hard": true,
+   "used_by": "5-tone sheet"
+  },
+  {
+   "id": "fh_no_smear",
+   "group": "Face on head (renders, C-step)",
+   "statement": "In every pose, the painted features keep their shape (no stretching or tearing).",
+   "hard": true,
+   "used_by": "pose sheet"
+  },
+  {
+   "id": "fh_expression_reads",
+   "group": "Face on head (renders, C-step)",
+   "statement": "The happy render looks happy and the sad render looks sad.",
+   "hard": false,
+   "used_by": "pose sheet"
+  },
+  {
+   "id": "fh_matches_concept",
+   "group": "Face on head (renders, C-step)",
+   "statement": "The face matches the reference face crop in eye shape, iris style, brows and mouth.",
+   "hard": false,
+   "used_by": "C4 neutral render",
+   "note": "the neutral render beside the concept face crop; R1, the default face route, is text-only and never sees the concept face, so this is where drift shows up",
+   "hard_note": "shown after the first choice; the fix offered to the user, never run automatically: I3 guided by the concept crop, or a spec patch"
+  },
+  {
+   "id": "hr_head_unchanged",
+   "group": "Hair (I4)",
+   "statement": "The grey head keeps its exact cube shape, size and position.",
+   "hard": true,
+   "used_by": "I4"
+  },
+  {
+   "id": "hr_no_face",
+   "group": "Hair (I4)",
+   "statement": "No eyes, mouth or other facial features are drawn.",
+   "hard": true,
+   "used_by": "I4"
+  },
+  {
+   "id": "hr_front_ortho",
+   "group": "Hair (I4)",
+   "statement": "The hair is seen straight-on from the front, level and without perspective.",
+   "hard": true,
+   "used_by": "I4"
+  },
+  {
+   "id": "hr_bangs_clear",
+   "group": "Hair (I4)",
+   "statement": "If there are bangs, they end above where the eyes would be (upper part of the head's front); otherwise the forehead is bare.",
+   "hard": true,
+   "used_by": "I4",
+   "note": "a no-fringe style, `fringe_id: none`, is a required calibration fixture, §2.9.7"
+  },
+  {
+   "id": "hr_chunky",
+   "group": "Hair (I4)",
+   "statement": "The hair is made of large chunky clumps, not thin strands.",
+   "hard": false,
+   "used_by": "I4"
+  },
+  {
+   "id": "hr_matches_concept",
+   "group": "Hair (I4)",
+   "statement": "The hairstyle matches the reference hairstyle in shape, length and parting.",
+   "hard": false,
+   "used_by": "I4",
+   "hard_note": "a consistency check: it ranks and warns, never fails a draft; APP_SPEC S24"
+  },
+  {
+   "id": "hr_volume_readable",
+   "group": "Hair (I4)",
+   "statement": "The hair looks like a solid 3D volume, not a flat paper cut-out.",
+   "hard": false,
+   "used_by": "I4"
+  },
+  {
+   "id": "ac_single_object",
+   "group": "Accessory / badge (I5, I6)",
+   "statement": "Exactly one object is shown, whole, centred, with nothing cropped.",
+   "hard": true,
+   "used_by": "I5, I6"
+  },
+  {
+   "id": "ac_front_ortho",
+   "group": "Accessory / badge (I5, I6)",
+   "statement": "The object is shown from straight in front with no perspective tilt.",
+   "hard": true,
+   "used_by": "I5"
+  },
+  {
+   "id": "ac_no_thin_parts",
+   "group": "Accessory / badge (I5, I6)",
+   "statement": "The object has no thin strings, chains, rings, holes, spikes or loose floating pieces.",
+   "hard": true,
+   "used_by": "I5, I6"
+  },
+  {
+   "id": "ac_matches_concept",
+   "group": "Accessory / badge (I5, I6)",
+   "statement": "The object matches the accessory in the reference crop in shape, parts and colours.",
+   "hard": false,
+   "used_by": "I5, I6",
+   "hard_note": "a consistency check, as `hr_matches_concept`"
+  },
+  {
+   "id": "ac_flat_light",
+   "group": "Accessory / badge (I5, I6)",
+   "statement": "Lighting is soft and even, with no strong shine, reflections or cast shadow.",
+   "hard": false,
+   "used_by": "I5"
+  },
+  {
+   "id": "bd_compact_outline",
+   "group": "Accessory / badge (I5, I6)",
+   "statement": "The artwork forms one compact shape with a smooth outer edge.",
+   "hard": true,
+   "used_by": "I6"
+  },
+  {
+   "id": "fb_flat_even",
+   "group": "Fabric / shading (I7, I8)",
+   "statement": "The texture is a flat, evenly lit fabric surface filling the whole image, with no objects, folds or seams.",
+   "hard": true,
+   "used_by": "I7"
+  },
+  {
+   "id": "fb_greyscale",
+   "group": "Fabric / shading (I7, I8)",
+   "statement": "The image is neutral grey only, with no colour tint.",
+   "hard": true,
+   "used_by": "I7",
+   "hard_note": "also code"
+  },
+  {
+   "id": "sh_outline_kept",
+   "group": "Fabric / shading (I7, I8)",
+   "statement": "The grey panel keeps exactly the same outline as the input.",
+   "hard": true,
+   "used_by": "I8"
+  },
+  {
+   "id": "sh_soft_folds",
+   "group": "Fabric / shading (I7, I8)",
+   "statement": "The shading shows a few large soft folds, not busy wrinkles.",
+   "hard": false,
+   "used_by": "I8"
+  },
+  {
+   "id": "mv_same_object",
+   "group": "Multiview (T1, T2, I10)",
+   "statement": "All four views show the same object (or hairstyle) with the same parts, colours and proportions.",
+   "hard": true,
+   "used_by": "T1, T2, I10"
+  },
+  {
+   "id": "mv_view_direction",
+   "group": "Multiview (T1, T2, I10)",
+   "statement": "In the {view} image, the object's front faces the image's {expected} side.",
+   "hard": true,
+   "used_by": "T1 (left/right)",
+   "slots": [
+    "expected",
+    "view"
+   ]
+  },
+  {
+   "id": "mv_no_new_parts",
+   "group": "Multiview (T1, T2, I10)",
+   "statement": "No view adds parts that are absent from the front view and plausible from the concept.",
+   "hard": false,
+   "used_by": "T1"
+  },
+  {
+   "id": "mv_back_plausible",
+   "group": "Multiview (T1, T2, I10)",
+   "statement": "The back view is a believable back of the front design (no face, no front print showing through).",
+   "hard": true,
+   "used_by": "T1"
+  },
+  {
+   "id": "m3_front_matches",
+   "group": "3D renders (T3, manual import)",
+   "statement": "The rendered front view matches the approved front view in silhouette, parts and colours.",
+   "hard": true,
+   "used_by": "T3"
+  },
+  {
+   "id": "m3_sides_match",
+   "group": "3D renders (T3, manual import)",
+   "statement": "The rendered side and back views match the approved views.",
+   "hard": false,
+   "used_by": "T3"
+  },
+  {
+   "id": "m3_no_fragments",
+   "group": "3D renders (T3, manual import)",
+   "statement": "There are no floating fragments, holes or broken thin parts.",
+   "hard": true,
+   "used_by": "T3"
+  },
+  {
+   "id": "m3_texture_clean",
+   "group": "3D renders (T3, manual import)",
+   "statement": "The surface colours are clean and flat, without smears, baked shine or dark blotches.",
+   "hard": false,
+   "used_by": "T3"
+  },
+  {
+   "id": "gm_seams_continuous",
+   "group": "Garments on the render (after build)",
+   "statement": "Patterns and bands line up across the edges between the front, sides and back.",
+   "hard": true,
+   "used_by": "4-side render"
+  },
+  {
+   "id": "gm_print_placed",
+   "group": "Garments on the render (after build)",
+   "statement": "{print} sits at {region phrase} and is not cut by a body-part edge.",
+   "hard": true,
+   "used_by": "4-side render",
+   "slots": [
+    "print",
+    "region phrase"
+   ]
+  },
+  {
+   "id": "gm_shoes_read",
+   "group": "Garments on the render (after build)",
+   "statement": "The shoes read as shoes, separate from the trousers.",
+   "hard": false,
+   "used_by": "4-side render"
+  },
+  {
+   "id": "gm_matches_concept",
+   "group": "Garment tiles (Gate 2, flat front and back)",
+   "statement": "The flat front/back shows the same garment design as the concept figure.",
+   "hard": false,
+   "used_by": "flat shirt and pants tiles",
+   "note": "the flat tile beside the figure crop: block layout, trims and painted details that the user approved at Gate 1; the shirt and pants are composited from the spec, so only this check and the palette check compare them with the picture",
+   "hard_note": "shown after the first choice; the fix offered to the user, never run automatically: a spec patch, or a different fold or print variant"
+  },
+  {
+   "id": "rs_not_copied",
+   "group": "Reference similarity (L14, only when switched on)",
+   "statement": "The candidate does not reproduce the reference's specific outfit, print, hairstyle or character; shared general style is fine.",
+   "hard": true,
+   "used_by": "concept, duo",
+   "hard_note": "when on"
+  }
+ ],
+ "code_measurable": [],
+ "lint": {
+  "backdrop_words": [
+   "studio",
+   "scene",
+   "backdrop",
+   "background",
+   "photo",
+   "product shot",
+   "table",
+   "floor",
+   "wall",
+   "room",
+   "stage",
+   "plinth",
+   "podium",
+   "on white"
+  ]
+ },
+ "plan": {
+  "size_class_studs": {
+   "small": 1.0,
+   "medium": 2.0,
+   "large": 3.5
+  },
+  "restraint": {
+   "main_colours_max": 4,
+   "hero_prints_max": 1
+  },
+  "plan_set": {
+   "specs": 3,
+   "wildcards": 1
+  },
+  "colour_plan_ratios": {
+   "ratio_60_30_10": [
+    0.6,
+    0.3,
+    0.1
+   ],
+   "ratio_70_20_10": [
+    0.7,
+    0.2,
+    0.1
+   ],
+   "block_50_50": [
+    0.5,
+    0.5
+   ],
+   "mono_accent": [
+    0.9,
+    0.1
+   ],
+   "allover_pattern": []
+  },
+  "points_per_unit": 100
+ },
+ "gate_b": {
+  "max_rules_per_call": 5,
+  "default_rules_per_call": 1,
+  "hard_rules_own_call": true
+ }
+}

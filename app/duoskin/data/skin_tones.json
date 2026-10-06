@@ -1,0 +1,32 @@
+{
+ "version": 1,
+ "note": "The 5 preview skin tones of the face lane and tone sheets (APP_SPEC 10.6). Ids are the SkinToneKit values.",
+ "tones": [
+  {
+   "id": "tone_1",
+   "name": "fair",
+   "hex": "#F6DCC8"
+  },
+  {
+   "id": "tone_2",
+   "name": "light",
+   "hex": "#E3B08E"
+  },
+  {
+   "id": "tone_3",
+   "name": "medium",
+   "hex": "#B9805A"
+  },
+  {
+   "id": "tone_4",
+   "name": "deep",
+   "hex": "#7B4B32"
+  },
+  {
+   "id": "tone_5",
+   "name": "rich",
+   "hex": "#3A2218"
+  }
+ ],
+ "modesty_min_de": 10.0
+}

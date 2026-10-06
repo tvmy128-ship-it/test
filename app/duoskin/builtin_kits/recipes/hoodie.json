@@ -1,0 +1,672 @@
+{
+ "_notes": "Generated recipe (bible §6.2). See imaging/recipes.py for the schema.",
+ "recipe_id": "hoodie",
+ "template": "shirt",
+ "family": "hoodie",
+ "title": "Hoodie",
+ "version": 1,
+ "fold_set": "hoodie_heavy",
+ "cut": {
+  "sleeve": [
+   "long"
+  ],
+  "hem": [
+   "hip_untucked"
+  ],
+  "neckline": [
+   "hood"
+  ],
+  "front": [
+   "closed"
+  ],
+  "block_layout": [
+   "solid",
+   "contrast_sleeves",
+   "horizontal_band",
+   "vertical_split",
+   "yoke"
+  ]
+ },
+ "defaults": {
+  "sleeve": "long",
+  "hem": "hip_untucked",
+  "neckline": "hood",
+  "front": "closed",
+  "block_layout": "solid"
+ },
+ "params": {},
+ "vars": {
+  "sleeve_end": 466,
+  "torso_end": 201
+ },
+ "layers": [
+  {
+   "id": "torso_body",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "base",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      74,
+      554,
+      201
+     ]
+    }
+   ],
+   "label": 1
+  },
+  {
+   "id": "torso_up",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "base",
+   "shapes": [
+    {
+     "rect": [
+      231,
+      8,
+      358,
+      71
+     ]
+    }
+   ],
+   "label": 1
+  },
+  {
+   "id": "torso_down",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      231,
+      204,
+      358,
+      267
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "sleeves",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "base",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      355,
+      570,
+      466
+     ]
+    },
+    {
+     "rect": [
+      217,
+      289,
+      280,
+      352
+     ]
+    },
+    {
+     "rect": [
+      308,
+      289,
+      371,
+      352
+     ]
+    }
+   ],
+   "label": 1
+  },
+  {
+   "id": "bl_contrast_sleeves",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "second",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      355,
+      570,
+      466
+     ]
+    },
+    {
+     "rect": [
+      217,
+      289,
+      280,
+      352
+     ]
+    },
+    {
+     "rect": [
+      308,
+      289,
+      371,
+      352
+     ]
+    }
+   ],
+   "label": 2,
+   "when": {
+    "block_layout": "contrast_sleeves"
+   }
+  },
+  {
+   "id": "bl_horizontal_band",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "second",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      124,
+      554,
+      140
+     ]
+    }
+   ],
+   "label": 2,
+   "when": {
+    "block_layout": "horizontal_band"
+   }
+  },
+  {
+   "id": "bl_vertical_split",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "second",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      74,
+      294,
+      201
+     ]
+    },
+    {
+     "rect": [
+      491,
+      74,
+      554,
+      201
+     ]
+    },
+    {
+     "rect": [
+      231,
+      8,
+      294,
+      71
+     ]
+    },
+    {
+     "rect": [
+      19,
+      355,
+      280,
+      466
+     ]
+    },
+    {
+     "rect": [
+      217,
+      289,
+      280,
+      352
+     ]
+    }
+   ],
+   "label": 2,
+   "when": {
+    "block_layout": "vertical_split"
+   }
+  },
+  {
+   "id": "bl_yoke",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "second",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      74,
+      554,
+      100
+     ]
+    },
+    {
+     "rect": [
+      231,
+      8,
+      358,
+      71
+     ]
+    }
+   ],
+   "label": 2,
+   "when": {
+    "block_layout": "yoke"
+   }
+  },
+  {
+   "id": "hood_back",
+   "stage": "blocks",
+   "op": "shade",
+   "dL": -10,
+   "shapes": [
+    {
+     "ellipse": [
+      490.5,
+      74,
+      46,
+      45
+     ]
+    }
+   ]
+  },
+  {
+   "id": "hood_back_up",
+   "stage": "blocks",
+   "op": "shade",
+   "dL": -10,
+   "shapes": [
+    {
+     "rect": [
+      249,
+      8,
+      341,
+      13
+     ]
+    }
+   ]
+  },
+  {
+   "id": "hood_rim_up",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "arc": [
+      294.5,
+      39.5,
+      31,
+      23,
+      5,
+      0,
+      360
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "hood_inside_up",
+   "stage": "blocks",
+   "op": "shade",
+   "dL": -12,
+   "shapes": [
+    {
+     "ellipse": [
+      294.5,
+      39.5,
+      26,
+      18
+     ]
+    }
+   ]
+  },
+  {
+   "id": "hem_rib",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      192,
+      554,
+      201
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "cuff_rib",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      455,
+      570,
+      466
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "hem_rib_lines",
+   "stage": "details",
+   "op": "shade",
+   "dL": -8,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "x",
+      "from": 1,
+      "to": 384,
+      "step": 3,
+      "w": 1,
+      "span": [
+       192,
+       201
+      ]
+     }
+    }
+   ],
+   "regions": [
+    "torso_[rflb]"
+   ],
+   "frame": "strip"
+  },
+  {
+   "id": "cuff_rib_lines",
+   "stage": "details",
+   "op": "shade",
+   "dL": -8,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "x",
+      "from": 1,
+      "to": 256,
+      "step": 4,
+      "w": 1,
+      "span": [
+       455,
+       466
+      ]
+     }
+    }
+   ],
+   "regions": [
+    "?limb_[fblr]"
+   ],
+   "frame": "strip"
+  },
+  {
+   "id": "drawstring_l",
+   "stage": "details",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      281,
+      76,
+      282,
+      112
+     ]
+    },
+    {
+     "rect": [
+      280,
+      111,
+      283,
+      116
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "drawstring_r",
+   "stage": "details",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      307,
+      76,
+      308,
+      112
+     ]
+    },
+    {
+     "rect": [
+      306,
+      111,
+      309,
+      116
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "pocket_stitch",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "line": [
+      [
+       250,
+       198
+      ],
+      [
+       250,
+       160
+      ],
+      [
+       268,
+       142
+      ],
+      [
+       321,
+       142
+      ],
+      [
+       339,
+       160
+      ],
+      [
+       339,
+       198
+      ]
+     ],
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "pocket_openings",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "line": [
+      [
+       251,
+       162
+      ],
+      [
+       262,
+       180
+      ]
+     ],
+     "w": 1
+    },
+    {
+     "line": [
+      [
+       338,
+       162
+      ],
+      [
+       327,
+       180
+      ]
+     ],
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "hood_stitch",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "arc": [
+      490.5,
+      74,
+      45,
+      44,
+      1,
+      0,
+      180
+     ]
+    }
+   ]
+  },
+  {
+   "id": "hood_rim_stitch",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "arc": [
+      294.5,
+      39.5,
+      31,
+      23,
+      1,
+      0,
+      360
+     ]
+    }
+   ]
+  },
+  {
+   "id": "side_seam_r",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "y",
+      "from": 80,
+      "to": 188,
+      "step": 4,
+      "w": 2,
+      "span": [
+       196,
+       196
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "side_seam_l",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "y",
+      "from": 80,
+      "to": 188,
+      "step": 4,
+      "w": 2,
+      "span": [
+       392,
+       392
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "print_slots": [
+  {
+   "region": "torso_f",
+   "role": "hero",
+   "box": [
+    245,
+    114,
+    344,
+    138
+   ]
+  },
+  {
+   "region": "torso_b",
+   "role": "back",
+   "box": [
+    439,
+    124,
+    542,
+    166
+   ]
+  },
+  {
+   "region": "rlimb_r",
+   "role": "sleeve",
+   "box": [
+    158,
+    364,
+    207,
+    412
+   ]
+  },
+  {
+   "region": "llimb_l",
+   "role": "sleeve",
+   "box": [
+    381,
+    364,
+    430,
+    412
+   ]
+  }
+ ]
+}

@@ -1,0 +1,1156 @@
+{
+ "_source": "tripo_openapi_head.yaml: a locally maintained OpenAPI of developers.tripo3d.ai/en/docs (NOT published by Tripo); UNVERIFIED against the live API",
+ "error_response_keys": [
+  "code",
+  "message",
+  "request_id",
+  "status",
+  "suggestion"
+ ],
+ "objects": {
+  "InputSourceObject": {
+   "additionalProperties": false,
+   "properties": {
+    "file_token": {
+     "type": "string"
+    },
+    "object": {
+     "type": "object"
+    },
+    "type": {
+     "type": "string"
+    },
+    "url": {
+     "type": "string"
+    }
+   },
+   "required": []
+  },
+  "MultiviewEditPrompt": {
+   "additionalProperties": false,
+   "properties": {
+    "prompt": {
+     "type": "string"
+    },
+    "view": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "view",
+    "prompt"
+   ]
+  },
+  "MultiviewViewInput": {
+   "additionalProperties": false,
+   "properties": {
+    "back": {
+     "oneOf": [
+      {
+       "type": "string"
+      },
+      {
+       "$ref": "#/components/schemas/InputSourceObject"
+      }
+     ]
+    },
+    "front": {
+     "oneOf": [
+      {
+       "type": "string"
+      },
+      {
+       "$ref": "#/components/schemas/InputSourceObject"
+      }
+     ]
+    },
+    "left": {
+     "oneOf": [
+      {
+       "type": "string"
+      },
+      {
+       "$ref": "#/components/schemas/InputSourceObject"
+      }
+     ]
+    },
+    "right": {
+     "oneOf": [
+      {
+       "type": "string"
+      },
+      {
+       "$ref": "#/components/schemas/InputSourceObject"
+      }
+     ]
+    }
+   },
+   "required": []
+  },
+  "TaskReuseInput": {
+   "additionalProperties": false,
+   "properties": {
+    "task_id": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "task_id"
+   ]
+  },
+  "TexturePrompt": {
+   "additionalProperties": false,
+   "properties": {
+    "image": {
+     "$ref": "#/components/schemas/InputSourceObject"
+    },
+    "images": {
+     "items": {
+      "$ref": "#/components/schemas/InputSourceObject"
+     },
+     "type": "array"
+    },
+    "style_image": {
+     "$ref": "#/components/schemas/InputSourceObject"
+    },
+    "text": {
+     "type": "string"
+    }
+   },
+   "required": []
+  }
+ },
+ "paths": {
+  "/account/balance": {
+   "GET": {
+    "method": "GET",
+    "operationId": "getBalance"
+   }
+  },
+  "/account/usage": {
+   "GET": {
+    "method": "GET",
+    "operationId": "getUsage"
+   }
+  },
+  "/animations/retarget": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "retargetAnimation",
+    "schema": {
+     "additionalProperties": false,
+     "name": "RetargetAnimationRequest",
+     "properties": {
+      "animate_in_place": {
+       "type": "boolean"
+      },
+      "animation": {
+       "type": "string"
+      },
+      "animations": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "bake_animation": {
+       "type": "boolean"
+      },
+      "export_with_geometry": {
+       "type": "boolean"
+      },
+      "input": {
+       "type": "string"
+      },
+      "original_model_task_id": {
+       "type": "string"
+      },
+      "out_format": {
+       "type": "string"
+      },
+      "render_video": {
+       "type": "boolean"
+      }
+     },
+     "required": []
+    }
+   }
+  },
+  "/animations/rig": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "rigModel",
+    "schema": {
+     "additionalProperties": false,
+     "name": "RigModelRequest",
+     "properties": {
+      "input": {
+       "type": "string"
+      },
+      "model": {
+       "type": "string"
+      },
+      "original_model_task_id": {
+       "type": "string"
+      },
+      "out_format": {
+       "type": "string"
+      },
+      "rig_type": {
+       "type": "string"
+      },
+      "spec": {
+       "type": "string"
+      }
+     },
+     "required": []
+    }
+   }
+  },
+  "/animations/rig-check": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "rigCheck",
+    "schema": {
+     "additionalProperties": false,
+     "name": "RigCheckRequest",
+     "properties": {
+      "input": {
+       "type": "string"
+      },
+      "original_model_task_id": {
+       "type": "string"
+      }
+     },
+     "required": []
+    }
+   }
+  },
+  "/files": {
+   "POST": {
+    "content_type": "multipart/form-data",
+    "method": "POST",
+    "operationId": "uploadFile",
+    "schema": {
+     "additionalProperties": false,
+     "name": "UploadFileRequest",
+     "properties": {
+      "file": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "file"
+     ]
+    }
+   }
+  },
+  "/files/presign": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "presignFileUpload",
+    "schema": {
+     "additionalProperties": false,
+     "name": "PresignFileUploadRequest",
+     "properties": {
+      "format": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "format"
+     ]
+    }
+   }
+  },
+  "/files/upload-credentials": {
+   "POST": {
+    "method": "POST",
+    "operationId": "getUploadCredentials"
+   }
+  },
+  "/generation/edit-multiview": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "editMultiview",
+    "schema": {
+     "additionalProperties": false,
+     "name": "EditMultiviewRequest",
+     "properties": {
+      "input": {
+       "type": "string"
+      },
+      "original_task_id": {
+       "type": "string"
+      },
+      "prompts": {
+       "items": {
+        "$ref": "#/components/schemas/MultiviewEditPrompt"
+       },
+       "maxItems": 4,
+       "minItems": 1,
+       "type": "array"
+      }
+     },
+     "required": [
+      "prompts"
+     ]
+    }
+   }
+  },
+  "/generation/image-to-image": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "imageToImage",
+    "schema": {
+     "additionalProperties": false,
+     "name": "ImageToImageRequest",
+     "properties": {
+      "aspect_ratio": {
+       "type": "string"
+      },
+      "background": {
+       "type": "string"
+      },
+      "input": {
+       "type": "string"
+      },
+      "inputs": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "model": {
+       "type": "string"
+      },
+      "output_format": {
+       "type": "string"
+      },
+      "prompt": {
+       "maxLength": 1800,
+       "type": "string"
+      },
+      "quality": {
+       "type": "string"
+      },
+      "size": {
+       "type": "string"
+      },
+      "sketch_to_render": {
+       "type": "boolean"
+      },
+      "t_pose": {
+       "type": "boolean"
+      },
+      "template": {
+       "type": "string"
+      },
+      "watermark": {
+       "type": "boolean"
+      }
+     },
+     "required": []
+    }
+   }
+  },
+  "/generation/image-to-model": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "imageToModel",
+    "schema": {
+     "additionalProperties": false,
+     "name": "ImageToModelRequest",
+     "properties": {
+      "auto_size": {
+       "type": "boolean"
+      },
+      "check_printable": {
+       "type": "boolean"
+      },
+      "compress": {
+       "type": "string"
+      },
+      "delight": {
+       "type": "boolean"
+      },
+      "enable_image_autofix": {
+       "type": "boolean"
+      },
+      "export_uv": {
+       "type": "boolean"
+      },
+      "face_limit": {
+       "type": "integer"
+      },
+      "file": {
+       "$ref": "#/components/schemas/InputSourceObject"
+      },
+      "generate_parts": {
+       "type": "boolean"
+      },
+      "geometry_quality": {
+       "type": "string"
+      },
+      "input": {
+       "type": "string"
+      },
+      "mode": {
+       "type": "string"
+      },
+      "model": {
+       "type": "string"
+      },
+      "model_seed": {
+       "type": "integer"
+      },
+      "orientation": {
+       "type": "string"
+      },
+      "pbr": {
+       "type": "boolean"
+      },
+      "quad": {
+       "type": "boolean"
+      },
+      "return_multiview": {
+       "type": "boolean"
+      },
+      "smart_low_poly": {
+       "type": "boolean"
+      },
+      "texture": {
+       "type": "boolean"
+      },
+      "texture_alignment": {
+       "type": "string"
+      },
+      "texture_quality": {
+       "type": "string"
+      },
+      "texture_seed": {
+       "type": "integer"
+      },
+      "texture_version": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "model"
+     ]
+    }
+   }
+  },
+  "/generation/image-to-multiview": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "imageToMultiview",
+    "schema": {
+     "additionalProperties": false,
+     "name": "ImageToMultiviewRequest",
+     "properties": {
+      "input": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "input"
+     ]
+    }
+   }
+  },
+  "/generation/image-to-splat": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "imageToSplat",
+    "schema": {
+     "additionalProperties": false,
+     "name": "ImageToSplatRequest",
+     "properties": {
+      "input": {
+       "type": "string"
+      },
+      "model_seed": {
+       "type": "integer"
+      }
+     },
+     "required": [
+      "input"
+     ]
+    }
+   }
+  },
+  "/generation/multiview-to-model": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "multiviewToModel",
+    "schema": {
+     "additionalProperties": false,
+     "name": "MultiviewToModelRequest",
+     "properties": {
+      "auto_size": {
+       "type": "boolean"
+      },
+      "compress": {
+       "type": "string"
+      },
+      "delight": {
+       "type": "boolean"
+      },
+      "export_uv": {
+       "type": "boolean"
+      },
+      "face_limit": {
+       "type": "integer"
+      },
+      "files": {
+       "items": {
+        "$ref": "#/components/schemas/InputSourceObject"
+       },
+       "type": "array"
+      },
+      "generate_parts": {
+       "type": "boolean"
+      },
+      "geometry_quality": {
+       "type": "string"
+      },
+      "inputs": {
+       "items": {
+        "oneOf": [
+         {
+          "type": "string"
+         },
+         {
+          "$ref": "#/components/schemas/MultiviewViewInput"
+         },
+         {
+          "$ref": "#/components/schemas/TaskReuseInput"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      "model": {
+       "type": "string"
+      },
+      "model_seed": {
+       "type": "integer"
+      },
+      "orientation": {
+       "type": "string"
+      },
+      "original_model_task_id": {
+       "type": "string"
+      },
+      "orthographic_projection": {
+       "type": "boolean"
+      },
+      "pbr": {
+       "type": "boolean"
+      },
+      "quad": {
+       "type": "boolean"
+      },
+      "return_multiview": {
+       "type": "boolean"
+      },
+      "smart_low_poly": {
+       "type": "boolean"
+      },
+      "texture": {
+       "type": "boolean"
+      },
+      "texture_alignment": {
+       "type": "string"
+      },
+      "texture_quality": {
+       "type": "string"
+      },
+      "texture_seed": {
+       "type": "integer"
+      },
+      "texture_version": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "model"
+     ]
+    }
+   }
+  },
+  "/generation/text-to-image": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "textToImage",
+    "schema": {
+     "additionalProperties": false,
+     "name": "TextToImageRequest",
+     "properties": {
+      "aspect_ratio": {
+       "type": "string"
+      },
+      "background": {
+       "type": "string"
+      },
+      "model": {
+       "type": "string"
+      },
+      "negative_prompt": {
+       "type": "string"
+      },
+      "output_format": {
+       "type": "string"
+      },
+      "prompt": {
+       "maxLength": 1800,
+       "type": "string"
+      },
+      "quality": {
+       "type": "string"
+      },
+      "size": {
+       "type": "string"
+      },
+      "sketch_to_render": {
+       "type": "boolean"
+      },
+      "style_image": {
+       "$ref": "#/components/schemas/InputSourceObject"
+      },
+      "t_pose": {
+       "type": "boolean"
+      },
+      "template": {
+       "type": "string"
+      },
+      "watermark": {
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "prompt"
+     ]
+    }
+   }
+  },
+  "/generation/text-to-model": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "textToModel",
+    "schema": {
+     "additionalProperties": false,
+     "name": "TextToModelRequest",
+     "properties": {
+      "auto_size": {
+       "type": "boolean"
+      },
+      "check_printable": {
+       "type": "boolean"
+      },
+      "compress": {
+       "type": "string"
+      },
+      "delight": {
+       "type": "boolean"
+      },
+      "export_uv": {
+       "type": "boolean"
+      },
+      "face_limit": {
+       "type": "integer"
+      },
+      "generate_parts": {
+       "type": "boolean"
+      },
+      "geometry_quality": {
+       "type": "string"
+      },
+      "image_seed": {
+       "type": "integer"
+      },
+      "model": {
+       "type": "string"
+      },
+      "model_seed": {
+       "type": "integer"
+      },
+      "negative_prompt": {
+       "maxLength": 255,
+       "type": "string"
+      },
+      "pbr": {
+       "type": "boolean"
+      },
+      "prompt": {
+       "maxLength": 1024,
+       "type": "string"
+      },
+      "quad": {
+       "type": "boolean"
+      },
+      "render_sequence": {
+       "type": "boolean"
+      },
+      "render_video": {
+       "type": "boolean"
+      },
+      "return_multiview": {
+       "type": "boolean"
+      },
+      "smart_low_poly": {
+       "type": "boolean"
+      },
+      "style_image": {
+       "$ref": "#/components/schemas/InputSourceObject"
+      },
+      "texture": {
+       "type": "boolean"
+      },
+      "texture_quality": {
+       "type": "string"
+      },
+      "texture_seed": {
+       "type": "integer"
+      },
+      "texture_version": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "prompt",
+      "model"
+     ]
+    }
+   }
+  },
+  "/mesh/complete": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "completeMesh",
+    "schema": {
+     "additionalProperties": false,
+     "name": "CompleteMeshRequest",
+     "properties": {
+      "completion_mode": {
+       "type": "string"
+      },
+      "input": {
+       "type": "string"
+      },
+      "model": {
+       "type": "string"
+      },
+      "original_model_task_id": {
+       "type": "string"
+      },
+      "part_names": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      }
+     },
+     "required": []
+    }
+   }
+  },
+  "/mesh/decimate": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "decimateMesh",
+    "schema": {
+     "additionalProperties": false,
+     "name": "DecimateMeshRequest",
+     "properties": {
+      "bake": {
+       "type": "boolean"
+      },
+      "face_limit": {
+       "type": "integer"
+      },
+      "input": {
+       "type": "string"
+      },
+      "model": {
+       "type": "string"
+      },
+      "original_model_task_id": {
+       "type": "string"
+      },
+      "part_names": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "quad": {
+       "type": "boolean"
+      }
+     },
+     "required": []
+    }
+   }
+  },
+  "/mesh/segment": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "segmentMesh",
+    "schema": {
+     "additionalProperties": false,
+     "name": "SegmentMeshRequest",
+     "properties": {
+      "input": {
+       "type": "string"
+      },
+      "model": {
+       "type": "string"
+      },
+      "original_model_task_id": {
+       "type": "string"
+      },
+      "ref_image": {
+       "type": "string"
+      },
+      "segmentation_granularity": {
+       "type": "string"
+      },
+      "split_by_connectivity": {
+       "type": "boolean"
+      }
+     },
+     "required": []
+    }
+   }
+  },
+  "/mesh/smartsegment": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "smartSegmentMesh",
+    "schema": {
+     "additionalProperties": false,
+     "name": "SmartSegmentMeshRequest",
+     "properties": {
+      "granularity": {
+       "type": "string"
+      },
+      "hint": {
+       "type": "string"
+      },
+      "input": {
+       "type": "string"
+      },
+      "seg_type": {
+       "type": "string"
+      },
+      "transform": {
+       "items": {
+        "type": "number"
+       },
+       "type": "array"
+      }
+     },
+     "required": [
+      "seg_type",
+      "input"
+     ]
+    }
+   }
+  },
+  "/models/convert": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "convertModel",
+    "schema": {
+     "additionalProperties": false,
+     "name": "ConvertModelRequest",
+     "properties": {
+      "animate_in_place": {
+       "type": "boolean"
+      },
+      "assemble_animation": {
+       "type": "boolean"
+      },
+      "bake": {
+       "type": "boolean"
+      },
+      "export_orientation": {
+       "type": "string"
+      },
+      "export_vertex_colors": {
+       "type": "boolean"
+      },
+      "face_limit": {
+       "type": "integer"
+      },
+      "fbx_preset": {
+       "type": "string"
+      },
+      "flatten_bottom": {
+       "type": "boolean"
+      },
+      "flatten_bottom_threshold": {
+       "type": "number"
+      },
+      "force_symmetry": {
+       "type": "boolean"
+      },
+      "format": {
+       "type": "string"
+      },
+      "input": {
+       "type": "string"
+      },
+      "original_model_task_id": {
+       "type": "string"
+      },
+      "pack_uv": {
+       "type": "boolean"
+      },
+      "part_names": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "pivot_to_center_bottom": {
+       "type": "boolean"
+      },
+      "quad": {
+       "type": "boolean"
+      },
+      "scale_factor": {
+       "type": "number"
+      },
+      "texture_format": {
+       "type": "string"
+      },
+      "texture_size": {
+       "type": "integer"
+      },
+      "with_animation": {
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "format"
+     ]
+    }
+   }
+  },
+  "/models/import": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "importModel",
+    "schema": {
+     "additionalProperties": false,
+     "name": "ImportModelRequest",
+     "properties": {
+      "file": {
+       "$ref": "#/components/schemas/InputSourceObject"
+      },
+      "input": {
+       "type": "string"
+      }
+     },
+     "required": []
+    }
+   }
+  },
+  "/models/refine": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "refineModel",
+    "schema": {
+     "additionalProperties": false,
+     "name": "RefineModelRequest",
+     "properties": {
+      "draft_model_task_id": {
+       "type": "string"
+      },
+      "input": {
+       "type": "string"
+      },
+      "model": {
+       "type": "string"
+      }
+     },
+     "required": []
+    }
+   }
+  },
+  "/models/stylize": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "stylizeModel",
+    "schema": {
+     "additionalProperties": false,
+     "name": "StylizeModelRequest",
+     "properties": {
+      "block_size": {
+       "type": "integer"
+      },
+      "input": {
+       "type": "string"
+      },
+      "original_model_task_id": {
+       "type": "string"
+      },
+      "render_image": {
+       "type": "boolean"
+      },
+      "style": {
+       "type": "string"
+      },
+      "vxc": {
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "style"
+     ]
+    }
+   }
+  },
+  "/models/texture": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "textureModel",
+    "schema": {
+     "additionalProperties": false,
+     "name": "TextureModelRequest",
+     "properties": {
+      "bake": {
+       "type": "boolean"
+      },
+      "compress": {
+       "type": "string"
+      },
+      "delight": {
+       "type": "boolean"
+      },
+      "input": {
+       "type": "string"
+      },
+      "model": {
+       "type": "string"
+      },
+      "original_model_task_id": {
+       "type": "string"
+      },
+      "part_names": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "pbr": {
+       "type": "boolean"
+      },
+      "return_multiview": {
+       "type": "boolean"
+      },
+      "texture": {
+       "type": "boolean"
+      },
+      "texture_alignment": {
+       "type": "string"
+      },
+      "texture_prompt": {
+       "$ref": "#/components/schemas/TexturePrompt"
+      },
+      "texture_quality": {
+       "type": "string"
+      },
+      "texture_seed": {
+       "type": "integer"
+      }
+     },
+     "required": []
+    }
+   }
+  },
+  "/tasks/list": {
+   "POST": {
+    "content_type": "application/json",
+    "method": "POST",
+    "operationId": "listTasks",
+    "schema": {
+     "additionalProperties": false,
+     "name": "TaskListRequest",
+     "properties": {
+      "task_ids": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 100,
+       "type": "array"
+      }
+     },
+     "required": [
+      "task_ids"
+     ]
+    }
+   }
+  },
+  "/tasks/{task_id}": {
+   "GET": {
+    "method": "GET",
+    "operationId": "getTask"
+   }
+  }
+ },
+ "task_output_keys": [
+  "back_view_url",
+  "front_view_url",
+  "generate_multiview_image",
+  "generated_image_url",
+  "image_urls",
+  "left_view_url",
+  "mask_url",
+  "model_task_id",
+  "model_url",
+  "model_urls",
+  "multiview_basecolor_url",
+  "prompt",
+  "rendered_image_url",
+  "rendered_sequence_url",
+  "rendered_video_url",
+  "rig_type",
+  "riggable",
+  "right_view_url",
+  "seg_model_url",
+  "seg_task_id",
+  "size",
+  "splat_url"
+ ],
+ "task_statuses": [
+  "queued",
+  "running",
+  "success",
+  "failed",
+  "cancelled"
+ ]
+}

@@ -1,0 +1,362 @@
+{
+ "combo": "bb",
+ "lead": "b",
+ "is_wildcard": false,
+ "world": {
+  "theme": "robotics club garage crew",
+  "pair_structure": "same_club",
+  "structure_note": "",
+  "story": "Two teammates in matching club colours who build a robot in a garage.",
+  "palette_family": "cool_bright",
+  "material_family": "nylon",
+  "detail_level": "standard"
+ },
+ "shared_anchors": [
+  {
+   "kind": "material",
+   "description": "ripstop nylon panels with silver piping",
+   "on_a": "nylon tee panels and silver cuffs",
+   "on_b": "nylon hoodie panels and silver zip",
+   "visible_from": "front"
+  },
+  {
+   "kind": "trim",
+   "description": "white piping on every seam",
+   "on_a": "piping on the tee shoulders",
+   "on_b": "piping on the hoodie yoke",
+   "visible_from": "both"
+  }
+ ],
+ "contrasts": [
+  {
+   "axis": "hair_shape",
+   "a_value": "loose wavy mop",
+   "b_value": "short blunt crop"
+  },
+  {
+   "axis": "top_type",
+   "a_value": "long-sleeved tee",
+   "b_value": "pullover hoodie"
+  },
+  {
+   "axis": "bottom_type",
+   "a_value": "straight jeans",
+   "b_value": "casual shorts"
+  },
+  {
+   "axis": "face_eyes",
+   "a_value": "sleepy eyes",
+   "b_value": "round eyes"
+  },
+  {
+   "axis": "accessory_kind",
+   "a_value": "knit beanie",
+   "b_value": "slim backpack"
+  },
+  {
+   "axis": "leg_length",
+   "a_value": "full length",
+   "b_value": "knee length"
+  }
+ ],
+ "palette": [
+  {
+   "id": "p1",
+   "name": "royal blue",
+   "hex": "#2D5BD0",
+   "role": "a_main"
+  },
+  {
+   "id": "p2",
+   "name": "white",
+   "hex": "#FAFAFA",
+   "role": "a_second"
+  },
+  {
+   "id": "p3",
+   "name": "royal blue",
+   "hex": "#2D5BD0",
+   "role": "b_main"
+  },
+  {
+   "id": "p4",
+   "name": "bright yellow",
+   "hex": "#F2C230",
+   "role": "b_second"
+  },
+  {
+   "id": "p5",
+   "name": "silver",
+   "hex": "#B4B7BA",
+   "role": "shared"
+  },
+  {
+   "id": "p6",
+   "name": "graphite",
+   "hex": "#3A3D42",
+   "role": "line"
+  },
+  {
+   "id": "p7",
+   "name": "snow",
+   "hex": "#F5F7F8",
+   "role": "neutral_light"
+  },
+  {
+   "id": "p8",
+   "name": "espresso",
+   "hex": "#2A1B16",
+   "role": "hair_a"
+  },
+  {
+   "id": "p9",
+   "name": "caramel",
+   "hex": "#B3702E",
+   "role": "hair_b"
+  },
+  {
+   "id": "p10",
+   "name": "grey",
+   "hex": "#8C8F93",
+   "role": "modesty"
+  },
+  {
+   "id": "p11",
+   "name": "navy",
+   "hex": "#1B2B5C",
+   "role": "neutral_dark"
+  },
+  {
+   "id": "p12",
+   "name": "red",
+   "hex": "#D42B2B",
+   "role": "accent"
+  }
+ ],
+ "a": {
+  "presentation": "boy",
+  "role_in_duo": "calm builder who solders",
+  "dna": {
+   "shape_language": "geometric_clean",
+   "colour_plan": "block_50_50",
+   "focal_location": "chest",
+   "motif_object": "gear wheel",
+   "accessory_style": "snug knit headwear",
+   "energy": "focused"
+  },
+  "body": {
+   "skin_tone": "tone_1",
+   "modesty_ref": "p10"
+  },
+  "face": {
+   "eye_shape": "sleepy",
+   "iris_style": "oval_ring",
+   "highlight_style": "triple_dot",
+   "lash_style": "heavy_line_lower_ticks",
+   "brow_style": "soft_worried",
+   "mouth_style": "flat_line",
+   "nose_style": "none",
+   "cheek_mark": "none",
+   "default_expression": "sleepy",
+   "iris_ref": "p4",
+   "iris_dark_ref": "p11",
+   "pupil_ref": "p6",
+   "sclera_ref": "p7",
+   "lash_ref": "p6",
+   "brow_ref": "p8",
+   "mouth_line_ref": "p6",
+   "mouth_inner_ref": "p11",
+   "tongue_ref": "p12",
+   "teeth_ref": "none",
+   "blush_ref": "none"
+  },
+  "hair": {
+   "kit_style_id": "hair_wavy_06",
+   "fringe_id": "kit_default",
+   "back_id": "kit_default",
+   "parting": "left",
+   "description": "loose wavy mop over the ears",
+   "colour_ref": "p8",
+   "shadow_ref": "p6",
+   "highlight_ref": "none"
+  },
+  "top": {
+   "recipe_id": "tee_long",
+   "sleeve": "long",
+   "hem": "hip_untucked",
+   "neckline": "crew",
+   "front": "closed",
+   "block_layout": "horizontal_band",
+   "inner_recipe_id": "none",
+   "fabric_id": "jersey_plain",
+   "base_ref": "p1",
+   "second_ref": "p2",
+   "trim_ref": "p5",
+   "prints": [
+    {
+     "motif": "one small gear wheel",
+     "region": "torso_f",
+     "scale": "small",
+     "colour_refs": [
+      "p2",
+      "p6"
+     ]
+    }
+   ],
+   "arm_extras": []
+  },
+  "bottom": {
+   "recipe_id": "jeans_straight",
+   "leg": "full",
+   "waist": "mid",
+   "fabric_id": "denim_classic",
+   "base_ref": "p11",
+   "second_ref": "none",
+   "trim_ref": "p5",
+   "prints": [],
+   "legwear": "bare",
+   "legwear_ref": "none",
+   "shoes": {
+    "style_id": "sneaker_low",
+    "base_ref": "p7",
+    "sole_ref": "p6",
+    "accent_ref": "p4",
+    "motif": "tiny gear wheel"
+   }
+  },
+  "accessories": [
+   {
+    "kind": "small_hat",
+    "description": "knit beanie with a round pom",
+    "category": "hat",
+    "attachment": "hat",
+    "size_class": "medium",
+    "build": "tripo",
+    "material": "knit",
+    "linked_to_partner": false,
+    "colour_refs": [
+     "p4",
+     "p2"
+    ]
+   }
+  ],
+  "makeup": {
+   "kind": "none",
+   "description": "",
+   "colour_refs": []
+  }
+ },
+ "b": {
+  "presentation": "boy",
+  "role_in_duo": "loud tester who presses every button",
+  "dna": {
+   "shape_language": "sharp_angular",
+   "colour_plan": "ratio_60_30_10",
+   "focal_location": "back_print",
+   "motif_object": "lightning bolt",
+   "accessory_style": "slim carry gear",
+   "energy": "restless"
+  },
+  "body": {
+   "skin_tone": "tone_3",
+   "modesty_ref": "p10"
+  },
+  "face": {
+   "eye_shape": "round",
+   "iris_style": "round_small_pupil",
+   "highlight_style": "dual_dot",
+   "lash_style": "outer_flick_1",
+   "brow_style": "angled_up",
+   "mouth_style": "open_grin",
+   "nose_style": "tiny_hook",
+   "cheek_mark": "blush_hatch",
+   "default_expression": "cheerful",
+   "iris_ref": "p9",
+   "iris_dark_ref": "p6",
+   "pupil_ref": "p6",
+   "sclera_ref": "p7",
+   "lash_ref": "p11",
+   "brow_ref": "p9",
+   "mouth_line_ref": "p6",
+   "mouth_inner_ref": "p12",
+   "tongue_ref": "p12",
+   "teeth_ref": "p7",
+   "blush_ref": "p12"
+  },
+  "hair": {
+   "kit_style_id": "hair_spiky_05",
+   "fringe_id": "none",
+   "back_id": "kit_default",
+   "parting": "none",
+   "description": "short blunt crop with a flat top",
+   "colour_ref": "p9",
+   "shadow_ref": "p6",
+   "highlight_ref": "none"
+  },
+  "top": {
+   "recipe_id": "hoodie",
+   "sleeve": "long",
+   "hem": "hip_untucked",
+   "neckline": "hood",
+   "front": "closed",
+   "block_layout": "vertical_split",
+   "inner_recipe_id": "none",
+   "fabric_id": "fleece_soft",
+   "base_ref": "p3",
+   "second_ref": "p4",
+   "trim_ref": "p5",
+   "prints": [
+    {
+     "motif": "one bold lightning bolt",
+     "region": "torso_b",
+     "scale": "large",
+     "colour_refs": [
+      "p4",
+      "p6"
+     ]
+    }
+   ],
+   "arm_extras": []
+  },
+  "bottom": {
+   "recipe_id": "shorts",
+   "leg": "knee",
+   "waist": "mid",
+   "fabric_id": "twill_fine",
+   "base_ref": "p6",
+   "second_ref": "p11",
+   "trim_ref": "p5",
+   "prints": [],
+   "legwear": "socks_crew",
+   "legwear_ref": "p7",
+   "shoes": {
+    "style_id": "sneaker_high",
+    "base_ref": "p2",
+    "sole_ref": "p3",
+    "accent_ref": "p12",
+    "motif": ""
+   }
+  },
+  "accessories": [
+   {
+    "kind": "bag",
+    "description": "slim backpack with a flap",
+    "category": "back",
+    "attachment": "body_back",
+    "size_class": "medium",
+    "build": "tripo",
+    "material": "canvas",
+    "linked_to_partner": false,
+    "colour_refs": [
+     "p3",
+     "p5"
+    ]
+   }
+  ],
+  "makeup": {
+   "kind": "none",
+   "description": "",
+   "colour_refs": []
+  }
+ }
+}

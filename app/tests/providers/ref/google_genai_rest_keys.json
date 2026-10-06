@@ -1,0 +1,149 @@
+{
+ "Blob": [
+  "data",
+  "displayName",
+  "mimeType"
+ ],
+ "Blob_mldev": [
+  "data",
+  "mimeType"
+ ],
+ "BlockedReason": [
+  "BLOCKED_REASON_UNSPECIFIED",
+  "BLOCKLIST",
+  "IMAGE_SAFETY",
+  "JAILBREAK",
+  "MODEL_ARMOR",
+  "OTHER",
+  "PROHIBITED_CONTENT",
+  "SAFETY"
+ ],
+ "Content": [
+  "parts",
+  "role"
+ ],
+ "FinishReason": [
+  "BLOCKLIST",
+  "FINISH_REASON_UNSPECIFIED",
+  "IMAGE_OTHER",
+  "IMAGE_PROHIBITED_CONTENT",
+  "IMAGE_RECITATION",
+  "IMAGE_SAFETY",
+  "LANGUAGE",
+  "MALFORMED_FUNCTION_CALL",
+  "MAX_TOKENS",
+  "NO_IMAGE",
+  "OTHER",
+  "PROHIBITED_CONTENT",
+  "RECITATION",
+  "SAFETY",
+  "SPII",
+  "STOP",
+  "TOO_MANY_TOOL_CALLS",
+  "UNEXPECTED_TOOL_CALL"
+ ],
+ "GenerationConfig": [
+  "audioTimestamp",
+  "candidateCount",
+  "enableEnhancedCivicAnswers",
+  "frequencyPenalty",
+  "imageConfig",
+  "logprobs",
+  "maxOutputTokens",
+  "mediaResolution",
+  "modelSelectionConfig",
+  "presencePenalty",
+  "responseJsonSchema",
+  "responseLogprobs",
+  "responseMimeType",
+  "responseModalities",
+  "responseSchema",
+  "routingConfig",
+  "seed",
+  "speechConfig",
+  "stopSequences",
+  "temperature",
+  "thinkingConfig",
+  "topK",
+  "topP"
+ ],
+ "ImageConfig": [
+  "aspectRatio",
+  "imageOutputOptions",
+  "imageSize",
+  "outputCompressionQuality",
+  "outputMimeType",
+  "personGeneration",
+  "prominentPeople"
+ ],
+ "ImageConfig_mldev": [
+  "aspectRatio",
+  "imageSize"
+ ],
+ "MediaResolution": [
+  "MEDIA_RESOLUTION_HIGH",
+  "MEDIA_RESOLUTION_LOW",
+  "MEDIA_RESOLUTION_MEDIUM",
+  "MEDIA_RESOLUTION_UNSPECIFIED"
+ ],
+ "Part": [
+  "audioTranscription",
+  "codeExecutionResult",
+  "executableCode",
+  "fileData",
+  "functionCall",
+  "functionResponse",
+  "inlineData",
+  "mediaProcessing",
+  "mediaResolution",
+  "partMetadata",
+  "speechMetadata",
+  "text",
+  "thought",
+  "thoughtSignature",
+  "toolCall",
+  "toolResponse",
+  "videoMetadata"
+ ],
+ "ThinkingConfig": [
+  "includeThoughts",
+  "thinkingBudget",
+  "thinkingLevel"
+ ],
+ "ThinkingLevel": [
+  "HIGH",
+  "LOW",
+  "MEDIUM",
+  "MINIMAL",
+  "THINKING_LEVEL_UNSPECIFIED"
+ ],
+ "_source": "google-genai (python-genai) 2.11.0 source: google/genai/types.py field names, camelCased as models.py::*_to_mldev does; official Google SDK",
+ "aspect_ratio_documented": [
+  "1:1",
+  "2:3",
+  "3:2",
+  "3:4",
+  "4:3",
+  "9:16",
+  "16:9",
+  "21:9"
+ ],
+ "auth_header": "x-goog-api-key",
+ "image_size_values": [
+  "1K",
+  "2K",
+  "4K"
+ ],
+ "request_top_level": [
+  "contents",
+  "generationConfig",
+  "systemInstruction",
+  "safetySettings",
+  "tools",
+  "toolConfig",
+  "cachedContent",
+  "labels",
+  "serviceTier"
+ ],
+ "url_template": "{base}/models/{model}:generateContent"
+}

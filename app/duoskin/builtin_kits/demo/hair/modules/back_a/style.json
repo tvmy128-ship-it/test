@@ -1,0 +1,9 @@
+{
+ "attach_frame": "HairAttachment",
+ "id": "back_a",
+ "kind": "back",
+ "license": "n/a",
+ "origin": "code_generated",
+ "prompt_phrase": "long tapered back",
+ "tris": 12
+}

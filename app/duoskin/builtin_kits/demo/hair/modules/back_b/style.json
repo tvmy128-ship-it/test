@@ -1,0 +1,9 @@
+{
+ "attach_frame": "HairAttachment",
+ "id": "back_b",
+ "kind": "back",
+ "license": "n/a",
+ "origin": "code_generated",
+ "prompt_phrase": "short tidy back",
+ "tris": 12
+}

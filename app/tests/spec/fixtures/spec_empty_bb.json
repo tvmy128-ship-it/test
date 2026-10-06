@@ -1,0 +1,300 @@
+{
+ "combo": "bb",
+ "lead": "a",
+ "is_wildcard": false,
+ "world": {
+  "theme": "calm captain and restless sidekick",
+  "pair_structure": "leader_chaotic",
+  "structure_note": "",
+  "story": "A steady captain and a restless sidekick who keeps tugging the map.",
+  "palette_family": "monochrome_accent",
+  "material_family": "twill",
+  "detail_level": "minimal"
+ },
+ "shared_anchors": [
+  {
+   "kind": "silhouette_detail",
+   "description": "crisp straight shoulders",
+   "on_a": "square shoulders on the tee",
+   "on_b": "square shoulders on the hoodie",
+   "visible_from": "front"
+  },
+  {
+   "kind": "hair_detail",
+   "description": "bare forehead hairlines",
+   "on_a": "swept back hair",
+   "on_b": "pushed up hair",
+   "visible_from": "front"
+  }
+ ],
+ "contrasts": [
+  {
+   "axis": "hair_length",
+   "a_value": "short and swept back",
+   "b_value": "long and loose"
+  },
+  {
+   "axis": "top_type",
+   "a_value": "plain tee",
+   "b_value": "pullover hoodie"
+  },
+  {
+   "axis": "bottom_type",
+   "a_value": "straight jeans",
+   "b_value": "casual shorts"
+  },
+  {
+   "axis": "sleeve_length",
+   "a_value": "short sleeves",
+   "b_value": "long sleeves"
+  },
+  {
+   "axis": "expression",
+   "a_value": "determined",
+   "b_value": "cheerful"
+  },
+  {
+   "axis": "face_eyes",
+   "a_value": "narrow eyes",
+   "b_value": "round eyes"
+  }
+ ],
+ "palette": [
+  {
+   "id": "p1",
+   "name": "navy",
+   "hex": "#1B2B5C",
+   "role": "a_main"
+  },
+  {
+   "id": "p2",
+   "name": "pale grey",
+   "hex": "#DCDCDC",
+   "role": "a_second"
+  },
+  {
+   "id": "p3",
+   "name": "scarlet",
+   "hex": "#E03A2F",
+   "role": "b_main"
+  },
+  {
+   "id": "p4",
+   "name": "snow",
+   "hex": "#F5F7F8",
+   "role": "b_second"
+  },
+  {
+   "id": "p5",
+   "name": "silver",
+   "hex": "#B4B7BA",
+   "role": "shared"
+  },
+  {
+   "id": "p6",
+   "name": "black",
+   "hex": "#0A0A0C",
+   "role": "line"
+  },
+  {
+   "id": "p7",
+   "name": "white",
+   "hex": "#FAFAFA",
+   "role": "neutral_light"
+  },
+  {
+   "id": "p8",
+   "name": "graphite",
+   "hex": "#3A3D42",
+   "role": "hair_a"
+  },
+  {
+   "id": "p9",
+   "name": "caramel",
+   "hex": "#B3702E",
+   "role": "hair_b"
+  },
+  {
+   "id": "p10",
+   "name": "grey",
+   "hex": "#8C8F93",
+   "role": "modesty"
+  }
+ ],
+ "a": {
+  "presentation": "boy",
+  "role_in_duo": "steady captain",
+  "dna": {
+   "shape_language": "boxy_sturdy",
+   "colour_plan": "mono_accent",
+   "focal_location": "face",
+   "motif_object": "",
+   "accessory_style": "",
+   "energy": "steady"
+  },
+  "body": {
+   "skin_tone": "tone_3",
+   "modesty_ref": "p10"
+  },
+  "face": {
+   "eye_shape": "narrow",
+   "iris_style": "oval_solid",
+   "highlight_style": "single_large",
+   "lash_style": "clean_line",
+   "brow_style": "straight_thick",
+   "mouth_style": "flat_line",
+   "nose_style": "none",
+   "cheek_mark": "none",
+   "default_expression": "determined",
+   "iris_ref": "p5",
+   "iris_dark_ref": "p1",
+   "pupil_ref": "p6",
+   "sclera_ref": "p7",
+   "lash_ref": "p6",
+   "brow_ref": "p8",
+   "mouth_line_ref": "p6",
+   "mouth_inner_ref": "p3",
+   "tongue_ref": "p3",
+   "teeth_ref": "none",
+   "blush_ref": "none"
+  },
+  "hair": {
+   "kit_style_id": "hair_custom",
+   "fringe_id": "none",
+   "back_id": "kit_default",
+   "parting": "none",
+   "description": "short swept back hair",
+   "colour_ref": "p8",
+   "shadow_ref": "p6",
+   "highlight_ref": "none"
+  },
+  "top": {
+   "recipe_id": "tee",
+   "sleeve": "short",
+   "hem": "hip_untucked",
+   "neckline": "crew",
+   "front": "closed",
+   "block_layout": "solid",
+   "inner_recipe_id": "none",
+   "fabric_id": "jersey_plain",
+   "base_ref": "p1",
+   "second_ref": "none",
+   "trim_ref": "none",
+   "prints": [],
+   "arm_extras": []
+  },
+  "bottom": {
+   "recipe_id": "jeans_straight",
+   "leg": "full",
+   "waist": "mid",
+   "fabric_id": "denim_classic",
+   "base_ref": "p6",
+   "second_ref": "none",
+   "trim_ref": "none",
+   "prints": [],
+   "legwear": "bare",
+   "legwear_ref": "none",
+   "shoes": {
+    "style_id": "sneaker_low",
+    "base_ref": "p7",
+    "sole_ref": "p5",
+    "accent_ref": "none",
+    "motif": ""
+   }
+  },
+  "accessories": [],
+  "makeup": {
+   "kind": "none",
+   "description": "",
+   "colour_refs": []
+  }
+ },
+ "b": {
+  "presentation": "boy",
+  "role_in_duo": "restless sidekick",
+  "dna": {
+   "shape_language": "spiky_energetic",
+   "colour_plan": "block_50_50",
+   "focal_location": "hair",
+   "motif_object": "",
+   "accessory_style": "",
+   "energy": "restless"
+  },
+  "body": {
+   "skin_tone": "tone_1",
+   "modesty_ref": "p10"
+  },
+  "face": {
+   "eye_shape": "round",
+   "iris_style": "round_small_pupil",
+   "highlight_style": "dual_dot",
+   "lash_style": "outer_flick_1",
+   "brow_style": "angled_up",
+   "mouth_style": "open_grin",
+   "nose_style": "dot",
+   "cheek_mark": "blush_hatch",
+   "default_expression": "cheerful",
+   "iris_ref": "p9",
+   "iris_dark_ref": "p1",
+   "pupil_ref": "p6",
+   "sclera_ref": "p7",
+   "lash_ref": "p6",
+   "brow_ref": "p9",
+   "mouth_line_ref": "p6",
+   "mouth_inner_ref": "p3",
+   "tongue_ref": "p3",
+   "teeth_ref": "p7",
+   "blush_ref": "p3"
+  },
+  "hair": {
+   "kit_style_id": "hair_custom",
+   "fringe_id": "none",
+   "back_id": "kit_default",
+   "parting": "left",
+   "description": "long loose pushed up hair",
+   "colour_ref": "p9",
+   "shadow_ref": "p6",
+   "highlight_ref": "none"
+  },
+  "top": {
+   "recipe_id": "hoodie",
+   "sleeve": "long",
+   "hem": "hip_untucked",
+   "neckline": "hood",
+   "front": "closed",
+   "block_layout": "solid",
+   "inner_recipe_id": "none",
+   "fabric_id": "fleece_soft",
+   "base_ref": "p3",
+   "second_ref": "none",
+   "trim_ref": "none",
+   "prints": [],
+   "arm_extras": []
+  },
+  "bottom": {
+   "recipe_id": "shorts",
+   "leg": "above_knee",
+   "waist": "mid",
+   "fabric_id": "twill_fine",
+   "base_ref": "p4",
+   "second_ref": "none",
+   "trim_ref": "none",
+   "prints": [],
+   "legwear": "bare",
+   "legwear_ref": "none",
+   "shoes": {
+    "style_id": "sneaker_high",
+    "base_ref": "p3",
+    "sole_ref": "p7",
+    "accent_ref": "none",
+    "motif": ""
+   }
+  },
+  "accessories": [],
+  "makeup": {
+   "kind": "none",
+   "description": "",
+   "colour_refs": []
+  }
+ }
+}

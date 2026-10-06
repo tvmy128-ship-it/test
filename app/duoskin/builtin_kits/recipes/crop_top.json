@@ -1,0 +1,629 @@
+{
+ "_notes": "Generated recipe (bible §6.2). See imaging/recipes.py for the schema.",
+ "recipe_id": "crop_top",
+ "template": "shirt",
+ "family": "crop_top",
+ "title": "Crop top",
+ "version": 1,
+ "fold_set": "crop_light",
+ "cut": {
+  "sleeve": [
+   "none",
+   "short",
+   "long"
+  ],
+  "hem": [
+   "crop"
+  ],
+  "neckline": [
+   "crew",
+   "square"
+  ],
+  "front": [
+   "closed"
+  ],
+  "block_layout": [
+   "solid",
+   "contrast_sleeves",
+   "horizontal_band"
+  ]
+ },
+ "defaults": {
+  "sleeve": "short",
+  "hem": "crop",
+  "neckline": "crew",
+  "front": "closed",
+  "block_layout": "solid"
+ },
+ "params": {
+  "crop_hem": 152
+ },
+ "param_limits": {
+  "crop_hem": [
+   140,
+   166
+  ]
+ },
+ "vars": {
+  "sleeve_end": {
+   "attr": "sleeve",
+   "map": {
+    "none": 354,
+    "short": 404,
+    "three_quarter": 445,
+    "long": 466
+   },
+   "default": 404
+  },
+  "torso_end": "$crop_hem"
+ },
+ "layers": [
+  {
+   "id": "torso_body",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "base",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      74,
+      554,
+      "$torso_end"
+     ]
+    }
+   ],
+   "label": 1
+  },
+  {
+   "id": "torso_up",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "base",
+   "shapes": [
+    {
+     "rect": [
+      231,
+      8,
+      358,
+      71
+     ]
+    }
+   ],
+   "label": 1
+  },
+  {
+   "id": "sleeves",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "add",
+   "colour": "base",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      355,
+      570,
+      "$sleeve_end"
+     ]
+    },
+    {
+     "rect": [
+      217,
+      289,
+      280,
+      352
+     ]
+    },
+    {
+     "rect": [
+      308,
+      289,
+      371,
+      352
+     ]
+    }
+   ],
+   "label": 1,
+   "unless": {
+    "sleeve": "none"
+   }
+  },
+  {
+   "id": "bl_contrast_sleeves",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "second",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      355,
+      570,
+      "$sleeve_end"
+     ]
+    },
+    {
+     "rect": [
+      217,
+      289,
+      280,
+      352
+     ]
+    },
+    {
+     "rect": [
+      308,
+      289,
+      371,
+      352
+     ]
+    }
+   ],
+   "label": 2,
+   "when": {
+    "block_layout": "contrast_sleeves"
+   }
+  },
+  {
+   "id": "bl_horizontal_band",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "second",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      112,
+      554,
+      132
+     ]
+    }
+   ],
+   "label": 2,
+   "when": {
+    "block_layout": "horizontal_band"
+   }
+  },
+  {
+   "id": "bl_vertical_split",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "second",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      74,
+      294,
+      "$torso_end"
+     ]
+    },
+    {
+     "rect": [
+      491,
+      74,
+      554,
+      "$torso_end"
+     ]
+    },
+    {
+     "rect": [
+      231,
+      8,
+      294,
+      71
+     ]
+    },
+    {
+     "rect": [
+      19,
+      355,
+      280,
+      "$sleeve_end"
+     ]
+    },
+    {
+     "rect": [
+      217,
+      289,
+      280,
+      352
+     ]
+    }
+   ],
+   "label": 2,
+   "when": {
+    "block_layout": "vertical_split"
+   }
+  },
+  {
+   "id": "collar_up_crew",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      271,
+      68,
+      318,
+      71
+     ]
+    }
+   ],
+   "label": 4,
+   "when": {
+    "neckline": "crew"
+   }
+  },
+  {
+   "id": "collar_up_square",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      268,
+      68,
+      321,
+      71
+     ]
+    }
+   ],
+   "label": 4,
+   "when": {
+    "neckline": "square"
+   }
+  },
+  {
+   "id": "collar_crew",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "arc": [
+      294.5,
+      74,
+      24,
+      14,
+      6,
+      0,
+      180
+     ]
+    }
+   ],
+   "label": 4,
+   "when": {
+    "neckline": "crew"
+   }
+  },
+  {
+   "id": "neck_hole_crew",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "erase",
+   "shapes": [
+    {
+     "ellipse": [
+      294.5,
+      74,
+      18,
+      8
+     ]
+    }
+   ],
+   "when": {
+    "neckline": "crew"
+   }
+  },
+  {
+   "id": "collar_square",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      268,
+      74,
+      321,
+      90
+     ]
+    }
+   ],
+   "label": 4,
+   "when": {
+    "neckline": "square"
+   }
+  },
+  {
+   "id": "neck_hole_square",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "erase",
+   "shapes": [
+    {
+     "rect": [
+      275,
+      74,
+      314,
+      83
+     ]
+    }
+   ],
+   "when": {
+    "neckline": "square"
+   }
+  },
+  {
+   "id": "torso_hem",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      165,
+      "$torso_end-2",
+      554,
+      "$torso_end"
+     ]
+    }
+   ],
+   "label": 4
+  },
+  {
+   "id": "sleeve_hem",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      "$sleeve_end-5",
+      570,
+      "$sleeve_end"
+     ]
+    }
+   ],
+   "label": 4,
+   "when": {
+    "sleeve": [
+     "short",
+     "three_quarter"
+    ]
+   }
+  },
+  {
+   "id": "sleeve_cuff",
+   "stage": "blocks",
+   "op": "paint",
+   "coverage": "within",
+   "colour": "trim",
+   "shapes": [
+    {
+     "rect": [
+      19,
+      "$sleeve_end-6",
+      570,
+      "$sleeve_end"
+     ]
+    }
+   ],
+   "label": 4,
+   "when": {
+    "sleeve": "long"
+   }
+  },
+  {
+   "id": "hem_stitch",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "x",
+      "from": 0,
+      "to": 384,
+      "step": 4,
+      "w": 2,
+      "span": [
+       "$torso_end-4",
+       "$torso_end-4"
+      ]
+     }
+    }
+   ],
+   "regions": [
+    "torso_[rflb]"
+   ],
+   "frame": "strip"
+  },
+  {
+   "id": "side_seam_r",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "y",
+      "from": 80,
+      "to": "$torso_end-6",
+      "step": 4,
+      "w": 2,
+      "span": [
+       196,
+       196
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "side_seam_l",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "y",
+      "from": 80,
+      "to": "$torso_end-6",
+      "step": 4,
+      "w": 2,
+      "span": [
+       392,
+       392
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "shoulder_seams",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "line": [
+      [
+       231,
+       40
+      ],
+      [
+       272,
+       40
+      ]
+     ],
+     "w": 1,
+     "dash": [
+      3,
+      2
+     ]
+    },
+    {
+     "line": [
+      [
+       317,
+       40
+      ],
+      [
+       358,
+       40
+      ]
+     ],
+     "w": 1,
+     "dash": [
+      3,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sleeve_hem_stitch",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "x",
+      "from": 0,
+      "to": 256,
+      "step": 4,
+      "w": 2,
+      "span": [
+       "$sleeve_end-7",
+       "$sleeve_end-7"
+      ]
+     }
+    }
+   ],
+   "regions": [
+    "?limb_[fblr]"
+   ],
+   "when": {
+    "sleeve": [
+     "short",
+     "three_quarter"
+    ]
+   },
+   "frame": "strip"
+  },
+  {
+   "id": "sleeve_cuff_stitch",
+   "stage": "details",
+   "op": "shade",
+   "dL": -16,
+   "shapes": [
+    {
+     "stripes": {
+      "axis": "x",
+      "from": 0,
+      "to": 256,
+      "step": 4,
+      "w": 2,
+      "span": [
+       "$sleeve_end-8",
+       "$sleeve_end-8"
+      ]
+     }
+    }
+   ],
+   "regions": [
+    "?limb_[fblr]"
+   ],
+   "when": {
+    "sleeve": "long"
+   },
+   "frame": "strip"
+  }
+ ],
+ "requires_bottom": {
+  "waist": [
+   "high"
+  ]
+ },
+ "print_slots": [
+  {
+   "region": "torso_f",
+   "role": "hero",
+   "box": [
+    243,
+    84,
+    346,
+    138
+   ]
+  },
+  {
+   "region": "torso_b",
+   "role": "back",
+   "box": [
+    439,
+    84,
+    542,
+    138
+   ]
+  }
+ ]
+}

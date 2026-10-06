@@ -1,0 +1,107 @@
+{
+ "cargo_joggers": {
+  "alpha_sha": "8cee66e5a798390d66d428988376fdc0b94a9189109e7cc8727f033e396dcda8",
+  "label_sha": "d01cf27adf7b6c9927d6318d7de519d9c8ffe5ec0581e6933c2033b75baa5778",
+  "layer_stack_hash": "a7d6343cbdb483a1470cf5252401ebaa486ca44c80e89fc184637c144bfbf28e"
+ },
+ "cargos": {
+  "alpha_sha": "8cee66e5a798390d66d428988376fdc0b94a9189109e7cc8727f033e396dcda8",
+  "label_sha": "0b05b67419dd8aa58d8344a17f4c78f02c04d338c5b2e5038732efced36839c4",
+  "layer_stack_hash": "32708d3b90274e725cadfd0d1cf66dff20bbb3b9d6f585d34e5ab7566fd7b1b1"
+ },
+ "crop_top": {
+  "alpha_sha": "fa394ab329cdc98805d9a1c9e1bb132f3e680000246dda750b17c75cf6f67594",
+  "label_sha": "7a7dd65bce89036fd234786ef738dbc17398b8692cea6f65b288bb1a416f5d8d",
+  "layer_stack_hash": "76573810c723172bbbfb09b3977670815f4a5a1dfd9010f77a5e9d49ee65d382"
+ },
+ "hoodie": {
+  "alpha_sha": "41ddda442bad0998153b09f9a1e7eeccf71e581a77d41315d2d83098aecd8d75",
+  "label_sha": "0b7306740ad66d34c69f14f64678eee6cd77744b388158c7d60c0f966034299f",
+  "layer_stack_hash": "84cf4dc4a7887fff91b0656b079e4dc359aa2a757000b43e4682828f30b828e1"
+ },
+ "jacket_open": {
+  "alpha_sha": "41ddda442bad0998153b09f9a1e7eeccf71e581a77d41315d2d83098aecd8d75",
+  "label_sha": "b3ae633b51d468a9e6b648205114e5e376f16a4adcaf9e37c8dd580e9cf0637d",
+  "layer_stack_hash": "46cccb09f151001c2380f2fa2699d23bb9717325ad77119a91f42d8a2c083aa9"
+ },
+ "jacket_zip": {
+  "alpha_sha": "41ddda442bad0998153b09f9a1e7eeccf71e581a77d41315d2d83098aecd8d75",
+  "label_sha": "e89adebae542fdd120423b0aebf7ebdade6c4086fbba5e88da54139858b6a6ab",
+  "layer_stack_hash": "69d5b7c02eee33ec0c488d9e50d4013413fef40614993126d86e2905e93a6cc4"
+ },
+ "jacket_zip@layered": {
+  "alpha_sha": "41ddda442bad0998153b09f9a1e7eeccf71e581a77d41315d2d83098aecd8d75",
+  "label_sha": "35e9911d259494cb0a554fc95fb4cf1da75d12739f5dce257b3f67036ae19f69",
+  "layer_stack_hash": "ee48a9a09436dbbd8d9d46fa8925b601e64591237492d83787eb76ffaadde76f"
+ },
+ "jeans_straight": {
+  "alpha_sha": "8cee66e5a798390d66d428988376fdc0b94a9189109e7cc8727f033e396dcda8",
+  "label_sha": "0b05b67419dd8aa58d8344a17f4c78f02c04d338c5b2e5038732efced36839c4",
+  "layer_stack_hash": "07a91136ad47a894bda4466a9432e20d149ced3f8dae0ee326ae9d4d56eabe9c"
+ },
+ "jeans_straight@loafer": {
+  "alpha_sha": "8cee66e5a798390d66d428988376fdc0b94a9189109e7cc8727f033e396dcda8",
+  "label_sha": "3855009903640fd44316cb42b2b83d4e1eb0eaff8e5ccbbbbad3b2cfa2492192",
+  "layer_stack_hash": "c71d246f11a35c00762a62af32c76943ad598e2cc46c66395f30c2327cde3e7c"
+ },
+ "jeans_wide": {
+  "alpha_sha": "8cee66e5a798390d66d428988376fdc0b94a9189109e7cc8727f033e396dcda8",
+  "label_sha": "f2875cf851d160293c2977e7a96fc4c590cf31fe1a8f7c8939ad9384d57f8b7c",
+  "layer_stack_hash": "74f4701e2a39f1036cc06fbbad233f0d27bfa2baa945ecc2a4b60e02e5eee0b4"
+ },
+ "raglan": {
+  "alpha_sha": "f4ca3bd9de2ef47b0203216c4a8018f18ae0d00dbbfe4e7ce6e87f7684c7176c",
+  "label_sha": "4873f16f7ae375d97ef63c543285af26d4171f9ddaae98e086feca53f5aa6b70",
+  "layer_stack_hash": "ff651ab981de74b8e85be9573ac96306182652b25b7465382ed9a7ba0a3b8210"
+ },
+ "shorts": {
+  "alpha_sha": "f1dbfb95e99f28d00327effd5394fe23d4b571ac1d7a2ab29d44264b6a9f3798",
+  "label_sha": "1a557aa4636e00317edc094cf5126a4e30a245a8e7041a614d4131ba80e5593d",
+  "layer_stack_hash": "3d187e5d732c5f8e6b60c6efef3fe46e15260720e713c726ccb3b101f2d71573"
+ },
+ "skirt_a_line": {
+  "alpha_sha": "ae0416d3ad0035d53b91ca22935e42a3062a55812cc0ec72f330265cc5a7d846",
+  "label_sha": "cdf04ae861b6a38ca2a449895cc7545bf9d2cd0dfb029787a62ff4fe186e3765",
+  "layer_stack_hash": "0fcc605f94cb29657c3eb40dd4cdcf0dfe7b7d94e23dcf557f1f0392f011741c"
+ },
+ "skirt_pleated": {
+  "alpha_sha": "ae0416d3ad0035d53b91ca22935e42a3062a55812cc0ec72f330265cc5a7d846",
+  "label_sha": "cdf04ae861b6a38ca2a449895cc7545bf9d2cd0dfb029787a62ff4fe186e3765",
+  "layer_stack_hash": "18aa9cc01077489ea10bc78f40749cf265aa1cc2c4aed0b95e69c0b90e505f4c"
+ },
+ "skirt_pleated@high_midi_socks": {
+  "alpha_sha": "0ff7ea926ffdd309cc6e7bda5ba95caf57f2a0559b446a6ff7a8de4e7fd04f14",
+  "label_sha": "3eb1d70ace0f9dc378bb4e4e410fc283d124e8c830d2f579b1583562e473c496",
+  "layer_stack_hash": "902120f131b874649133592ea9428a3e7cf1136644686b52d041a88614b8e7a2"
+ },
+ "tee": {
+  "alpha_sha": "f17b818fb48f9fa598877d7f569a950e334a7bee7ad358400c870edc859b54ca",
+  "label_sha": "2da7b63167ba5046807cabfb864382ad8cf1ce453d991cb1e8cc2c8b20652128",
+  "layer_stack_hash": "32b43fd508ab045756b8ca1fffd256ac06c821b22ffdba30f855a2b03a040192"
+ },
+ "tee@gloves_bracelet": {
+  "alpha_sha": "78de238371802fb67f1cea6660aa243a8eeba8b71154ab669f9719ef69e31f73",
+  "label_sha": "9d15e874387b94fc374c71f06e464c12490eb55bd7e077173da5387a35b05c51",
+  "layer_stack_hash": "ce40996910edf79e993797c9d8f107e3eb23fe1b0432cd29ecfed0a9131d26e2"
+ },
+ "tee@v_neck+yoke": {
+  "alpha_sha": "d563b747b03cf68ae92212a4e4110549431104f6bb559ee3f27a1743e243042d",
+  "label_sha": "e02f5bb150c5fdb911d63c69b0213f5eb871e101b2a251ec2e0b3a0cf21b8645",
+  "layer_stack_hash": "d9cfb632fea76490e251fdf69ad53ea635e5fcf9f99d06fdf4303a4f3924d765"
+ },
+ "tee@waist_tucked": {
+  "alpha_sha": "b4dc96e11a292ea3a462534d240af613dbd4212883d1dc119da66d8c49fa6a0f",
+  "label_sha": "7b3e0d1add93a1e6b14f95eb17c0bcfae58e37868a5371b9f734e4e177fb5f88",
+  "layer_stack_hash": "71b7da093d4a7a528895670ec9f7ee698c37e8c3252432b76ae9cfa203e24fdc"
+ },
+ "tee_long": {
+  "alpha_sha": "f4ca3bd9de2ef47b0203216c4a8018f18ae0d00dbbfe4e7ce6e87f7684c7176c",
+  "label_sha": "3dee99184860e0f4e757a982b5fb78691c1785e94720378e1bc112ca2c6db32c",
+  "layer_stack_hash": "595649c6535bc462b96e93db54d193423dbfb90eaf3f1286878b5b96132dc9b5"
+ },
+ "vest": {
+  "alpha_sha": "658001f26879c11124b7bb0112d5e23cb87f24435eded0568fc0316cdbfa9863",
+  "label_sha": "d1bc3fa791ea9db4f77ca16496c2282a35c1b176f8de8d380d502a457eebce4e",
+  "layer_stack_hash": "59c30721dd24632c2cd92c64b79a6b753a5d318d9ce02ed5a4d5e41ab9901038"
+ }
+}

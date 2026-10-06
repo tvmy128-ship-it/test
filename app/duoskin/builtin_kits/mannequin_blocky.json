@@ -1,0 +1,285 @@
+{
+ "schema": "duoskin.mannequin/1",
+ "name": "blocky_r15_block",
+ "source": "Blocky R15 mannequin built from the classic template geometry (64 template px per stud; limbs 63.5 + 48.5 + 16 px at rows 355 / 418.5 / 467 / 483). Attachment offsets follow the fact-checked BlockyCharacter values of FAILURE_MODES X26 (Neck 1.318 above the UpperTorso joint, collars at x +-0.784, shoulders 0.229 below the arm joint, BodyFront/WaistFront z 0.513, Hat/Hair 1.193 above the Head joint). They are UNVERIFIED until the Studio test T7 reads them; the app always takes attachments from this file or from the head base's own mannequin, never from constants.",
+ "units": "studs",
+ "frame": "y_up_z_front",
+ "parts": [
+  {
+   "name": "RightFoot",
+   "centre": [
+    -0.5,
+    0.125,
+    0.0
+   ],
+   "size": [
+    1.0,
+    0.25,
+    1.0
+   ]
+  },
+  {
+   "name": "RightLowerLeg",
+   "centre": [
+    -0.5,
+    0.62890625,
+    0.0
+   ],
+   "size": [
+    1.0,
+    0.7578125,
+    1.0
+   ]
+  },
+  {
+   "name": "RightUpperLeg",
+   "centre": [
+    -0.5,
+    1.50390625,
+    0.0
+   ],
+   "size": [
+    1.0,
+    0.9921875,
+    1.0
+   ]
+  },
+  {
+   "name": "LeftFoot",
+   "centre": [
+    0.5,
+    0.125,
+    0.0
+   ],
+   "size": [
+    1.0,
+    0.25,
+    1.0
+   ]
+  },
+  {
+   "name": "LeftLowerLeg",
+   "centre": [
+    0.5,
+    0.62890625,
+    0.0
+   ],
+   "size": [
+    1.0,
+    0.7578125,
+    1.0
+   ]
+  },
+  {
+   "name": "LeftUpperLeg",
+   "centre": [
+    0.5,
+    1.50390625,
+    0.0
+   ],
+   "size": [
+    1.0,
+    0.9921875,
+    1.0
+   ]
+  },
+  {
+   "name": "LowerTorso",
+   "centre": [
+    0.0,
+    2.25,
+    0.0
+   ],
+   "size": [
+    2.0,
+    0.5,
+    1.0
+   ]
+  },
+  {
+   "name": "UpperTorso",
+   "centre": [
+    0.0,
+    3.25,
+    0.0
+   ],
+   "size": [
+    2.0,
+    1.5,
+    1.0
+   ]
+  },
+  {
+   "name": "RightUpperArm",
+   "centre": [
+    -1.5,
+    3.50390625,
+    0.0
+   ],
+   "size": [
+    1.0,
+    0.9921875,
+    1.0
+   ]
+  },
+  {
+   "name": "RightLowerArm",
+   "centre": [
+    -1.5,
+    2.62890625,
+    0.0
+   ],
+   "size": [
+    1.0,
+    0.7578125,
+    1.0
+   ]
+  },
+  {
+   "name": "RightHand",
+   "centre": [
+    -1.5,
+    2.125,
+    0.0
+   ],
+   "size": [
+    1.0,
+    0.25,
+    1.0
+   ]
+  },
+  {
+   "name": "LeftUpperArm",
+   "centre": [
+    1.5,
+    3.50390625,
+    0.0
+   ],
+   "size": [
+    1.0,
+    0.9921875,
+    1.0
+   ]
+  },
+  {
+   "name": "LeftLowerArm",
+   "centre": [
+    1.5,
+    2.62890625,
+    0.0
+   ],
+   "size": [
+    1.0,
+    0.7578125,
+    1.0
+   ]
+  },
+  {
+   "name": "LeftHand",
+   "centre": [
+    1.5,
+    2.125,
+    0.0
+   ],
+   "size": [
+    1.0,
+    0.25,
+    1.0
+   ]
+  },
+  {
+   "name": "Head",
+   "centre": [
+    0.0,
+    4.6,
+    0.0
+   ],
+   "size": [
+    1.2,
+    1.2,
+    1.2
+   ]
+  }
+ ],
+ "attachments": {
+  "HatAttachment": [
+   0.0,
+   5.193,
+   0.0
+  ],
+  "HairAttachment": [
+   0.0,
+   5.193,
+   0.0
+  ],
+  "FaceFrontAttachment": [
+   0.0,
+   4.586,
+   0.6
+  ],
+  "FaceCenterAttachment": [
+   0.0,
+   4.6,
+   0.0
+  ],
+  "NeckAttachment": [
+   0.0,
+   3.718,
+   0.0
+  ],
+  "RightCollarAttachment": [
+   -0.784,
+   3.718,
+   0.0
+  ],
+  "LeftCollarAttachment": [
+   0.784,
+   3.718,
+   0.0
+  ],
+  "RightShoulderAttachment": [
+   -1.5,
+   3.571,
+   0.0
+  ],
+  "LeftShoulderAttachment": [
+   1.5,
+   3.571,
+   0.0
+  ],
+  "BodyFrontAttachment": [
+   0.0,
+   3.25,
+   0.513
+  ],
+  "BodyBackAttachment": [
+   0.0,
+   3.25,
+   -0.513
+  ],
+  "WaistFrontAttachment": [
+   0.0,
+   2.25,
+   0.513
+  ],
+  "WaistCenterAttachment": [
+   0.0,
+   2.25,
+   0.0
+  ],
+  "WaistBackAttachment": [
+   0.0,
+   2.25,
+   -0.513
+  ]
+ },
+ "meta": {
+  "height_studs": 5.2,
+  "px_per_stud_template": 64,
+  "template_regions": "roblox/template_regions.json",
+  "unverified": [
+   "attachment offsets (FAILURE_MODES X26, T7)"
+  ],
+  "frame_note": "studs, Y up, character faces +Z, the character's RIGHT is -X"
+ }
+}

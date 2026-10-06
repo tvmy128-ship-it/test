@@ -1,0 +1,352 @@
+{
+ "combo": "gg",
+ "lead": "a",
+ "is_wildcard": true,
+ "world": {
+  "theme": "twilight skate park pals",
+  "pair_structure": "mirror",
+  "structure_note": "",
+  "story": "Two friends who swap colours on every board and skate until the lights come on.",
+  "palette_family": "candy_bright",
+  "material_family": "jersey",
+  "detail_level": "maximal"
+ },
+ "shared_anchors": [
+  {
+   "kind": "colour",
+   "description": "lemon stripes on both outfits",
+   "on_a": "stripes on the crop top hem",
+   "on_b": "stripes on the skirt waistband",
+   "visible_from": "front"
+  },
+  {
+   "kind": "silhouette_detail",
+   "description": "round hair shapes",
+   "on_a": "two high round buns",
+   "on_b": "round braid loops",
+   "visible_from": "both"
+  }
+ ],
+ "contrasts": [
+  {
+   "axis": "hair_shape",
+   "a_value": "two round buns",
+   "b_value": "long braids"
+  },
+  {
+   "axis": "top_type",
+   "a_value": "crop top",
+   "b_value": "pullover hoodie"
+  },
+  {
+   "axis": "bottom_type",
+   "a_value": "wide jeans",
+   "b_value": "a-line skirt"
+  },
+  {
+   "axis": "accessory_slot",
+   "a_value": "head clip",
+   "b_value": "back waist bag"
+  },
+  {
+   "axis": "face_mouth",
+   "a_value": "cat mouth",
+   "b_value": "open grin"
+  },
+  {
+   "axis": "layering",
+   "a_value": "single layer",
+   "b_value": "open layer over tee"
+  }
+ ],
+ "palette": [
+  {
+   "id": "p1",
+   "name": "magenta",
+   "hex": "#D6409F",
+   "role": "a_main"
+  },
+  {
+   "id": "p2",
+   "name": "teal",
+   "hex": "#19A7A0",
+   "role": "a_second"
+  },
+  {
+   "id": "p3",
+   "name": "teal",
+   "hex": "#19A7A0",
+   "role": "b_main"
+  },
+  {
+   "id": "p4",
+   "name": "magenta",
+   "hex": "#D6409F",
+   "role": "b_second"
+  },
+  {
+   "id": "p5",
+   "name": "lemon",
+   "hex": "#F4E04D",
+   "role": "shared"
+  },
+  {
+   "id": "p6",
+   "name": "near black",
+   "hex": "#16161A",
+   "role": "line"
+  },
+  {
+   "id": "p7",
+   "name": "white",
+   "hex": "#FAFAFA",
+   "role": "neutral_light"
+  },
+  {
+   "id": "p8",
+   "name": "dark brown",
+   "hex": "#3B2A22",
+   "role": "hair_a"
+  },
+  {
+   "id": "p9",
+   "name": "plum",
+   "hex": "#6B2D5C",
+   "role": "hair_b"
+  },
+  {
+   "id": "p10",
+   "name": "slate grey",
+   "hex": "#6B7280",
+   "role": "modesty"
+  },
+  {
+   "id": "p11",
+   "name": "indigo",
+   "hex": "#3F3D8F",
+   "role": "neutral_dark"
+  },
+  {
+   "id": "p12",
+   "name": "coral",
+   "hex": "#F2735E",
+   "role": "accent"
+  }
+ ],
+ "a": {
+  "presentation": "girl",
+  "role_in_duo": "trick skater who lands first",
+  "dna": {
+   "shape_language": "flowing_curved",
+   "colour_plan": "block_50_50",
+   "focal_location": "hair",
+   "motif_object": "paper star",
+   "accessory_style": "bright clip",
+   "energy": "daring"
+  },
+  "body": {
+   "skin_tone": "tone_2",
+   "modesty_ref": "p10"
+  },
+  "face": {
+   "eye_shape": "round",
+   "iris_style": "oval_solid",
+   "highlight_style": "sparkle_star",
+   "lash_style": "wing",
+   "brow_style": "thin_arched",
+   "mouth_style": "cat_w",
+   "nose_style": "dot",
+   "cheek_mark": "blush_soft",
+   "default_expression": "cheerful",
+   "iris_ref": "p11",
+   "iris_dark_ref": "p9",
+   "pupil_ref": "p6",
+   "sclera_ref": "p7",
+   "lash_ref": "p6",
+   "brow_ref": "p8",
+   "mouth_line_ref": "p6",
+   "mouth_inner_ref": "p12",
+   "tongue_ref": "p12",
+   "teeth_ref": "none",
+   "blush_ref": "p12"
+  },
+  "hair": {
+   "kit_style_id": "hair_buns_04",
+   "fringe_id": "none",
+   "back_id": "kit_default",
+   "parting": "centre",
+   "description": "two high round buns",
+   "colour_ref": "p8",
+   "shadow_ref": "p6",
+   "highlight_ref": "p12"
+  },
+  "top": {
+   "recipe_id": "crop_top",
+   "sleeve": "short",
+   "hem": "crop",
+   "neckline": "square",
+   "front": "closed",
+   "block_layout": "solid",
+   "inner_recipe_id": "none",
+   "fabric_id": "jersey_plain",
+   "base_ref": "p1",
+   "second_ref": "p2",
+   "trim_ref": "p5",
+   "prints": [
+    {
+     "motif": "one paper star",
+     "region": "torso_f",
+     "scale": "medium",
+     "colour_refs": [
+      "p5",
+      "p6"
+     ]
+    }
+   ],
+   "arm_extras": []
+  },
+  "bottom": {
+   "recipe_id": "jeans_wide",
+   "leg": "full",
+   "waist": "high",
+   "fabric_id": "denim_classic",
+   "base_ref": "p2",
+   "second_ref": "none",
+   "trim_ref": "p5",
+   "prints": [],
+   "legwear": "bare",
+   "legwear_ref": "none",
+   "shoes": {
+    "style_id": "sneaker_low",
+    "base_ref": "p7",
+    "sole_ref": "p1",
+    "accent_ref": "p5",
+    "motif": ""
+   }
+  },
+  "accessories": [
+   {
+    "kind": "hair_clip_slab",
+    "description": "flat star shaped hair clip",
+    "category": "hat",
+    "attachment": "hat",
+    "size_class": "small",
+    "build": "sticker_slab",
+    "material": "enamel_flat",
+    "linked_to_partner": false,
+    "colour_refs": [
+     "p5",
+     "p1"
+    ]
+   }
+  ],
+  "makeup": {
+   "kind": "none",
+   "description": "",
+   "colour_refs": []
+  }
+ },
+ "b": {
+  "presentation": "girl",
+  "role_in_duo": "board mechanic who tunes wheels",
+  "dna": {
+   "shape_language": "round_soft",
+   "colour_plan": "mono_accent",
+   "focal_location": "accessory",
+   "motif_object": "skate wheel",
+   "accessory_style": "practical belt bag",
+   "energy": "relaxed"
+  },
+  "body": {
+   "skin_tone": "tone_5",
+   "modesty_ref": "p10"
+  },
+  "face": {
+   "eye_shape": "sleepy",
+   "iris_style": "oval_top_band",
+   "highlight_style": "crescent_rim",
+   "lash_style": "clean_line",
+   "brow_style": "short_round",
+   "mouth_style": "open_grin",
+   "nose_style": "none",
+   "cheek_mark": "none",
+   "default_expression": "sleepy",
+   "iris_ref": "p3",
+   "iris_dark_ref": "p11",
+   "pupil_ref": "p6",
+   "sclera_ref": "p7",
+   "lash_ref": "p6",
+   "brow_ref": "p9",
+   "mouth_line_ref": "p6",
+   "mouth_inner_ref": "p12",
+   "tongue_ref": "p12",
+   "teeth_ref": "p7",
+   "blush_ref": "none"
+  },
+  "hair": {
+   "kit_style_id": "hair_long_braids_02",
+   "fringe_id": "fringe_b",
+   "back_id": "kit_default",
+   "parting": "none",
+   "description": "long braids with round loops",
+   "colour_ref": "p9",
+   "shadow_ref": "p6",
+   "highlight_ref": "none"
+  },
+  "top": {
+   "recipe_id": "hoodie",
+   "sleeve": "long",
+   "hem": "hip_untucked",
+   "neckline": "hood",
+   "front": "closed",
+   "block_layout": "contrast_sleeves",
+   "inner_recipe_id": "none",
+   "fabric_id": "fleece_soft",
+   "base_ref": "p3",
+   "second_ref": "p4",
+   "trim_ref": "p5",
+   "prints": [],
+   "arm_extras": []
+  },
+  "bottom": {
+   "recipe_id": "skirt_a_line",
+   "leg": "knee",
+   "waist": "mid",
+   "fabric_id": "twill_fine",
+   "base_ref": "p4",
+   "second_ref": "p6",
+   "trim_ref": "p5",
+   "prints": [],
+   "legwear": "tights",
+   "legwear_ref": "p6",
+   "shoes": {
+    "style_id": "boot",
+    "base_ref": "p6",
+    "sole_ref": "p7",
+    "accent_ref": "p5",
+    "motif": ""
+   }
+  },
+  "accessories": [
+   {
+    "kind": "bag",
+    "description": "small belt bag with a wheel charm",
+    "category": "waist",
+    "attachment": "waist_back",
+    "size_class": "small",
+    "build": "tripo",
+    "material": "canvas",
+    "linked_to_partner": false,
+    "colour_refs": [
+     "p3",
+     "p5"
+    ]
+   }
+  ],
+  "makeup": {
+   "kind": "none",
+   "description": "",
+   "colour_refs": []
+  }
+ }
+}
