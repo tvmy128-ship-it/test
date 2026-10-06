@@ -602,6 +602,7 @@ def test_every_sql_string_is_parameterised():
         "duoskin/db/repo.py": {"col"},
         "duoskin/engine/steps.py": {"attempt_expr", "remote_state", "extra", "col"},
         "duoskin/engine/budget.py": {"marks"},
+        "duoskin/engine/calibration.py": {"marks"},  # only ?,?,? placeholders joined from the id list
     }
     problems: list[str] = []
     for path in sorted((APP_ROOT / "duoskin").rglob("*.py")):
