@@ -401,6 +401,31 @@ def annotate_warning(handle: Any, warning: Mapping[str, Any]) -> dict[str, Any]:
 
 
 # ======================================================================================================================
+# stream isolation (APP_SPEC §3.8): drill pictures are never read by anything that learns from the person's work
+# ======================================================================================================================
+class DrillIsolationError(AssertionError):
+    """A loader of the registries, the taste profile or the critic's examples was handed a drill (or regression) asset."""
+
+
+def is_isolated_asset(handle: Any, sha: str) -> str | None:
+    """The data stream (``drill`` or ``regression``) an asset belongs to, or ``None`` for a pipeline asset. Looks at the asset's first
+    provenance and at every link; one such mark is enough."""
+    conn = _database(handle).conn()
+    for stream in ("drill", "regression"):
+        if conn.execute("SELECT 1 FROM asset_links WHERE asset_sha=? AND stream=? LIMIT 1", (sha, stream)).fetchone():
+            return stream
+    row = conn.execute("SELECT json_extract(json, '$.first_provenance.stream') AS s FROM assets WHERE sha256=?", (sha,)).fetchone()
+    return row["s"] if row and row["s"] in ("drill", "regression") else None
+
+
+def assert_not_drill(handle: Any, shas: Iterable[str]) -> None:
+    """The guard the loaders call (``test_drill_isolation``): raises ``DrillIsolationError`` when any asset is a drill or regression picture."""
+    bad = {sha: s for sha in shas if (s := is_isolated_asset(handle, sha))}
+    if bad:
+        raise DrillIsolationError("these assets are not pipeline assets: " + ", ".join(f"{k[:12]} ({v})" for k, v in bad.items()))
+
+
+# ======================================================================================================================
 # gate hooks (called by engine.gates.GateService)
 # ======================================================================================================================
 @dataclass
@@ -440,6 +465,8 @@ def on_decision(handle: Any, snap: DecisionSnapshot, decision: Any) -> None:
         return
     for tile_id in snap.tile_ids:
         record_gate_outcome(handle, snap.gate_kind, snap.outcome, snap.flagged.get(tile_id, []))
+    if hasattr(handle, "update_settings"):
+        _database(handle).on_commit(lambda: _auto_demote(handle))      # a check that fires on more than 30% of duos goes back to a warning (APP_SPEC §3.1)
     log_label(handle, "like_dislike", "gate", [snap.project_id, snap.gate_id, decision.tile_id, decision.id],
               {"liked": snap.outcome == "approved", "action": str(getattr(decision.action, "value", decision.action)), "gate": snap.gate_kind,
                "tiles": len(snap.tile_ids)})
@@ -516,6 +543,13 @@ def apply_demotions(rt: Any) -> list[Demotion]:
     for d in due:
         log.warning("check %s demoted to a warning: fire rate %.0f%% over %d duos", d.check_id, d.fire_rate * 100, d.duos)
     return due
+
+
+def _auto_demote(rt: Any) -> None:
+    try:
+        apply_demotions(rt)
+    except Exception:
+        log.exception("automatic demotion failed")
 
 
 def active_demotions(rt: Any) -> list[dict[str, Any]]:
@@ -763,7 +797,7 @@ def weekly_report(rt: Any, week: str | None = None) -> dict[str, Any]:
         "decisions": {"approved": sum(r.approved_total for r in stat_rows(rt, window=window) if r.check_id.startswith("*gate:")),
                       "rejected": sum(r.rejected_total for r in stat_rows(rt, window=window) if r.check_id.startswith("*gate:"))},
         "per_check": rows,
-        "hidden_warnings": [v.as_dict() for v in hidden],
+        "hidden_warnings": [{**v.as_dict(), "title": policy.meta(v.check_id).title} for v in hidden],
         "demoted_checks": active_demotions(rt),
         "hard_reject_rate_on_approved": hard["rate"], "hard_reject": hard,
         "structure_use": shares, "structure_collapse": collapse,

@@ -87,6 +87,7 @@ def test_library_calibration_learning_not_built_yet_are_friendly(ui, live):
 
 # ------------------------------------------------------------------------------------------------------------- calibration
 def test_calibration_is_locked_until_five_duos_then_takes_blind_labels(ui, live):
+    """The page against canned answers (the real API has its own browser test in tests/learning/test_ui_pages.py)."""
     labels: list[dict] = []
     ui.page.route(re.compile(r"/api/calibration/session\?kind=drill$"), fulfill({"locked": True, "approved_duos": 2, "needed": 5}))
     ui.goto("/calibration")
@@ -94,7 +95,8 @@ def test_calibration_is_locked_until_five_duos_then_takes_blind_labels(ui, live)
     expect(ui.page.locator("main")).to_contain_text("You have 2")
     sha = seed.put(live.rt, seed.figure_png("koi", "front"))
     ui.page.unroute(re.compile(r"/api/calibration/session\?kind=drill$"))
-    ui.page.route(re.compile(r"/api/calibration/session\?kind=drill$"), fulfill({"items": [{"item_id": "it1", "images": [sha]}, {"item_id": "it2", "images": [sha]}], "counts": {"drill_share": 0.2, "labels": {"approved": 31}}}))
+    ui.page.route(re.compile(r"/api/calibration/session\?kind=drill$"), fulfill({"items": [{"item_id": "it1", "images": [sha]}, {"item_id": "it2", "images": [sha]}],
+                                                                                 "session": {"id": "s1", "answered": 0, "total": 20}, "counts": {"drill_share": 0.2, "cap": 0.25, "by_source": {"gate": 31}}}))
     ui.page.route(re.compile(r"/api/calibration/labels$"), lambda r: (labels.append(r.request.post_data_json), r.fulfill(status=204)))
     ui.page.reload()
     ui.page.wait_for_selector("main h1")
@@ -102,48 +104,37 @@ def test_calibration_is_locked_until_five_duos_then_takes_blind_labels(ui, live)
     item = ui.page.locator("main .panel").first.inner_text().lower()
     assert "clone" not in item.split("what is this?")[0] and "real duo" not in item.split("what is this?")[0]    # blind: nothing says which it is
     ui.page.get_by_role("button", name="A real duo").click()
-    ui.wait_until(lambda: labels, 5, "the label")
-    assert labels[0]["item_id"] == "it1" and labels[0]["label"] == "real_duo"
     ui.page.get_by_role("button", name="Like", exact=True).click()
-    ui.wait_until(lambda: len(labels) == 2, 5, "the like")
-    assert labels[1]["like"] is True
-    expect(ui.page.locator("main")).to_contain_text("Practice rounds are capped at a quarter")
-    ui.shot("calibration")
+    ui.page.get_by_role("button", name="Save and next").click()
+    ui.wait_until(lambda: labels, 5, "the label")
+    assert labels[0] == {"item_id": "it1", "label": "real_duo", "like": True}, "an answer and a like are one request"
+    expect(ui.page.locator("main")).to_contain_text("capped at a quarter")
 
 
 # ------------------------------------------------------------------------------------------------------------- learning
-def test_learning_report_regression_confirmation_and_promotion_refusal(ui, live):
+def test_learning_report_and_the_regression_asks_before_it_starts(ui, live):
     runs: list[dict] = []
-    ui.page.route(re.compile(r"/api/learning/report$"), fulfill({
-        "gate1_first_try_approval": 0.62, "wildcard_pick_rate": 0.25, "cost_per_duo": 7.4,
-        "per_check": [{"check_id": "taste_busy", "flag_rate_on_approved": 0.12, "catch_rate_on_rejected": 0.4, "hidden": False}],
-        "structure_use": {"complement": 5, "mirror": 2}}))
+    rep = {"week": {"label": "2026-W41", "start": "2026-10-05", "end": "2026-10-11"}, "approved_duos": 8, "decisions": {"approved": 20, "rejected": 5},
+           "gate1_first_try_approval": 0.62, "gate1": {"duos": 8}, "wildcard_pick_rate": 0.25, "wildcard": {"duos": 8}, "cost_per_duo": 7.4,
+           "per_check": [{"check_id": "taste_busy", "flag_rate_on_approved": 0.12, "catch_rate_on_rejected": 0.4, "flagged_approved": 2, "flagged_rejected": 2,
+                          "hidden": False, "kind": "soft"}], "structure_use": {"complement": 5, "mirror": 2}, "labels": {"effective_total": 120, "target": 200},
+           "regression": {"versions": {"roles": [], "baseline": None}, "runs": [], "sample": 10, "briefs": 40, "estimate": {"text": "About $20 to $45."}}}
+    ui.page.route(re.compile(r"/api/learning/report(\?.*)?$"), fulfill(rep))
+    ui.page.route(re.compile(r"/api/regression/estimate.*$"), fulfill({"text": "About $20 to $45 for 10 briefs.", "needs_confirmation": True}))
     ui.page.route(re.compile(r"/api/regression/run$"), lambda r: (runs.append(r.request.post_data_json), r.fulfill(status=200, content_type="application/json", body="{}")))
-    ui.page.route(re.compile(r"/api/versions/promote$"), fulfill({"error": "not_allowed", "message": "the latest regression did not pass the variety guard"}, 409))
     ui.goto("/learning")
     main = ui.page.locator("main")
     expect(main).to_contain_text("62%")                                                       # a rate, as a percent
     expect(main).to_contain_text("$7.40")
     expect(main).to_contain_text("Taste busy")
     assert "{" not in main.inner_text()
-    ui.shot("learning")
     ui.page.get_by_role("button", name="Start the regression test").click()
     dlg = ui.page.get_by_role("dialog")
-    expect(dlg).to_contain_text("asks again before anything is charged")
-    dlg.get_by_role("button", name="Show me the estimate").click()
+    expect(dlg).to_contain_text("About $20 to $45 for 10 briefs.")
+    dlg.get_by_role("button", name="Start the test").click()
     ui.wait_until(lambda: runs, 5, "the regression call")
-    assert runs[0]["stage"] == "plan" and runs[0]["sample"] == 10
-    expect(ui.page.locator(".toast", has_text="confirmation will appear")).to_have_count(1)
-    # a version can only be promoted after the regression passed: the refusal is shown in words
-    ui.goto("/settings/models")
-    box = ui.page.get_by_label("Candidate for Planner")
-    box.fill("claude-opus-5-20260901")
-    box.press("Tab")
-    ui.page.wait_for_timeout(300)
-    ui.goto("/learning")
-    ui.page.get_by_role("button", name="Promote this version").click()
-    expect(ui.page.locator(".msg", has_text="Not yet")).to_have_count(1)
-    expect(ui.page.locator(".msg", has_text="Not yet")).to_contain_text("only promoted after the latest regression test passed")
+    assert runs[0]["stage"] == "plan" and runs[0]["sample"] == 10 and runs[0]["candidate_versions"] == {}
+    expect(ui.page.locator(".toast", has_text="Started")).to_have_count(1)
 
 
 # ------------------------------------------------------------------------------------------------------------- project hub
@@ -166,7 +157,7 @@ def test_project_hub_shows_the_brief_next_action_and_manage_buttons(ui, live):
 
 def test_calibration_round_has_a_quiet_timer(ui, live):
     sha = seed.put(live.rt, seed.figure_png("koi", "front"))
-    ui.page.route(re.compile(r"/api/calibration/session\?kind=drill$"), fulfill({"items": [{"item_id": "it1", "images": [sha]}]}))
+    ui.page.route(re.compile(r"/api/calibration/session\?kind=drill$"), fulfill({"items": [{"item_id": "it1", "images": [sha]}], "session": {"id": "s1", "answered": 0, "total": 1}}))
     ui.goto("/calibration")
     expect(ui.page.locator("main")).to_contain_text("a round takes 10 to 15 minutes")
     expect(ui.page.locator("main")).to_contain_text("Time so far: 00:0")

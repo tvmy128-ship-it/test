@@ -146,3 +146,51 @@
 
 /* a page whose content is still being fetched shows a hint instead of a blank area */
 .page-body:empty::before { content: "Loading…"; display: block; color: var(--muted); padding: 12px 0; }
+
+/* ---- calibration (blind drills, judge set) ---- */
+.drill-top { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 14px; }
+.drill-top .progress { flex: 1 1 240px; min-width: 200px; }
+.drill-count { margin: 0; font-weight: 650; }
+.drill-stage { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); gap: 20px; align-items: start; }
+.drill-controls { display: grid; gap: 16px; align-content: start; }
+@media (max-width: 1000px) { .drill-stage { grid-template-columns: 1fr; } }
+.drill-pic { margin: 0; display: grid; place-items: center; padding: 14px; background: var(--media); border-radius: var(--radius); min-height: 180px; }
+.drill-pic img { display: block; max-width: 100%; max-height: 56vh; width: auto; height: auto; border-radius: 8px; }
+.drill-question { margin: 0; font-size: 20px; font-weight: 700; }
+.answer-group { display: grid; gap: 8px; }
+.answer-group > .answer-label { margin: 0; color: var(--muted); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.choice-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.choice { min-height: 48px; padding: 8px 22px; border: 2px solid var(--line-strong); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
+.choice:hover { border-color: var(--muted); background: var(--surface-2); }
+.choice[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.choice.small { min-height: 38px; padding: 4px 16px; border-radius: 10px; }
+.drill-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.round-done { text-align: center; padding: 28px 12px; display: grid; gap: 10px; justify-items: center; }
+.count-lines { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.count-lines li { display: grid; grid-template-columns: minmax(140px, 240px) 1fr 64px; gap: 12px; align-items: center; }
+
+/* ---- learning ---- */
+.alert-list { display: grid; gap: 10px; margin-bottom: 20px; }
+.alert-list .note { margin: 0; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.stat-sub { color: var(--muted); font-size: 13px; }
+.rate-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rate-cell small { color: var(--muted); }
+.panel-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.panel-tools select { width: auto; min-width: 160px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 20px; align-items: end; }
+.estimate-line { margin: 10px 0; font-weight: 650; }
+.run-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.run { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }
+.run > summary { cursor: pointer; display: grid; grid-template-columns: minmax(220px, 1.8fr) repeat(4, minmax(84px, 1fr)) auto; gap: 8px 14px; align-items: center; padding: 10px 14px; list-style: none; }
+.run > summary::-webkit-details-marker { display: none; }
+.run > summary .run-what { font-weight: 650; }
+.run > summary .run-what small { display: block; font-weight: 400; }
+.run .run-num { font-variant-numeric: tabular-nums; }
+.run .run-num small { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.run-body { padding: 4px 14px 14px; }
+.guard-checks { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.guard-checks li { display: grid; grid-template-columns: 76px 1fr auto; gap: 10px; align-items: center; }
+.guard-reasons { margin: 6px 0 10px; padding-left: 20px; }
+.tuner-bar { display: grid; gap: 6px; margin-bottom: 12px; }
+.version-table td .row { margin: 0; }
+@media (max-width: 900px) { .run > summary { grid-template-columns: 1fr 1fr; } .count-lines li { grid-template-columns: 1fr 1fr 56px; } }

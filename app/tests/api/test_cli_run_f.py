@@ -33,10 +33,6 @@ def free_port():
 def test_selfcheck_and_unknown_commands():
     assert cli("selfcheck").returncode == 0
     assert cli("nonsense").returncode == 2
-    later = cli("regression")
-    assert later.returncode == 1 and "later milestone" in later.stdout
-    staged = cli("regression", "--stage", "parts", "--template", "I4", "--sample", "3", "--candidate", "planner=x")   # arguments are parsed
-    assert staged.returncode == 1 and "later milestone" in staged.stdout
     head = cli("build-head-base", "somewhere.glb", "--variant", "round")
     assert head.returncode == 1 and "later milestone" in head.stdout
 

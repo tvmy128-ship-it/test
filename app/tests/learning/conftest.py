@@ -9,6 +9,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))     # tests/ itself: ``web.conftest`` for the browser tests
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline"))     # pfix: the locked fixture spec the part pipeline starts from
 
 from duoskin.checks import thresholds as TH
 from duoskin.engine import registry as eng_registry
@@ -54,3 +55,17 @@ def app(tmp_path):
 def client(app):
     with make_client(app) as c:
         yield c
+
+
+@pytest.fixture
+def demo_inventory(tmp_path):
+    """The kit inventory with the demo kits installed (what the fixture specs' hair ids need); the autouse fixture restores it."""
+    from duoskin.models import kitenums as K
+
+    inv = K.inventory_from_manifest(kits.build_manifest(tmp_path / "nokits", include_demo=True))
+    K.set_default_inventory(inv)
+    return inv
+
+
+# the browser fixtures of the web tests (``live``: the app on a loopback port; ``ui``: Chromium on it) are reused as they are
+from web.conftest import browser, live, ui, ui_factory  # noqa: F401

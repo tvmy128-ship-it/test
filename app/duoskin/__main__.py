@@ -1,8 +1,9 @@
 """``python -m duoskin <command>`` (APP_SPEC §15.4). Always launch with ``-m duoskin`` from the app root.
 
 Commands: ``run [--open-browser] [--port N]``, ``selfcheck``, ``doctor [--setup] [--json]``, ``reset-leases``,
-``export-diagnostics``, ``gc [--dry-run]``; ``regression [--stage plan|parts] [--template ID] [--sample N]
-[--candidate role=version]``, ``build-kit-manifest``, ``build-head-base <source> --variant <name>`` and ``calibrate-report``
+``export-diagnostics``, ``gc [--dry-run]``, ``regression [--stage plan|parts] [--template ID] [--sample N]
+[--candidate role=version] [--compare] [--real] [--yes]`` (the staged regression and the variety guard, APP_SPEC §3.9) and
+``calibrate-report [--week W] [--json]`` (the weekly report, §3.9); ``build-kit-manifest`` and ``build-head-base <source> --variant <name>``
 belong to later milestones and say so (their arguments are parsed so the later tracks only fill in the body).
 """
 import os
@@ -159,6 +160,129 @@ def cmd_gc(args: argparse.Namespace) -> int:
             lock.release()
 
 
+def _parse_candidates(items: list[str]) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for item in items:
+        role, sep, version = item.partition("=")
+        if not sep or not role.strip() or not version.strip():
+            raise ValueError(f"--candidate wants ROLE=VERSION, got '{item}'")
+        out[role.strip()] = version.strip()
+    return out
+
+
+def _print_run(run: dict, guard: dict | None) -> None:
+    m = run.get("metrics") or {}
+    print(f"  {run['role']:<9} {run['state']:<8} briefs {run.get('ok_briefs', 0)}/{run.get('n_briefs', 0)}   quality {run.get('quality', 0):.3f}   "
+          f"picture distance {m.get('image_distance', 0):.3f} ({run.get('image_mode', '?')})   variety index {m.get('variety_index', 0):.3f}   "
+          f"cost ${run.get('cost_usd', 0):.2f}")
+    if guard:
+        print(f"  guard: {guard['decision'].upper()}")
+        for reason in guard["reasons"]:
+            print(f"    - {reason}")
+
+
+def cmd_regression(args: argparse.Namespace) -> int:
+    """The staged regression and the variety guard (APP_SPEC §3.9). Mock providers unless ``--real``; shows the estimate and asks first."""
+    from duoskin import config, winplat
+    from duoskin.app import load_plugins
+    from duoskin.engine.runtime import Runtime
+    from duoskin.models.job import TERMINAL_JOB_STATES
+    from duoskin.pipeline import regression as reg
+
+    try:
+        candidates = _parse_candidates(args.candidate)
+    except ValueError as exc:
+        print(str(exc))
+        return 1
+    paths = config.paths(args.home)
+    lock = winplat.single_instance(paths.run_dir / "instance.lock")
+    if lock is None:
+        print("DuoSkin Studio is running. Use the Learning page, or close the app and run this again.")
+        return 1
+    providers = args.providers or (None if args.real else "mock")
+    rt = Runtime.create(args.home, providers_mode=providers)
+    try:
+        load_plugins(rt)
+        rt.startup(backup=False)
+        try:
+            pre = reg.preview_regression(rt, stage=args.stage, sample=args.sample, templates=args.template, candidate_versions=candidates, compare=args.compare)
+        except reg.RegressionError as exc:
+            print(str(exc))
+            return 1
+        est = pre["estimate"]
+        print(f"Regression test, stage {pre['stage']}: {pre['items']} {'briefs' if pre['stage'] == 'plan' else 'frozen specs'}, "
+              f"runs: {', '.join(pre['arms'])}, providers: {pre['mode']}.")
+        if pre["brief_set_edited"]:
+            print("The brief set was edited by you; its checksum is part of the result.")
+        print(est["text"])
+        if est["needs_confirmation"]:
+            print(f"This is above ${est['ask_above_usd']:.0f}: your answer below is the budget confirmation.")
+        if est["needs_confirmation"] and args.yes:
+            print(f"--yes cannot confirm a paid run above ${est['ask_above_usd']:.0f}: run it again without --yes and answer the question.")
+            return 1
+        if not args.yes and input("Start it now? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("Nothing started.")
+            return 0
+        job = reg.start_regression(rt, stage=args.stage, sample=args.sample, templates=args.template, candidate_versions=candidates, compare=args.compare)
+        confirmed = False
+        last = ""
+        try:
+            while rt.repo.get_job(job.id).state not in TERMINAL_JOB_STATES:
+                time.sleep(1.0)
+                from duoskin.models.gate import GateAction, GateDecisionIn, GateKind
+
+                for g in rt.repo.list_gates(state="open"):
+                    if g.kind == GateKind.BUDGET and g.job_id == job.id and not confirmed:
+                        tile = g.tiles[0]
+                        rt.gates.decide(g.id, GateDecisionIn(tile_id=tile.tile_id, action=GateAction.CONTINUE, expected_version=tile.version,
+                                                             client_decision_id=f"cli-{job.id}"))
+                        confirmed = True
+                        print("Budget confirmed.")
+                counts = rt.repo.step_counts(job_id=job.id)
+                line = f"  steps: {counts.get('succeeded', 0)} done, {counts.get('running', 0) + counts.get('waiting_remote', 0)} running, {counts.get('failed', 0)} failed"
+                if line != last:
+                    print(line)
+                    last = line
+        except KeyboardInterrupt:
+            rt.scheduler.cancel_job(job.id)
+            reg.sweep_override(rt)
+            print("Cancelled.")
+            return 130
+        final = rt.repo.get_job(job.id)
+        runs = [r for r in (reg.load_run(rt, rid) for rid in job.params["run_ids"]) if r]
+        if final.state.value != "succeeded" or not runs or any(r.get("state") != "done" for r in runs):
+            print(f"The regression test did not finish ({final.state.value}).")
+            return 1
+        print("Result:")
+        code = 0
+        for r in runs:
+            _print_run(r, r.get("guard"))
+            if r.get("guard") and not r["guard"]["accepted"]:
+                code = 2
+        return code
+    finally:
+        rt.shutdown()
+        lock.release()
+
+
+def cmd_calibrate_report(args: argparse.Namespace) -> int:
+    """Print the weekly learning report (APP_SPEC §3.9): per-check flag and catch rates, alerts, labels, costs."""
+    from duoskin.engine import calibration
+    from duoskin.engine.runtime import Runtime
+
+    rt = Runtime.create(args.home, providers_mode="mock")
+    try:
+        try:
+            report = calibration.weekly_report(rt, args.week)
+        except ValueError:
+            print(f"'{args.week}' is not a week: use 2026-W41, a date, or 'all'.")
+            return 1
+    finally:
+        rt.shutdown()
+    print(json.dumps(report, indent=2, default=str) if args.json else calibration.format_report(report))
+    return 0
+
+
 def _later(name: str) -> int:
     print(f"'{name}' is not available in this build yet (it belongs to a later milestone).")
     return 1
@@ -284,18 +408,24 @@ def build_parser() -> argparse.ArgumentParser:
     gc.add_argument("--yes", action="store_true", help="do not ask before deleting")
     gc.set_defaults(fn=cmd_gc)
 
-    reg = sub.add_parser("regression", help="the staged regression + variety guard (later milestone)")
+    reg = sub.add_parser("regression", help="the staged regression + variety guard (mock providers unless --real)")
     reg.add_argument("--stage", choices=("plan", "parts"), default="plan")
-    reg.add_argument("--template", action="append", default=[], metavar="ID")
-    reg.add_argument("--sample", type=int, default=None)
-    reg.add_argument("--candidate", action="append", default=[], metavar="ROLE=VERSION")
-    reg.set_defaults(fn=lambda _a: _later("regression"))
+    reg.add_argument("--template", action="append", default=[], metavar="ID", help="part template (I2, R1, ...) or part kind; stage parts only")
+    reg.add_argument("--sample", type=int, default=None, help="run a deterministic sample of this many briefs or specs")
+    reg.add_argument("--candidate", action="append", default=[], metavar="ROLE=VERSION", help="a candidate model snapshot to test, e.g. planner=claude-opus-5-20261001")
+    reg.add_argument("--compare", action="store_true", help="judge a change that is already installed against the stored baseline")
+    reg.add_argument("--real", action="store_true", help="use the saved providers (real keys) instead of mock; the estimate is shown first")
+    reg.add_argument("--yes", action="store_true", help="do not ask before starting (never for a paid run above the regression ask threshold)")
+    reg.set_defaults(fn=cmd_regression)
     head = sub.add_parser("build-head-base", help="build a head-base folder from a source mesh through Blender (later milestone)")
     head.add_argument("source", type=Path)
     head.add_argument("--variant", required=True)
     head.set_defaults(fn=lambda _a: _later("build-head-base"))
-    for name in ("build-kit-manifest", "calibrate-report"):
-        sub.add_parser(name, help="later milestone").set_defaults(fn=lambda _a, n=name: _later(n))
+    sub.add_parser("build-kit-manifest", help="later milestone").set_defaults(fn=lambda _a: _later("build-kit-manifest"))
+    rep = sub.add_parser("calibrate-report", help="print the weekly learning report")
+    rep.add_argument("--week", default=None, help="2026-W41, a date in that week, or 'all' (default: this week)")
+    rep.add_argument("--json", action="store_true")
+    rep.set_defaults(fn=cmd_calibrate_report)
     return p
 
 

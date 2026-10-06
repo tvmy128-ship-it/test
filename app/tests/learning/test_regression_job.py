@@ -155,3 +155,86 @@ def test_a_threshold_set_is_judged_on_the_baseline_plans_linted_again(client, ap
         if c["name"] in ("image_distance", "variety_index"):
             assert c["change"] == 0.0 and c["ok"]
     assert tight.baseline_id == base["id"]
+
+
+@pytest.mark.timeout(900)
+def test_accepting_a_proposal_over_http_runs_the_guard_and_only_then_activates_it(client, app):
+    from duoskin.checks import thresholds as TH
+    from duoskin.engine import calibration as cal
+
+    rt = app.state.rt
+
+    def propose(key, value):
+        rt.repo.kv_set(cal.PROPOSALS_KEY, {"generated_at": "2026-10-06T00:00:00Z", "ready": True,
+                                           "proposals": [{"key": key, "proposed": value, "status": "proposed"}]})
+
+    propose("pln.contrast_colour_de", 1.0)
+    assert client.post("/api/learning/thresholds/accept", json={"keys": ["pln.contrast_colour_de"]}).json()["guard"]["decision"] == "needs_baseline"
+    assert finish(rt, R.start_regression(rt, stage="plan", sample=2)).state == JobState.SUCCEEDED
+    default = TH.get("pln.contrast_colour_de")
+
+    # a bound the baseline plans already clear passes the guard, becomes active and is recorded with the baseline it was judged on
+    ok = client.post("/api/learning/thresholds/accept", json={"keys": ["pln.contrast_colour_de"]})
+    assert ok.status_code == 200 and ok.json()["guard"]["accepted"] is True
+    assert ok.json()["active"] == {"pln.contrast_colour_de": 1.0} and cal.active_thresholds(rt) == {"pln.contrast_colour_de": 1.0}
+    assert TH.get("pln.contrast_colour_de") == 1.0 != default
+    (hist,) = rt.repo.kv_get(cal.HISTORY_KEY)
+    assert hist["key"] == "pln.contrast_colour_de" and hist["old"] == default and hist["guard"] == R.baseline_of(rt, "plan")["id"]
+
+    # a bound that fails what the baseline accepted is refused with the reasons, and the active value stays
+    propose("pln.contrast_colour_de", 99.0)
+    bad = client.post("/api/learning/thresholds/accept", json={"keys": ["pln.contrast_colour_de"]})
+    assert bad.status_code == 409 and bad.json()["error"] == "guard" and bad.json()["guard"]["decision"] == "reject"
+    assert "quality score fell" in bad.json()["message"]
+    assert cal.active_thresholds(rt) == {"pln.contrast_colour_de": 1.0} and len(rt.repo.kv_get(cal.HISTORY_KEY)) == 1
+
+
+@pytest.mark.timeout(900)
+def test_a_change_that_is_already_installed_is_judged_against_the_stored_baseline_and_can_be_adopted(client, app):
+    rt = app.state.rt
+    with pytest.raises(R.RegressionError) as e:
+        R.start_regression(rt, stage="plan", sample=2, compare=True)
+    assert e.value.code == "no_baseline"
+    assert finish(rt, R.start_regression(rt, stage="plan", sample=2)).state == JobState.SUCCEEDED
+    base = R.baseline_of(rt, "plan")
+    job = R.start_regression(rt, stage="plan", sample=2, compare=True, label="new house style")
+    assert finish(rt, job).state == JobState.SUCCEEDED
+    run = R.load_run(rt, job.params["run_ids"][0])
+    assert run["role"] == "candidate" and run["label"] == "new house style" and run["candidate_versions"] == {"note": "new house style"}
+    assert run["guard"]["accepted"] and run["guard"]["baseline_id"] == base["id"]
+    assert R.baseline_of(rt, "plan")["id"] == base["id"], "a candidate does not replace the baseline by itself"
+    assert R.adopt_run(rt, run["id"])["run_id"] == run["id"] and R.baseline_of(rt, "plan")["id"] == run["id"]
+    rejected = {**run, "id": "reg_x", "guard": R.variety_guard(base, {**run, "id": "reg_x", "quality": 0.0}).as_dict()}
+    R.save_run(rt, rejected)
+    with pytest.raises(R.RegressionError) as e:
+        R.adopt_run(rt, "reg_x")
+    assert e.value.code == "guard"
+    with pytest.raises(R.RegressionError):
+        R.adopt_run(rt, "nope")
+
+
+@pytest.mark.timeout(900)
+def test_the_parts_stage_runs_only_the_affected_template_on_the_frozen_specs(client, app, demo_inventory):
+    from lfix import approved_duo, locked_spec
+
+    from duoskin.models.part import PartKind
+
+    rt = app.state.rt
+    for i in range(10):
+        approved_duo(rt, f"Approved {i}", spec=locked_spec(), minutes=i)
+    job = R.start_regression(rt, stage="parts", templates=["I2"], sample=2)
+    assert job.params["stage"] == "parts" and [s.kind for s in rt.repo.list_steps(job_id=job.id)].count("regression.part") == 2
+    assert finish(rt, job, 300).state == JobState.SUCCEEDED
+    run = R.list_runs(rt, "parts")[0]
+    assert run["stage"] == "parts" and run["template_kinds"] == ["print"] and run["n_briefs"] == 2 and run["state"] == "done"
+    assert run["metrics"]["parts"] == 4 and run["metrics"]["pass_rate"] == 1.0 and run["metrics"]["images"] == 4 and 0.0 < run["quality"] <= 1.0
+    frozen = rt.paths.regression_dir / "parts_set"
+    assert (frozen / "index.json").exists() and (frozen / "ps01.json").exists()
+    # only the print parts of each frozen spec were made: no hair, no face, no shirt
+    kinds = {p.kind for pr in rt.repo.list_projects(include_archived=True) if pr.name.startswith("[regression]") for p in rt.repo.list_parts(pr.id)
+             if p.state.value != "planned"}
+    assert kinds == {PartKind.PRINT}
+    assert R.baseline_of(rt, "parts")["id"] == run["id"] and R.baseline_of(rt, "plan") is None, "the two stages keep separate baselines"
+    from duoskin.engine import calibration as cal
+
+    assert cal.approved_duo_count(rt) == 10, "the hidden projects are not approved duos"

@@ -937,7 +937,9 @@ def run_part(ctx: StepContext, p: PartParams, inputs: list[Any]) -> StepResult |
 
 
 def poll_part(ctx: StepContext, p: PartParams, remote_ref: str) -> StepResult | Pending:
-    from duoskin.models.gate import GateKind, TileState
+    """Wait until the affected parts have settled (ready, needs a person, or failed), then take what they made. The part board gate is not used:
+    a PARTS job on a few parts does not open it, and nothing here is ever approved."""
+    from duoskin.models.part import PartState
 
     rt = ctx.rt
     run = load_run(rt, p.run_id) or {}
@@ -946,33 +948,34 @@ def poll_part(ctx: StepContext, p: PartParams, remote_ref: str) -> StepResult | 
     if state.get("done"):
         return StepResult(result={"index": p.index, "ok": bool(state.get("ok"))}, message="measured")
     pid, job_id, only = state["project_id"], state["job_id"], set(state.get("only") or [])
-    gate = next((g for g in rt.repo.list_gates(pid, "open") if g.kind == GateKind.PART_BOARD), None)
+    parts_now = [x for x in rt.repo.list_parts(pid) if not only or x.id in only]
     job = rt.repo.find_job(job_id)
     waited = time.time() - parse_iso(state["started_at"]).timestamp()
     limit = BRIEF_TIMEOUT_S[run.get("mode", "mock")]
-    settled = (TileState.READY, TileState.NEEDS_HUMAN, TileState.FAILED, TileState.WAITING_MANUAL)
-    if gate is not None and all(t.state in settled for t in gate.tiles if not only or t.tile_id in only):
-        tiles = [t for t in gate.tiles if not only or t.tile_id in only]
+    settled = (PartState.READY, PartState.NEEDS_HUMAN, PartState.FAILED, PartState.WAITING_MANUAL, PartState.APPROVED)
+    job_over = job is None or job.state in (JobState.SUCCEEDED, JobState.FAILED, JobState.CANCELLED)
+    if parts_now and all(x.state in settled for x in parts_now) and job_over:
+        checks = [r for _, r in rt.repo.list_checks(project_id=pid)]
         outputs, passed = [], 0
-        for t in tiles:
-            hard = bool(t.facts.get("hard_failures")) or t.state in (TileState.FAILED, TileState.NEEDS_HUMAN)
+        for part in parts_now:
+            hard = part.state in (PartState.FAILED, PartState.NEEDS_HUMAN)
             passed += 0 if hard else 1
-            sha = next((t.assets[r] for r in ("final", "neutral", "front", "flat", "canvas") if r in t.assets), next(iter(t.assets.values()), None))
-            cks = [r for _, r in rt.repo.list_checks(project_id=pid) if t.part_id and r.subject_sha in t.assets.values()]
-            ran = [r for r in cks if r.ran]
-            outputs.append({"part_id": t.part_id, "tile": t.tile_id, "sha": sha, "hard": hard,
-                            "lint": {"total": len(ran), "passed": sum(1 for r in ran if r.passed)}})
+            sha = next((part.board_assets[r] for r in ("final", "neutral", "front", "flat", "canvas") if r in part.board_assets),
+                       next(iter(part.board_assets.values()), None))
+            ran = [r for r in checks if r.ran and r.subject_sha and r.subject_sha in part.board_assets.values()]
+            outputs.append({"part_id": part.id, "sha": sha, "hard": hard, "lint": {"total": len(ran), "passed": sum(1 for r in ran if r.passed)}})
         spent = rt.db.conn().execute("SELECT COALESCE(SUM(usd),0) AS u FROM cost_ledger WHERE project_id=? AND state IN ('committed','orphan')", (pid,)).fetchone()["u"]
-        result = {"ok": bool(tiles) and passed > 0, "outputs": outputs, "passed": passed, "total": len(tiles), "cost_usd": float(spent), "served_models": []}
-    elif job is None or job.state in (JobState.FAILED, JobState.CANCELLED) or waited > limit:
+        result = {"ok": passed > 0, "outputs": outputs, "passed": passed, "total": len(parts_now), "cost_usd": float(spent), "served_models": []}
+    elif (job is None or job.state in (JobState.FAILED, JobState.CANCELLED)) or waited > limit:
         result = {"ok": False, "error": "the parts job did not finish", "outputs": [], "passed": 0, "total": len(only), "cost_usd": 0.0, "served_models": []}
     else:
         return Pending(delay_s=POLL_S[run.get("mode", "mock")], message=f"making parts for {state['spec']}")
     for g in rt.repo.list_gates(pid, "open"):
         with contextlib.suppress(Exception):
             rt.gates.close_gate(g.id, "superseded")
-    with contextlib.suppress(Exception):
-        rt.scheduler.cancel_job(job_id)
+    if job is not None and job.state not in (JobState.SUCCEEDED, JobState.FAILED, JobState.CANCELLED):
+        with contextlib.suppress(Exception):
+            rt.scheduler.cancel_job(job_id)
     with rt.db.tx() as c:
         c.execute("UPDATE asset_links SET stream='regression', json=json_set(json,'$.provenance.stream','regression') WHERE project_id=?", (pid,))
     rt.repo.kv_set(key, {**state, "done": True, **result, "index": p.index})
@@ -995,11 +998,11 @@ def build_parts_run(rt: Runtime, run: dict[str, Any]) -> dict[str, Any]:
     model = cal._dreamsim_model(rt)
     dist, mode = image_distance(images, model) if len(images) >= 2 else (0.0, "dreamsim" if model is not None else "degraded")
     chk = [o["lint"] for o in outputs]
-    check_share = (sum(c["passed"] for c in chk) / sum(c["total"] for c in chk)) if sum(c["total"] for c in chk) else 1.0
+    check_share = (sum(c["passed"] for c in chk) / sum(c["total"] for c in chk)) if sum(c["total"] for c in chk) else None
     pass_rate = passed / total if total else 0.0
     metrics = {"image_distance": dist, "images": len(images), "variety_index": dist, "pass_rate": pass_rate, "parts": total, "check_pass_share": check_share}
     run.update({"state": "done", "finished_at": iso_utc(utcnow()), "image_mode": mode if len(images) >= 2 else "none", "metrics": metrics,
-                "quality": float(np.mean([pass_rate, check_share])), "ok_briefs": sum(1 for r in results if r.get("ok")),
+                "quality": float(np.mean([x for x in (pass_rate, check_share) if x is not None])), "ok_briefs": sum(1 for r in results if r.get("ok")),
                 "failed_briefs": [{"id": run["specs"][i]["id"], "error": r.get("error", "")} for i, r in enumerate(results) if not r.get("ok")],
                 "cost_usd": float(sum(r.get("cost_usd", 0.0) for r in results)), "served_models": [], "memory_sha": ""})
     return run
@@ -1051,15 +1054,35 @@ def _arm_steps(rt: Runtime, job: Job, run: dict[str, Any], *, after: str | None,
     return [*steps, *item_steps, finish]
 
 
-def start_regression(rt: Runtime, *, stage: str = "plan", sample: int | None = None, templates: Sequence[str] = (),
-                     candidate_versions: Mapping[str, str] | None = None, label: str = "") -> Job:
-    """Create the REGRESSION job (APP_SPEC §3.9, §13 ``POST /api/regression/run``).
+def need_baseline_for(existing: Mapping[str, Any], probe: Mapping[str, Any]) -> bool:
+    """Is the stored baseline on other inputs than the run about to start? (Then a candidate has nothing to be compared with.)"""
+    return (any(existing.get(k) != probe[k] for k in ("stage", "brief_set_sha", "n_briefs"))
+            or sorted(existing.get("template_kinds") or []) != sorted(probe["template_kinds"]))
 
-    * ``stage="plan"``: the fixed briefs (or a deterministic ``sample`` of them) through the plan loop to Gate 1. ``stage="parts"``: the frozen
-      parts set on ``templates`` only.
-    * ``candidate_versions`` ``{role: snapshot}`` (model roles): a candidate arm, run with those snapshots switched on in memory. When no baseline
-      exists for the same inputs, the job runs one first (the current versions) so the guard has something to compare with.
-    * The job carries its estimate; above ``budgets.regression_ask_usd`` the scheduler opens one BUDGET gate before anything is spent."""
+
+@dataclass
+class Prepared:
+    """What a regression job would do, worked out before anything is created (the estimate, the arms, the inputs)."""
+
+    stage: str
+    cand: dict[str, str]
+    roles: list[str]
+    base_run: dict[str, Any]
+    n_items: int
+    estimate: dict[str, Any]
+    mode: str
+    label: str
+    sample: int | None
+    compare: bool
+
+    def preview(self) -> dict[str, Any]:
+        return {"stage": self.stage, "arms": self.roles, "items": self.n_items, "candidate_versions": self.cand, "estimate": self.estimate, "mode": self.mode,
+                "template_kinds": self.base_run["template_kinds"], "brief_set_edited": self.base_run.get("brief_set_edited", False)}
+
+
+def prepare_regression(rt: Runtime, *, stage: str = "plan", sample: int | None = None, templates: Sequence[str] = (),
+                       candidate_versions: Mapping[str, str] | None = None, label: str = "", compare: bool = False) -> Prepared:
+    """Validate the request and quote it (no job, no run record, no project is created). Raises ``RegressionError``."""
     if stage not in STAGES:
         raise RegressionError(f"stage must be one of {', '.join(STAGES)}", "bad_stage")
     cand = {k: str(v) for k, v in (candidate_versions or {}).items() if v}
@@ -1080,34 +1103,57 @@ def start_regression(rt: Runtime, *, stage: str = "plan", sample: int | None = N
         n_items = len(chosen)
     else:
         kinds = kinds_for(templates or ["print"])
-        frozen = freeze_parts_set(rt)
+        freeze_parts_set(rt)
         specs = load_parts_set(rt)
         floor = int(TH.get("calib.drill_min_duos")) * 2
         if len(specs) < floor:
             raise RegressionError(f"The parts test needs {floor} to 20 approved duos to freeze; there are {len(specs)}.", "not_enough_specs")
-        del frozen
         n = min(len(specs), int(sample)) if sample else len(specs)
         specs = specs[:n]
         base_run = {"specs": specs, "brief_set_sha": sha256_of([s["spec"] for s in specs]), "n_briefs": len(specs), "template_kinds": kinds}
         n_items = len(specs)
     existing = baseline_of(rt, stage)
     probe = {"stage": stage, "brief_set_sha": base_run["brief_set_sha"], "n_briefs": base_run["n_briefs"], "template_kinds": base_run["template_kinds"]}
-    need_baseline = bool(cand) and (existing is None or any(existing.get(k) != probe[k] for k in ("stage", "brief_set_sha", "n_briefs"))
-                                    or sorted(existing.get("template_kinds") or []) != sorted(probe["template_kinds"]))
-    roles = ["baseline", "candidate"] if need_baseline else (["candidate"] if cand else ["baseline"])
+    need_baseline = bool(cand) and (existing is None or need_baseline_for(existing, probe))
+    if compare and not cand:
+        if existing is None or need_baseline_for(existing, probe):
+            raise RegressionError("There is no baseline to compare with: run the regression test once BEFORE you change anything.", "no_baseline")
+        roles = ["candidate"]
+    else:
+        roles = ["baseline", "candidate"] if need_baseline else (["candidate"] if cand else ["baseline"])
     est = estimate(rt, stage, briefs=n_items, specs=n_items, templates=max(1, len(base_run["template_kinds"])), arms=len(roles))
-    per_item = (est["usd"] / (n_items * len(roles))) if n_items else 0.0
+    return Prepared(stage, cand, roles, base_run, n_items, est, mode, label, sample, compare)
+
+
+def preview_regression(rt: Runtime, **kw: Any) -> dict[str, Any]:
+    """``prepare_regression`` as plain data: what the CLI and the dialog show before anything is started."""
+    return prepare_regression(rt, **kw).preview()
+
+
+def start_regression(rt: Runtime, *, stage: str = "plan", sample: int | None = None, templates: Sequence[str] = (),
+                     candidate_versions: Mapping[str, str] | None = None, label: str = "", compare: bool = False) -> Job:
+    """Create the REGRESSION job (APP_SPEC §3.9, §13 ``POST /api/regression/run``).
+
+    * ``stage="plan"``: the fixed briefs (or a deterministic ``sample`` of them) through the plan loop to Gate 1. ``stage="parts"``: the frozen
+      parts set on ``templates`` only.
+    * ``candidate_versions`` ``{role: snapshot}`` (model roles): a candidate arm, run with those snapshots switched on in memory. When no baseline
+      exists for the same inputs, the job runs one first (the current versions) so the guard has something to compare with.
+    * ``compare=True`` without candidate versions: a change that is already installed (a template, the house style, the kit manifest, a prompt
+      version) is measured now and judged against the stored baseline. Run the baseline BEFORE the change.
+    * The job carries its estimate; above ``budgets.regression_ask_usd`` the scheduler opens one BUDGET gate before anything is spent."""
+    pre = prepare_regression(rt, stage=stage, sample=sample, templates=templates, candidate_versions=candidate_versions, label=label, compare=compare)
+    per_item = (pre.estimate["usd"] / (pre.n_items * len(pre.roles))) if pre.n_items else 0.0
     runs = []
-    for role in roles:
+    for role in pre.roles:
         rid = new_id("reg")
         runs.append({"id": rid, "stage": stage, "role": role, "label": label or ("candidate" if role == "candidate" else "baseline"), "state": "queued",
-                     "mode": mode, "created_at": iso_utc(utcnow()), "candidate_versions": {"models": cand} if role == "candidate" else {},
-                     "versions": _pins_for(rt, cand if role == "candidate" else {}).model_dump(mode="json"),
-                     "sample": sample, **base_run})
+                     "mode": pre.mode, "created_at": iso_utc(utcnow()),
+                     "candidate_versions": ({"models": pre.cand} if pre.cand else {"note": label or "installed change"}) if role == "candidate" else {},
+                     "versions": _pins_for(rt, pre.cand if role == "candidate" else {}).model_dump(mode="json"), "sample": sample, **pre.base_run})
     if len(runs) == 2:
         runs[1]["baseline_id"] = runs[0]["id"]
-    job = rt.scheduler.submit_job(JobKind.REGRESSION, None, {"stage": stage, "run_ids": [r["id"] for r in runs], "estimate_usd": est["usd"], "estimate": est,
-                                                             "sample": sample, "templates": list(templates)}, steps=[])
+    job = rt.scheduler.submit_job(JobKind.REGRESSION, None, {"stage": stage, "run_ids": [r["id"] for r in runs], "estimate_usd": pre.estimate["usd"],
+                                                             "estimate": pre.estimate, "sample": sample, "templates": list(templates)}, steps=[])
     for r in runs:
         r["job_id"] = job.id
         save_run(rt, r)
@@ -1160,6 +1206,47 @@ def evaluate_threshold_candidate(rt: Runtime, values: Mapping[str, float]) -> Gu
              "quality": requality({})}
     c_run = {**b_run, "id": new_id("thr"), "quality": requality(values), "candidate_versions": {}}
     return variety_guard(b_run, c_run)
+
+
+def adopt_run(rt: Runtime, run_id: str) -> dict[str, Any]:
+    """A change that is already installed (a template, the house style, kits, prompts) passed the guard: its run becomes the baseline of the next
+    comparison. Refused unless the run's own guard accepted it."""
+    run = load_run(rt, run_id)
+    if run is None:
+        raise RegressionError("Unknown regression run.", "unknown_run")
+    if run.get("role") != "candidate" or run.get("state") != "done":
+        raise RegressionError("Only a finished candidate run can be adopted.", "bad_run")
+    guard = run.get("guard") or {}
+    if not guard.get("accepted"):
+        raise RegressionError("The variety guard did not accept this run. " + " ".join(guard.get("reasons", [])), "guard")
+    rt.repo.kv_set(BASELINE_PREFIX + run["stage"], run["id"])
+    return {"run_id": run_id, "stage": run["stage"], "guard": guard}
+
+
+def run_summary(run: Mapping[str, Any], *, detail: bool = False) -> dict[str, Any]:
+    """A run for the Learning page: the numbers, the versions and the guard's answer (``detail`` adds the per-brief rows and the variety breakdown)."""
+    m = run.get("metrics") or {}
+    out = {k: run.get(k) for k in ("id", "stage", "role", "label", "state", "mode", "created_at", "finished_at", "n_briefs", "ok_briefs", "failed_briefs",
+                                   "quality", "cost_usd", "candidate_versions", "brief_set_sha", "brief_set_edited", "image_mode", "template_kinds", "baseline_id",
+                                   "served_models", "sample")}
+    out.update({"image_distance": m.get("image_distance"), "variety_index": m.get("variety_index"), "guard": run.get("guard")})
+    if detail:
+        out.update({"metrics": m, "per_brief": run.get("per_brief", [])})
+    return out
+
+
+def versions_view(rt: Runtime) -> dict[str, Any]:
+    """Defaults and candidates of the model roles, each candidate with the latest run that tested it and what the guard said."""
+    models = rt.settings.models
+    runs = [r for r in list_runs(rt, "plan") if r.get("role") == "candidate"]
+    rows = []
+    for role in MODEL_ROLES:
+        cand = models.candidates.get(role)
+        latest = next((r for r in runs if cand and (r.get("candidate_versions") or {}).get("models", {}).get(role) == cand), None)
+        rows.append({"role": role, "default": getattr(models, role), "candidate": cand, "run": run_summary(latest) if latest else None,
+                     "can_promote": bool(latest and (latest.get("guard") or {}).get("accepted") and latest.get("state") == "done")})
+    base = baseline_of(rt, "plan")
+    return {"roles": rows, "baseline": run_summary(base) if base else None}
 
 
 def promote(rt: Runtime, role: str, version: str) -> dict[str, Any]:
